@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+// Using GPT-4 for reliable performance
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || "default_key" 
 });
@@ -58,7 +58,7 @@ Respond with JSON in this exact format:
 `;
 
     const openaiPromise = openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
     });
@@ -107,7 +107,7 @@ Reorder these tasks for optimal efficiency and deadline compliance. Respond with
 `;
 
     const openaiPromise = openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
     });
