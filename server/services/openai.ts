@@ -28,6 +28,11 @@ export interface RepriorityResponse {
 
 export async function chunkTask(title: string, description: string): Promise<TaskChunk[]> {
   try {
+    // Add timeout wrapper
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('OpenAI request timeout')), 10000); // 10 second timeout
+    });
+
     const prompt = `
 You are a task management AI. Break down the following task into smaller chunks, each taking approximately 3.5 hours (210 minutes) or less.
 
@@ -52,17 +57,18 @@ Respond with JSON in this exact format:
 }
 `;
 
-    const response = await openai.chat.completions.create({
+    const openaiPromise = openai.chat.completions.create({
       model: "gpt-5",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
     });
 
+    const response = await Promise.race([openaiPromise, timeoutPromise]);
     const result = JSON.parse(response.choices[0].message.content || "{}");
     return result.chunks || [];
   } catch (error) {
     console.error("Error chunking task:", error);
-    // Fallback: return original task if AI fails
+    // Fallback: return original task if AI fails or times out
     return [{
       title,
       description,
@@ -73,6 +79,11 @@ Respond with JSON in this exact format:
 
 export async function reprioritizeTasks(request: RepriorityRequest): Promise<RepriorityResponse> {
   try {
+    // Add timeout wrapper for reprioritization too
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('OpenAI reprioritization timeout')), 8000); // 8 second timeout
+    });
+
     const prompt = `
 You are a task prioritization AI. Analyze the following tasks and reorder them based on:
 1. Urgency (deadline proximity)
@@ -95,12 +106,13 @@ Reorder these tasks for optimal efficiency and deadline compliance. Respond with
 }
 `;
 
-    const response = await openai.chat.completions.create({
+    const openaiPromise = openai.chat.completions.create({
       model: "gpt-5",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
     });
 
+    const response = await Promise.race([openaiPromise, timeoutPromise]);
     const result = JSON.parse(response.choices[0].message.content || "{}");
     return {
       reorderedTaskIds: result.reorderedTaskIds || request.tasks.map(t => t.id),

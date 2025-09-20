@@ -17,6 +17,7 @@ export default function Home() {
     moveTaskToEnd,
     isAddingTask,
     isCompletingTask,
+    isReprioritizing,
   } = useTaskManager();
 
   // Initialize theme based on current mode
@@ -70,6 +71,7 @@ export default function Home() {
         currentMode={currentMode}
         onAddTask={addTask}
         isAddingTask={isAddingTask}
+        isReprioritizing={isReprioritizing}
       />
     </div>
   );

@@ -7,9 +7,10 @@ interface TaskInputProps {
   currentMode: TaskMode;
   onAddTask: (title: string, description: string) => void;
   isAddingTask: boolean;
+  isReprioritizing?: boolean;
 }
 
-export function TaskInput({ currentMode, onAddTask, isAddingTask }: TaskInputProps) {
+export function TaskInput({ currentMode, onAddTask, isAddingTask, isReprioritizing = false }: TaskInputProps) {
   const [taskInput, setTaskInput] = useState('');
   const { 
     isListening, 
@@ -21,14 +22,20 @@ export function TaskInput({ currentMode, onAddTask, isAddingTask }: TaskInputPro
   } = useSpeechRecognition();
 
   const handleSubmit = () => {
+    console.log('TaskInput handleSubmit called');
     const input = taskInput.trim() || transcript.trim();
-    if (!input) return;
+    console.log('Input:', input);
+    if (!input) {
+      console.log('No input, returning');
+      return;
+    }
 
     // For simplicity, use the input as both title and description
     // In a real app, you might want to split or ask for more details
     const title = input.length > 50 ? input.substring(0, 50) + '...' : input;
     const description = input;
 
+    console.log('Calling onAddTask with:', title, description);
     onAddTask(title, description);
     setTaskInput('');
     resetTranscript();
@@ -51,6 +58,7 @@ export function TaskInput({ currentMode, onAddTask, isAddingTask }: TaskInputPro
 
   const currentInput = taskInput || transcript;
   const isDarkMode = currentMode === 'professional';
+  const isBlocked = isAddingTask || isReprioritizing;
 
   return (
     <section className="p-4 border-t border-border bg-card">
@@ -64,7 +72,7 @@ export function TaskInput({ currentMode, onAddTask, isAddingTask }: TaskInputPro
             onKeyPress={handleKeyPress}
             className="w-full px-3 py-2 bg-input border border-border rounded-md text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
             data-testid="input-new-task"
-            disabled={isAddingTask}
+            disabled={isBlocked}
           />
           {transcript && !taskInput && (
             <div className="absolute top-full left-0 mt-1 text-xs text-muted-foreground">
@@ -81,7 +89,7 @@ export function TaskInput({ currentMode, onAddTask, isAddingTask }: TaskInputPro
               : 'bg-accent text-accent-foreground hover:bg-accent/80'
           }`}
           data-testid="button-voice-input"
-          disabled={isAddingTask}
+          disabled={isBlocked}
         >
           {isListening ? (
             <MicOff className="w-4 h-4" />
@@ -92,7 +100,7 @@ export function TaskInput({ currentMode, onAddTask, isAddingTask }: TaskInputPro
         
         <button 
           onClick={handleSubmit}
-          disabled={isAddingTask || (!taskInput.trim() && !transcript.trim())}
+          disabled={isBlocked || (!taskInput.trim() && !transcript.trim())}
           className="p-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           data-testid="button-add-task"
         >

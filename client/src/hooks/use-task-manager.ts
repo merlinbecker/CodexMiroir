@@ -24,12 +24,18 @@ export function useTaskManager() {
   // Add new task mutation
   const addTaskMutation = useMutation({
     mutationFn: async (request: ChunkTaskRequest) => {
+      console.log('Adding task:', request);
       const response = await apiRequest('POST', '/api/tasks/chunk', request);
+      console.log('Task added successfully');
       return response.json();
     },
     onSuccess: () => {
+      console.log('Task mutation success, invalidating queries');
       queryClient.invalidateQueries({ queryKey: ['/api/tasks', currentMode] });
       queryClient.invalidateQueries({ queryKey: ['/api/tasks', currentMode, 'active'] });
+    },
+    onError: (error) => {
+      console.error('Task mutation error:', error);
     },
   });
 
@@ -71,13 +77,13 @@ export function useTaskManager() {
   // Auto-reprioritize every 5 minutes
   useEffect(() => {
     const interval = setInterval(() => {
-      if (Array.isArray(tasks) && tasks.length > 1) {
+      if (Array.isArray(tasks) && tasks.length > 1 && !reprioritizeMutation.isPending) {
         reprioritizeMutation.mutate(currentMode);
       }
     }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [currentMode, tasks, reprioritizeMutation]);
+  }, [currentMode, tasks.length]); // Remove reprioritizeMutation from dependencies
 
   const addTask = useCallback((title: string, description: string) => {
     addTaskMutation.mutate({
@@ -108,5 +114,6 @@ export function useTaskManager() {
     moveTaskToEnd,
     isAddingTask: addTaskMutation.isPending,
     isCompletingTask: completeTaskMutation.isPending,
+    isReprioritizing: reprioritizeMutation.isPending,
   };
 }
