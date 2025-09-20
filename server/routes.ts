@@ -46,12 +46,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get next order for the mode
       const nextOrder = await storage.getNextTaskOrder(validatedData.mode);
       
-      // Create tasks for each chunk
+      // Create tasks for each chunk, preserving original title context
       const createdTasks = [];
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
+        const displayTitle = chunks.length > 1 
+          ? `${validatedData.title} — ${chunk.title}`
+          : chunk.title;
         const task = await storage.createTask({
-          title: chunk.title,
+          title: displayTitle,
           description: chunk.description,
           estimatedMinutes: chunk.estimatedMinutes,
           remainingMinutes: chunk.estimatedMinutes,
@@ -61,6 +64,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           deadline: null,
         });
         createdTasks.push(task);
+      }
+      
+      // Auto-activate first task if no active task exists
+      const activeTask = await storage.getActiveTask(validatedData.mode);
+      if (!activeTask && createdTasks.length > 0) {
+        await storage.updateTask(createdTasks[0].id, { status: 'active' });
       }
       
       res.json(createdTasks);
@@ -84,6 +93,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedTask);
     } catch (error) {
       res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
+  // Manually activate a specific task
+  app.post("/api/tasks/:mode/activate", async (req, res) => {
+    try {
+      const mode = req.params.mode as 'professional' | 'private';
+      const { taskId } = req.body;
+      
+      if (mode !== 'professional' && mode !== 'private') {
+        return res.status(400).json({ error: "Mode must be 'professional' or 'private'" });
+      }
+      
+      if (!taskId) {
+        return res.status(400).json({ error: "taskId is required" });
+      }
+      
+      // Get the task to ensure it exists and is in the right mode
+      const task = await storage.getTaskById(taskId);
+      if (!task || task.mode !== mode) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      // Deactivate current active task
+      const currentActive = await storage.getActiveTask(mode);
+      if (currentActive) {
+        await storage.updateTask(currentActive.id, { status: 'pending' });
+      }
+      
+      // Activate the new task
+      await storage.updateTask(taskId, { status: 'active' });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error activating task:", error);
+      res.status(500).json({ error: "Failed to activate task" });
     }
   });
 

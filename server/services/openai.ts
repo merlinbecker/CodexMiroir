@@ -34,16 +34,27 @@ export async function chunkTask(title: string, description: string): Promise<Tas
     });
 
     const prompt = `
-You are a task management AI. Break down the following task into smaller chunks, each taking approximately 3.5 hours (210 minutes) or less.
+You are a task management AI. Analyze the following task and determine if it needs to be broken down into smaller chunks.
 
 Task Title: ${title}
 Task Description: ${description}
 
-Please analyze this task and break it down into logical, actionable subtasks. Each subtask should:
-1. Be completable in 3.5 hours or less
-2. Have a clear, specific title
-3. Include detailed description of what needs to be done
-4. Be estimated in minutes
+Guidelines:
+1. If the task is simple and can be completed in 3.5 hours or less, return it as a single chunk unchanged
+2. Only break down complex tasks that clearly require multiple distinct phases or steps
+3. Each chunk should be completable in 3.5 hours or less
+4. Each chunk should have a clear, specific title and detailed description
+
+Examples of simple tasks that should NOT be chunked:
+- "Buy groceries"
+- "Test single task" 
+- "Call John about meeting"
+- "Write email to team"
+
+Examples of complex tasks that SHOULD be chunked:
+- "Plan comprehensive website redesign project"
+- "Develop marketing campaign strategy"
+- "Plan team meeting agenda" 
 
 Respond with JSON in this exact format:
 {
@@ -51,7 +62,7 @@ Respond with JSON in this exact format:
     {
       "title": "Specific subtask title",
       "description": "Detailed description of what to do",
-      "estimatedMinutes": 210
+      "estimatedMinutes": 120
     }
   ]
 }
