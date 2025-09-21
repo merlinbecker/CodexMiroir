@@ -1,6 +1,6 @@
-import { type Task, type InsertTask, type UpdateTask, tasks } from "@shared/schema";
+import { type Task, type InsertTask, type UpdateTask, type AccessToken, type InsertAccessToken, tasks, accessTokens } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lt } from "drizzle-orm";
 
 export interface IStorage {
   // Task management
@@ -12,6 +12,13 @@ export interface IStorage {
   deleteTask(id: string): Promise<boolean>;
   reorderTasks(mode: 'professional' | 'private', taskIds: string[]): Promise<void>;
   getNextTaskOrder(mode: 'professional' | 'private'): Promise<number>;
+  
+  // Token management
+  createAccessToken(token: InsertAccessToken): Promise<AccessToken>;
+  getAccessToken(token: string): Promise<AccessToken | undefined>;
+  updateTokenLastUsed(token: string): Promise<void>;
+  deleteExpiredTokens(): Promise<number>;
+  revokeToken(tokenId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -89,6 +96,46 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     return (result?.maxOrder ?? -1) + 1;
+  }
+
+  // Token management methods
+  async createAccessToken(token: InsertAccessToken): Promise<AccessToken> {
+    const [accessToken] = await db
+      .insert(accessTokens)
+      .values(token)
+      .returning();
+    return accessToken;
+  }
+
+  async getAccessToken(token: string): Promise<AccessToken | undefined> {
+    const [accessToken] = await db
+      .select()
+      .from(accessTokens)
+      .where(eq(accessTokens.token, token));
+    return accessToken || undefined;
+  }
+
+  async updateTokenLastUsed(token: string): Promise<void> {
+    await db
+      .update(accessTokens)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(accessTokens.token, token));
+  }
+
+  async deleteExpiredTokens(): Promise<number> {
+    const result = await db
+      .delete(accessTokens)
+      .where(lt(accessTokens.expiresAt, new Date()))
+      .returning({ id: accessTokens.id });
+    return result.length;
+  }
+
+  async revokeToken(tokenId: string): Promise<boolean> {
+    const result = await db
+      .delete(accessTokens)
+      .where(eq(accessTokens.id, tokenId))
+      .returning({ id: accessTokens.id });
+    return result.length > 0;
   }
 }
 

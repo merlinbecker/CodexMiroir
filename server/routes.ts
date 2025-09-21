@@ -1,12 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { chunkTaskRequestSchema, updateTaskSchema } from "@shared/schema";
+import { chunkTaskRequestSchema, updateTaskSchema, createTokenRequestSchema } from "@shared/schema";
 import { chunkTask, reprioritizeTasks } from "./services/openai";
+import { TokenService } from "./services/token";
+import { requireAuth, requireAdmin } from "./middleware/auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get tasks for a specific mode
-  app.get("/api/tasks/:mode", async (req, res) => {
+  app.get("/api/tasks/:mode", requireAuth('read'), async (req, res) => {
     try {
       const mode = req.params.mode as 'professional' | 'private';
       if (mode !== 'professional' && mode !== 'private') {
@@ -21,7 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get active task for a mode
-  app.get("/api/tasks/:mode/active", async (req, res) => {
+  app.get("/api/tasks/:mode/active", requireAuth('read'), async (req, res) => {
     try {
       const mode = req.params.mode as 'professional' | 'private';
       if (mode !== 'professional' && mode !== 'private') {
@@ -36,7 +38,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add new task with chunking
-  app.post("/api/tasks/chunk", async (req, res) => {
+  app.post("/api/tasks/chunk", requireAuth('write'), async (req, res) => {
     try {
       const validatedData = chunkTaskRequestSchema.parse(req.body);
       
@@ -80,7 +82,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update task
-  app.patch("/api/tasks/:id", async (req, res) => {
+  app.patch("/api/tasks/:id", requireAuth('write'), async (req, res) => {
     try {
       const taskId = req.params.id;
       const updates = updateTaskSchema.parse(req.body);
@@ -97,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Manually activate a specific task
-  app.post("/api/tasks/:mode/activate", async (req, res) => {
+  app.post("/api/tasks/:mode/activate", requireAuth('write'), async (req, res) => {
     try {
       const mode = req.params.mode as 'professional' | 'private';
       const { taskId } = req.body;
@@ -133,7 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Complete current task and activate next
-  app.post("/api/tasks/:mode/complete-current", async (req, res) => {
+  app.post("/api/tasks/:mode/complete-current", requireAuth('write'), async (req, res) => {
     try {
       const mode = req.params.mode as 'professional' | 'private';
       if (mode !== 'professional' && mode !== 'private') {
@@ -164,7 +166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Export tasks as CSV
-  app.get("/api/tasks/:mode/export/csv", async (req, res) => {
+  app.get("/api/tasks/:mode/export/csv", requireAuth('read'), async (req, res) => {
     try {
       const mode = req.params.mode as 'professional' | 'private';
       if (mode !== 'professional' && mode !== 'private') {
@@ -221,7 +223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Move unworkable task to end
-  app.post("/api/tasks/:id/move-to-end", async (req, res) => {
+  app.post("/api/tasks/:id/move-to-end", requireAuth('write'), async (req, res) => {
     try {
       const taskId = req.params.id;
       const task = await storage.getTaskById(taskId);
@@ -244,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Auto-reprioritize tasks based on deadlines
-  app.post("/api/tasks/:mode/reprioritize", async (req, res) => {
+  app.post("/api/tasks/:mode/reprioritize", requireAuth('write'), async (req, res) => {
     try {
       const mode = req.params.mode as 'professional' | 'private';
       if (mode !== 'professional' && mode !== 'private') {
@@ -277,6 +279,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to reprioritize tasks" });
+    }
+  });
+
+  // Token Management Routes
+  
+  // Create a new access token
+  app.post("/api/tokens", requireAdmin, async (req, res) => {
+    try {
+      const tokenRequest = createTokenRequestSchema.parse(req.body);
+      const accessToken = await TokenService.createToken(tokenRequest);
+      
+      // Clean up expired tokens while we're here
+      await TokenService.cleanupExpiredTokens();
+      
+      // Generate the secure access URL
+      const baseURL = `${req.protocol}://${req.get('host')}`;
+      const accessURL = TokenService.generateAccessURL(accessToken.token, baseURL);
+      
+      res.json({
+        id: accessToken.id,
+        token: accessToken.token,
+        permission: accessToken.permission,
+        mode: accessToken.mode,
+        expiresAt: accessToken.expiresAt,
+        accessURL,
+        createdAt: accessToken.createdAt,
+      });
+    } catch (error) {
+      console.error("Error creating token:", error);
+      res.status(500).json({ error: "Failed to create token" });
+    }
+  });
+
+  // Validate a token (for debugging/admin purposes)
+  app.post("/api/tokens/validate", requireAdmin, async (req, res) => {
+    try {
+      const { token, permission, mode } = req.body;
+      const validation = await TokenService.validateToken(token, permission, mode);
+      res.json(validation);
+    } catch (error) {
+      console.error("Error validating token:", error);
+      res.status(500).json({ error: "Failed to validate token" });
+    }
+  });
+
+  // Revoke a token
+  app.delete("/api/tokens/:tokenId", requireAdmin, async (req, res) => {
+    try {
+      const tokenId = req.params.tokenId;
+      const revoked = await storage.revokeToken(tokenId);
+      
+      if (revoked) {
+        res.json({ success: true, message: "Token revoked successfully" });
+      } else {
+        res.status(404).json({ error: "Token not found" });
+      }
+    } catch (error) {
+      console.error("Error revoking token:", error);
+      res.status(500).json({ error: "Failed to revoke token" });
+    }
+  });
+
+  // Clean up expired tokens
+  app.post("/api/tokens/cleanup", requireAdmin, async (req, res) => {
+    try {
+      const deletedCount = await TokenService.cleanupExpiredTokens();
+      res.json({ deletedCount, message: `Cleaned up ${deletedCount} expired tokens` });
+    } catch (error) {
+      console.error("Error cleaning up tokens:", error);
+      res.status(500).json({ error: "Failed to cleanup tokens" });
     }
   });
 
