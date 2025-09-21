@@ -125,12 +125,11 @@ jobs:
             previous_json=$(auth "${base}/api/measures/search_history?component=${proj}&metrics=${metrics}&from=${prev_date}&to=${prev_date}" || echo '{"measures":[]}')
           fi
 
-          # Parse and transform metrics for radar chart
-          echo "Generating radar chart..."
-          cat > /tmp/radar_gen.js << 'RADAR_EOF'
+          # Create the radar chart generator script
+          cat > generate_radar.js << 'EOF'
           const fs = require('fs');
           
-          // Read the data
+          // Read the data from command line arguments
           const currentData = JSON.parse(process.argv[2] || '{"component":{"measures":[]}}');
           const previousData = JSON.parse(process.argv[3] || '{"measures":[]}');
           
@@ -175,7 +174,7 @@ jobs:
             linesOfCode: transformLOC(getMetricValue(currentMeasures, 'ncloc'))
           };
           
-          // Previous metrics (simplified structure for history API)
+          // Previous metrics
           let previous = { security: 0, reliability: 0, maintainability: 0, coverage: 0, duplicateCode: 0, linesOfCode: 0 };
           if (previousData.measures && previousData.measures.length > 0) {
             const prevMeasures = previousData.measures;
@@ -189,55 +188,57 @@ jobs:
             };
           }
           
-          // Generate radar chart in Mermaid format
-          const radarChart = `# Code Quality Report
-
-## Quality Metrics Radar
-
-\`\`\`mermaid
-radar-chart
-    title Code Quality Radar
-    axis Security : 0 : 5
-    axis Reliability : 0 : 5
-    axis Maintainability : 0 : 5
-    axis Coverage : 0 : 5
-    axis "Code Duplication" : 0 : 5
-    axis "Lines of Code" : 0 : 5
-    curve Current:${current.security}:${current.reliability}:${current.maintainability}:${current.coverage}:${current.duplicateCode}:${current.linesOfCode}
-    ${previousData.measures?.length > 0 ? `curve Previous:${previous.security}:${previous.reliability}:${previous.maintainability}:${previous.coverage}:${previous.duplicateCode}:${previous.linesOfCode}` : ''}
-\`\`\`
-
-## Current Metrics
-
-| Metric | Current Value | Rating |
-|--------|---------------|--------|
-| Security Rating | ${getMetricValue(currentMeasures, 'security_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.security] || '❓'} |
-| Reliability Rating | ${getMetricValue(currentMeasures, 'reliability_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.reliability] || '❓'} |
-| Maintainability Rating | ${getMetricValue(currentMeasures, 'maintainability_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.maintainability] || '❓'} |
-| Coverage | ${getMetricValue(currentMeasures, 'coverage') || 'No data'}% | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.coverage] || '❓'} |
-| Code Duplication | ${getMetricValue(currentMeasures, 'duplicated_lines_density') || 'No data'}% | ${current.duplicateCode >= 4 ? '🟩' : current.duplicateCode >= 2 ? '🟨' : '🟥'} |
-| Lines of Code | ${getMetricValue(currentMeasures, 'ncloc') || 'No data'} | ${'📊'} |
-
-## SonarCloud Badges
-
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
-[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
-
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=coverage)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
-[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
-
-Generated on: ${new Date().toISOString()}
-`;
+          // Generate report content
+          const hasPrevious = previousData.measures?.length > 0;
+          const radarChart = [
+            '# Code Quality Report',
+            '',
+            '## Quality Metrics Radar',
+            '',
+            '```mermaid',
+            'radar-chart',
+            '    title Code Quality Radar',
+            '    axis Security : 0 : 5',
+            '    axis Reliability : 0 : 5',
+            '    axis Maintainability : 0 : 5',
+            '    axis Coverage : 0 : 5',
+            '    axis "Code Duplication" : 0 : 5',
+            '    axis "Lines of Code" : 0 : 5',
+            `    curve Current:${current.security}:${current.reliability}:${current.maintainability}:${current.coverage}:${current.duplicateCode}:${current.linesOfCode}`,
+            hasPrevious ? `    curve Previous:${previous.security}:${previous.reliability}:${previous.maintainability}:${previous.coverage}:${previous.duplicateCode}:${previous.linesOfCode}` : '',
+            '```',
+            '',
+            '## Current Metrics',
+            '',
+            '| Metric | Current Value | Rating |',
+            '|--------|---------------|--------|',
+            `| Security Rating | ${getMetricValue(currentMeasures, 'security_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.security] || '❓'} |`,
+            `| Reliability Rating | ${getMetricValue(currentMeasures, 'reliability_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.reliability] || '❓'} |`,
+            `| Maintainability Rating | ${getMetricValue(currentMeasures, 'maintainability_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.maintainability] || '❓'} |`,
+            `| Coverage | ${getMetricValue(currentMeasures, 'coverage') || 'No data'}% | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.coverage] || '❓'} |`,
+            `| Code Duplication | ${getMetricValue(currentMeasures, 'duplicated_lines_density') || 'No data'}% | ${current.duplicateCode >= 4 ? '🟩' : current.duplicateCode >= 2 ? '🟨' : '🟥'} |`,
+            `| Lines of Code | ${getMetricValue(currentMeasures, 'ncloc') || 'No data'} | 📊 |`,
+            '',
+            '## SonarCloud Badges',
+            '',
+            '[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)',
+            '[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)',
+            '[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)',
+            '[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)',
+            '',
+            '[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=coverage)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)',
+            '[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)',
+            '[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)',
+            '',
+            `Generated on: ${new Date().toISOString()}`
+          ].filter(line => line !== '').join('\n');
           
           fs.writeFileSync('codequality/report.md', radarChart);
           console.log('Radar chart generated successfully!');
-          RADAR_EOF
+          EOF
           
           # Generate the radar chart
-          node /tmp/radar_gen.js "$current_json" "$previous_json"
+          node generate_radar.js "$current_json" "$previous_json"
           
           echo "Generated codequality/report.md:"
           cat codequality/report.md
