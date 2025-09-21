@@ -98,8 +98,8 @@ jobs:
           base="https://sonarcloud.io"
           proj="$SONAR_PROJECT_KEY"
           
-          # Metrics we want to track
-          metrics="security_rating,reliability_rating,maintainability_rating,coverage,duplicated_lines_density,ncloc"
+          # Metrics we want to track (using correct SonarQube metric keys)
+          metrics="security_rating,reliability_rating,sqale_rating,coverage,duplicated_lines_density,ncloc"
           
           # Function to make authenticated requests
           auth() { 
@@ -113,6 +113,8 @@ jobs:
           # Check if we got valid data
           if echo "$current_json" | grep -q '"component"'; then
             echo "✅ Successfully fetched current metrics"
+            echo "📊 Retrieved metrics data:"
+            echo "$current_json" | jq '.component.measures[]? | {metric: .metric, value: .value}' || true
           else
             echo "⚠️ SonarCloud project not found or no metrics available yet. Using default values."
             current_json='{"component":{"measures":[]}}'
@@ -190,7 +192,7 @@ jobs:
           const current = {
             security: transformRating(getMetricValue(currentMeasures, 'security_rating')),
             reliability: transformRating(getMetricValue(currentMeasures, 'reliability_rating')),
-            maintainability: transformRating(getMetricValue(currentMeasures, 'maintainability_rating')),
+            maintainability: transformRating(getMetricValue(currentMeasures, 'sqale_rating')),
             coverage: transformPercentage(getMetricValue(currentMeasures, 'coverage')),
             duplicateCode: 5 - transformPercentage(getMetricValue(currentMeasures, 'duplicated_lines_density')),
             linesOfCode: transformLOC(getMetricValue(currentMeasures, 'ncloc'))
@@ -203,7 +205,7 @@ jobs:
             previous = {
               security: transformRating(getMetricValue(prevMeasures, 'security_rating')),
               reliability: transformRating(getMetricValue(prevMeasures, 'reliability_rating')),
-              maintainability: transformRating(getMetricValue(prevMeasures, 'maintainability_rating')),
+              maintainability: transformRating(getMetricValue(prevMeasures, 'sqale_rating')),
               coverage: transformPercentage(getMetricValue(prevMeasures, 'coverage')),
               duplicateCode: 5 - transformPercentage(getMetricValue(prevMeasures, 'duplicated_lines_density')),
               linesOfCode: transformLOC(getMetricValue(prevMeasures, 'ncloc'))
@@ -236,7 +238,7 @@ jobs:
             '|--------|---------------|--------|',
             `| Security Rating | ${getMetricValue(currentMeasures, 'security_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.security] || '❓'} |`,
             `| Reliability Rating | ${getMetricValue(currentMeasures, 'reliability_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.reliability] || '❓'} |`,
-            `| Maintainability Rating | ${getMetricValue(currentMeasures, 'maintainability_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.maintainability] || '❓'} |`,
+            `| Maintainability Rating | ${getMetricValue(currentMeasures, 'sqale_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.maintainability] || '❓'} |`,
             `| Coverage | ${getMetricValue(currentMeasures, 'coverage') || 'No data'}% | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.coverage] || '❓'} |`,
             `| Code Duplication | ${getMetricValue(currentMeasures, 'duplicated_lines_density') || 'No data'}% | ${current.duplicateCode >= 4 ? '🟩' : current.duplicateCode >= 2 ? '🟨' : '🟥'} |`,
             `| Lines of Code | ${getMetricValue(currentMeasures, 'ncloc') || 'No data'} | 📊 |`,
