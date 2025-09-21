@@ -1,5 +1,6 @@
-import { type Task, type InsertTask, type UpdateTask } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { type Task, type InsertTask, type UpdateTask, tasks } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Task management
@@ -13,80 +14,82 @@ export interface IStorage {
   getNextTaskOrder(mode: 'professional' | 'private'): Promise<number>;
 }
 
-export class MemStorage implements IStorage {
-  private tasks: Map<string, Task>;
-
-  constructor() {
-    this.tasks = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
   async getTasks(mode: 'professional' | 'private'): Promise<Task[]> {
-    return Array.from(this.tasks.values())
-      .filter(task => task.mode === mode)
-      .sort((a, b) => a.order - b.order);
+    return await db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.mode, mode))
+      .orderBy(tasks.order);
   }
 
   async getTaskById(id: string): Promise<Task | undefined> {
-    return this.tasks.get(id);
+    const [task] = await db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, id));
+    return task || undefined;
   }
 
   async getActiveTask(mode: 'professional' | 'private'): Promise<Task | undefined> {
-    return Array.from(this.tasks.values())
-      .find(task => task.mode === mode && task.status === 'active');
+    const [activeTask] = await db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.mode, mode), eq(tasks.status, 'active')));
+    return activeTask || undefined;
   }
 
   async createTask(insertTask: InsertTask): Promise<Task> {
-    const id = randomUUID();
-    const now = new Date();
-    const task: Task = {
-      ...insertTask,
-      id,
-      createdAt: now,
-      completedAt: null,
-      status: insertTask.status || 'pending',
-    };
-    this.tasks.set(id, task);
+    const [task] = await db
+      .insert(tasks)
+      .values(insertTask)
+      .returning();
     return task;
   }
 
   async updateTask(id: string, updates: UpdateTask): Promise<Task | undefined> {
-    const existingTask = this.tasks.get(id);
-    if (!existingTask) return undefined;
+    // Add completedAt timestamp when status changes to completed
+    const updateData = { ...updates };
+    if (updates.status === 'completed' && !updates.completedAt) {
+      updateData.completedAt = new Date();
+    }
 
-    const updatedTask: Task = {
-      ...existingTask,
-      ...updates,
-      completedAt: updates.status === 'completed' && !existingTask.completedAt 
-        ? new Date() 
-        : existingTask.completedAt,
-    };
-
-    this.tasks.set(id, updatedTask);
-    return updatedTask;
+    const [updatedTask] = await db
+      .update(tasks)
+      .set(updateData)
+      .where(eq(tasks.id, id))
+      .returning();
+    return updatedTask || undefined;
   }
 
   async deleteTask(id: string): Promise<boolean> {
-    return this.tasks.delete(id);
+    const result = await db
+      .delete(tasks)
+      .where(eq(tasks.id, id))
+      .returning({ id: tasks.id });
+    return result.length > 0;
   }
 
   async reorderTasks(mode: 'professional' | 'private', taskIds: string[]): Promise<void> {
-    const tasks = await this.getTasks(mode);
-    const taskMap = new Map(tasks.map(task => [task.id, task]));
-
-    taskIds.forEach((taskId, index) => {
-      const task = taskMap.get(taskId);
-      if (task) {
-        task.order = index;
-        this.tasks.set(taskId, task);
-      }
-    });
+    // Update each task's order based on its position in the taskIds array
+    for (let i = 0; i < taskIds.length; i++) {
+      await db
+        .update(tasks)
+        .set({ order: i })
+        .where(and(eq(tasks.id, taskIds[i]), eq(tasks.mode, mode)));
+    }
   }
 
   async getNextTaskOrder(mode: 'professional' | 'private'): Promise<number> {
-    const tasks = await this.getTasks(mode);
-    const maxOrder = tasks.reduce((max, task) => Math.max(max, task.order), -1);
-    return maxOrder + 1;
+    const [result] = await db
+      .select({ maxOrder: tasks.order })
+      .from(tasks)
+      .where(eq(tasks.mode, mode))
+      .orderBy(desc(tasks.order))
+      .limit(1);
+    
+    return (result?.maxOrder ?? -1) + 1;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
