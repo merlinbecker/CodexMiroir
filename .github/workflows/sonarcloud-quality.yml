@@ -103,12 +103,20 @@ jobs:
           
           # Function to make authenticated requests
           auth() { 
-            curl -sS --fail -u "${SONAR_TOKEN}:" "$@" || echo "[]"
+            curl -sS -u "${SONAR_TOKEN}:" "$@" 2>/dev/null || echo '{"component":{"measures":[]}}'
           }
 
           # Get current metrics
           echo "Fetching current metrics..."
           current_json=$(auth "${base}/api/measures/component?component=${proj}&metricKeys=${metrics}")
+          
+          # Check if we got valid data
+          if echo "$current_json" | grep -q '"component"'; then
+            echo "✅ Successfully fetched current metrics"
+          else
+            echo "⚠️ SonarCloud project not found or no metrics available yet. Using default values."
+            current_json='{"component":{"measures":[]}}'
+          fi
           
           # Get branch name
           branch="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-main}}"
@@ -116,18 +124,32 @@ jobs:
           # Get previous analysis
           echo "Fetching analysis history..."
           analyses=$(auth "${base}/api/project_analyses/search?project=${proj}&branch=${branch}")
-          prev_date=$(echo "$analyses" | jq -r '[.analyses[] | .date] | sort | reverse | .[1] // empty' 2>/dev/null || echo "")
+          
+          # Check if we got valid analysis data
+          if echo "$analyses" | grep -q '"analyses"'; then
+            prev_date=$(echo "$analyses" | jq -r '[.analyses[] | .date] | sort | reverse | .[1] // empty' 2>/dev/null || echo "")
+            echo "✅ Found analysis history"
+          else
+            echo "⚠️ No analysis history found yet"
+            prev_date=""
+          fi
           
           # Get previous metrics if available
-          previous_json="{}"
+          previous_json='{"measures":[]}'
           if [ -n "$prev_date" ]; then
             echo "Fetching previous metrics for date: $prev_date"
-            previous_json=$(auth "${base}/api/measures/search_history?component=${proj}&metrics=${metrics}&from=${prev_date}&to=${prev_date}" || echo '{"measures":[]}')
+            previous_json=$(auth "${base}/api/measures/search_history?component=${proj}&metrics=${metrics}&from=${prev_date}&to=${prev_date}")
+            if ! echo "$previous_json" | grep -q '"measures"'; then
+              echo "⚠️ Could not fetch previous metrics, using empty data"
+              previous_json='{"measures":[]}'
+            fi
+          else
+            echo "⚠️ No previous analysis date available"
           fi
 
           # Create the radar chart generator script
-          cat > generate_radar.js << 'EOF'
-          const fs = require('fs');
+          cat > generate_radar.mjs << 'EOF'
+          import fs from 'fs';
           
           // Read the data from command line arguments
           const currentData = JSON.parse(process.argv[2] || '{"component":{"measures":[]}}');
@@ -238,7 +260,7 @@ jobs:
           EOF
           
           # Generate the radar chart
-          node generate_radar.js "$current_json" "$previous_json"
+          node generate_radar.mjs "$current_json" "$previous_json"
           
           echo "Generated codequality/report.md:"
           cat codequality/report.md
