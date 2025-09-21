@@ -63,7 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           mode: validatedData.mode,
           status: 'pending',
           order: nextOrder + i,
-          deadline: null,
+          deadline: validatedData.deadline ? new Date(validatedData.deadline) : null,
         });
         createdTasks.push(task);
       }

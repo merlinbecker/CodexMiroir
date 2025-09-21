@@ -61,6 +61,7 @@ export const chunkTaskRequestSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   mode: z.enum(['professional', 'private']),
+  deadline: z.string().datetime().optional(),
 });
 
 export type ChunkTaskRequest = z.infer<typeof chunkTaskRequestSchema>;

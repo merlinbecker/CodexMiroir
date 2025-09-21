@@ -28,6 +28,35 @@ export function TaskQueue({ tasks, onMoveToEnd, onExport }: TaskQueueProps) {
     return deadline.toLocaleDateString('de-DE');
   };
 
+  const getDeadlineUrgency = (deadline: Date | null) => {
+    if (!deadline) return 'none';
+    
+    const now = new Date();
+    const diff = deadline.getTime() - now.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    
+    if (days < 0) return 'overdue';
+    if (days === 0) return 'today';
+    if (days <= 1) return 'urgent';
+    if (days <= 3) return 'warning';
+    return 'normal';
+  };
+
+  const getDeadlineStyle = (urgency: string) => {
+    switch (urgency) {
+      case 'overdue':
+        return 'text-red-600 dark:text-red-400 font-semibold';
+      case 'today':
+        return 'text-orange-600 dark:text-orange-400 font-semibold';
+      case 'urgent':
+        return 'text-yellow-600 dark:text-yellow-400 font-medium';
+      case 'warning':
+        return 'text-amber-600 dark:text-amber-400';
+      default:
+        return 'text-muted-foreground';
+    }
+  };
+
   return (
     <section className="flex-1 px-4 pb-4 overflow-hidden">
       <div className="flex items-center justify-between mb-3">
@@ -90,8 +119,11 @@ export function TaskQueue({ tasks, onMoveToEnd, onExport }: TaskQueueProps) {
                     </span>
                   </div>
                   <div className="flex items-center space-x-1 mt-1">
-                    <Calendar className="w-3 h-3" />
-                    <span data-testid={`text-task-deadline-${task.id}`}>
+                    <Calendar className={`w-3 h-3 ${getDeadlineStyle(getDeadlineUrgency(task.deadline))}`} />
+                    <span 
+                      data-testid={`text-task-deadline-${task.id}`}
+                      className={getDeadlineStyle(getDeadlineUrgency(task.deadline))}
+                    >
                       {formatDeadline(task.deadline)}
                     </span>
                   </div>

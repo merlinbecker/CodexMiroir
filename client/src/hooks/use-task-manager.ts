@@ -106,11 +106,12 @@ export function useTaskManager() {
     return () => clearInterval(interval);
   }, [currentMode, tasks.length]); // Remove reprioritizeMutation from dependencies
 
-  const addTask = useCallback((title: string, description: string) => {
+  const addTask = useCallback((title: string, description: string, deadline?: Date) => {
     addTaskMutation.mutate({
       title,
       description,
       mode: currentMode,
+      deadline: deadline?.toISOString(),
     });
   }, [currentMode, addTaskMutation]);
 
