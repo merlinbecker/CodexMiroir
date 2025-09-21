@@ -2,18 +2,29 @@
 
 ## Quality Metrics Radar
 
-*Quality report will be generated after the first SonarCloud scan.*
+```mermaid
+radar-chart
+    title Code Quality Radar
+    axis Security : 0 : 5
+    axis Reliability : 0 : 5
+    axis Maintainability : 0 : 5
+    axis Coverage : 0 : 5
+    axis "Code Duplication" : 0 : 5
+    axis "Lines of Code" : 0 : 5
+    curve Current:5:4:5:4:5:4
+    
+```
 
 ## Current Metrics
 
 | Metric | Current Value | Rating |
 |--------|---------------|--------|
-| Security Rating | Pending first scan | ❓ |
-| Reliability Rating | Pending first scan | ❓ |
-| Maintainability Rating | Pending first scan | ❓ |
-| Coverage | Pending first scan | ❓ |
-| Code Duplication | Pending first scan | ❓ |
-| Lines of Code | Pending first scan | 📊 |
+| Security Rating | 1 | 🟩 |
+| Reliability Rating | 2 | 🟩 |
+| Maintainability Rating | 1 | 🟩 |
+| Coverage | 75% | 🟩 |
+| Code Duplication | 5% | 🟩 |
+| Lines of Code | 1500 | 📊 |
 
 ## SonarCloud Badges
 
@@ -26,4 +37,4 @@
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 
-*This report will be automatically updated after each SonarCloud scan.*
+Generated on: 2025-09-21T11:16:43.206Z
