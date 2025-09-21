@@ -15,6 +15,7 @@ export default function Home() {
     addTask,
     completeCurrentTask,
     moveTaskToEnd,
+    exportTasksCSV,
     isAddingTask,
     isCompletingTask,
     isReprioritizing,
@@ -65,6 +66,7 @@ export default function Home() {
       <TaskQueue 
         tasks={pendingTasks}
         onMoveToEnd={moveTaskToEnd}
+        onExport={() => exportTasksCSV(currentMode)}
       />
       
       <TaskInput 

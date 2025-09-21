@@ -51,6 +51,27 @@ export function useTaskManager() {
     },
   });
 
+  // Export tasks as CSV
+  const exportTasksCSV = useCallback(async (mode: TaskMode) => {
+    try {
+      const response = await fetch(`/api/tasks/${mode}/export/csv`);
+      if (!response.ok) throw new Error('Export failed');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `codex-cache-${mode}-tasks-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Export error:', error);
+      throw error;
+    }
+  }, []);
+
   // Move task to end mutation
   const moveToEndMutation = useMutation({
     mutationFn: async (taskId: string) => {
@@ -112,6 +133,7 @@ export function useTaskManager() {
     addTask,
     completeCurrentTask,
     moveTaskToEnd,
+    exportTasksCSV,
     isAddingTask: addTaskMutation.isPending,
     isCompletingTask: completeTaskMutation.isPending,
     isReprioritizing: reprioritizeMutation.isPending,

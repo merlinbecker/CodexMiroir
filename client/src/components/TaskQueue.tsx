@@ -1,12 +1,14 @@
-import { ListOrdered, Calendar, Clock } from 'lucide-react';
+import { ListOrdered, Calendar, Clock, Download } from 'lucide-react';
 import type { Task } from '@shared/schema';
+import { Button } from '@/components/ui/button';
 
 interface TaskQueueProps {
   tasks: Task[];
   onMoveToEnd?: (taskId: string) => void;
+  onExport?: () => void;
 }
 
-export function TaskQueue({ tasks, onMoveToEnd }: TaskQueueProps) {
+export function TaskQueue({ tasks, onMoveToEnd, onExport }: TaskQueueProps) {
   const formatTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -28,14 +30,28 @@ export function TaskQueue({ tasks, onMoveToEnd }: TaskQueueProps) {
 
   return (
     <section className="flex-1 px-4 pb-4 overflow-hidden">
-      <div className="flex items-center space-x-2 mb-3">
-        <ListOrdered className="text-accent-foreground text-sm runic-icon" />
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          Warteschlange
-        </h3>
-        <span className="text-xs text-muted-foreground" data-testid="text-queue-count">
-          ({tasks.length} Aufgaben)
-        </span>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-2">
+          <ListOrdered className="text-accent-foreground text-sm runic-icon" />
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            Warteschlange
+          </h3>
+          <span className="text-xs text-muted-foreground" data-testid="text-queue-count">
+            ({tasks.length} Aufgaben)
+          </span>
+        </div>
+        {onExport && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onExport}
+            className="h-6 px-2 text-xs"
+            data-testid="button-export-csv"
+          >
+            <Download className="w-3 h-3 mr-1" />
+            CSV
+          </Button>
+        )}
       </div>
       
       {tasks.length === 0 ? (

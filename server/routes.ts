@@ -163,6 +163,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export tasks as CSV
+  app.get("/api/tasks/:mode/export/csv", async (req, res) => {
+    try {
+      const mode = req.params.mode as 'professional' | 'private';
+      if (mode !== 'professional' && mode !== 'private') {
+        return res.status(400).json({ error: "Mode must be 'professional' or 'private'" });
+      }
+
+      const allTasks = await storage.getTasks(mode);
+      
+      // CSV headers
+      const headers = [
+        'Title',
+        'Description', 
+        'Estimated Minutes',
+        'Remaining Minutes',
+        'Status',
+        'Created At',
+        'Completed At',
+        'Duration (if completed)',
+        'Mode'
+      ];
+
+      // Convert tasks to CSV rows
+      const csvRows = allTasks.map(task => {
+        const duration = task.completedAt && task.createdAt 
+          ? Math.round((new Date(task.completedAt).getTime() - new Date(task.createdAt).getTime()) / (1000 * 60))
+          : '';
+        
+        return [
+          `"${task.title.replace(/"/g, '""')}"`,
+          `"${task.description.replace(/"/g, '""')}"`,
+          task.estimatedMinutes,
+          task.remainingMinutes,
+          task.status,
+          task.createdAt?.toISOString() || '',
+          task.completedAt?.toISOString() || '',
+          duration,
+          task.mode
+        ].join(',');
+      });
+
+      // Combine headers and rows
+      const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+      // Set headers for file download
+      const filename = `codex-cache-${mode}-tasks-${new Date().toISOString().split('T')[0]}.csv`;
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Error exporting CSV:", error);
+      res.status(500).json({ error: "Failed to export CSV" });
+    }
+  });
+
   // Move unworkable task to end
   app.post("/api/tasks/:id/move-to-end", async (req, res) => {
     try {
