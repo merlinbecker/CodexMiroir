@@ -1,7 +1,7 @@
 # Code Quality Report
 ## Quality Metrics Radar
 ```mermaid
-radar-chart
+radar
     title Code Quality Radar
     axis Security : 0 : 5
     axis Reliability : 0 : 5
@@ -9,7 +9,7 @@ radar-chart
     axis Coverage : 0 : 5
     axis "Code Duplication" : 0 : 5
     axis "Lines of Code" : 0 : 5
-    curve Current:5:4:5:4:5:4
+    "Current" : [5, 4, 5, 4, 5, 4]
 ```
 ## Current Metrics
 | Metric | Current Value | Rating |
@@ -28,4 +28,4 @@ radar-chart
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=coverage)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
-Generated on: 2025-09-21T11:19:15.184Z
+Generated on: 2025-09-21T12:52:40.889Z
