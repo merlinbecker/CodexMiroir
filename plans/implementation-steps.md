@@ -1,7 +1,7 @@
-# Schritt-für-Schritt Implementierungsplan
+# Vereinfachte Implementierungsschritte - "Codex Miroir"
 
 ## Übersicht
-Dieser Plan beschreibt die konkreten Implementierungsschritte für die ersten beiden Phasen der Migration von Next.js zu Azure Functions mit JavaScript und Azure Storage.
+Dieser Plan beschreibt die **drastisch vereinfachten** Implementierungsschritte basierend auf dem neuen minimalistischen Konzept. Statt 8-10 Arbeitstagen sind jetzt nur noch **2-3 Arbeitstage** erforderlich.
 
 ## Voraussetzungen
 
@@ -10,48 +10,50 @@ Dieser Plan beschreibt die konkreten Implementierungsschritte für die ersten be
 - [ ] Azure CLI installiert und konfiguriert
 - [ ] Azure Functions Core Tools v4 installiert
 - [ ] Storage Account erstellt
-- [ ] OpenAI API Key verfügbar
 
 ### Development Environment
 - [ ] Node.js 18+ installiert
 - [ ] Git Repository geklont
-- [ ] Visual Studio Code mit Azure Functions Extension
-- [ ] Postman oder ähnliches Tool für API Tests
+- [ ] Visual Studio Code (optional)
+- [ ] Postman für API Tests (optional)
 
-## Phase 1: Foundation Setup (2-3 Arbeitstage)
+## Tag 1: Minimale Azure Function (4-6 Stunden)
 
-### Tag 1: Azure Functions Grundstruktur
-
-#### Schritt 1.1: Neues Azure Functions Projekt (2 Stunden)
+### Schritt 1.1: Functions Projekt erstellen (30 Min)
 ```bash
-# Neues Verzeichnis für Azure Functions
-mkdir codexmiroir-functions
-cd codexmiroir-functions
+# Neues Verzeichnis
+mkdir codex-miroir-fn
+cd codex-miroir-fn
 
-# Functions Projekt initialisieren
+# Functions Projekt initialisieren (JavaScript, v4)
 func init . --javascript --model v4
 
-# Basis-Dependencies installieren
-npm install @azure/storage-blob @azure/functions axios crypto
-npm install --save-dev @azure/functions-testing-library jest
+# Minimale Dependencies
+npm install @azure/storage-blob gray-matter
 ```
 
-#### Schritt 1.2: Project Structure Setup (1 Stunde)
-```bash
-# Verzeichnisstruktur erstellen
-mkdir -p src/{functions,services,utils,models}
-mkdir -p public/{css,js}
-mkdir -p test/{unit,integration}
-mkdir -p templates
-
-# Basic files erstellen
-touch src/services/storage-service.js
-touch src/services/user-service.js
-touch src/utils/crypto-utils.js
-touch src/models/user.js
+### Schritt 1.2: Function Configuration (15 Min)
+```json
+// function.json
+{
+  "bindings": [
+    { 
+      "authLevel": "function", 
+      "type": "httpTrigger", 
+      "direction": "in", 
+      "name": "req", 
+      "methods": ["get","post"], 
+      "route": "codex" 
+    },
+    { 
+      "type": "http", 
+      "direction": "out", 
+      "name": "res" 
+    }
+  ]
+}
 ```
 
-#### Schritt 1.3: Host Configuration (0.5 Stunden)
 ```json
 // host.json
 {
@@ -61,294 +63,323 @@ touch src/models/user.js
       "routePrefix": ""
     }
   },
-  "functionTimeout": "00:05:00",
-  "logging": {
-    "logLevel": {
-      "default": "Information"
-    }
-  }
+  "functionTimeout": "00:02:00"
 }
 ```
 
-#### Schritt 1.4: Environment Setup (0.5 Stunden)
+### Schritt 1.3: Komplette Function Implementation (3-4 Stunden)
+**Direkt die vollständige index.js aus concept_new.md übernehmen**
+
 ```javascript
-// local.settings.json (für Development)
-{
-  "IsEncrypted": false,
-  "Values": {
-    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-    "FUNCTIONS_WORKER_RUNTIME": "node",
-    "AZURE_STORAGE_CONNECTION_STRING": "",
-    "OPENAI_API_KEY": ""
-  }
-}
+// index.js (vollständige Implementierung wie im Konzept)
+const { BlobServiceClient } = require("@azure/storage-blob");
+const matter = require("gray-matter");
+
+// Alle Helper Functions und Actions wie in concept_new.md
 ```
 
-### Tag 2: Azure Storage Integration
+### Schritt 1.4: Local Testing (30 Min)
+```bash
+# Environment Variables setzen
+export AZURE_BLOB_CONN="DefaultEndpointsProtocol=https;AccountName=..."
+export API_KEY="test-api-key-123"
 
-#### Schritt 2.1: Storage Service Implementation (3 Stunden)
+# Function starten
+func start
+
+# Test API Call
+curl -H "x-api-key: test-api-key-123" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "list":"pro",
+       "id":"T-001",
+       "title":"Test Task",
+       "created_at_iso":"2025-01-20T10:00:00",
+       "scheduled_slot":"2025-W03-Mon-AM",
+       "category":"programmierung"
+     }' \
+     http://localhost:7071/api/codex?action=createTask
+```
+
+## Tag 2: Deployment & Frontend Anpassung (4-6 Stunden)
+
+### Schritt 2.1: Azure Deployment (1 Stunde)
+```bash
+# Function App erstellen
+az functionapp create \
+  --resource-group myResourceGroup \
+  --consumption-plan-location westeurope \
+  --runtime node \
+  --functions-version 4 \
+  --name codex-miroir-fn
+
+# App Settings
+az functionapp config appsettings set \
+  --name codex-miroir-fn \
+  --resource-group myResourceGroup \
+  --settings "AZURE_BLOB_CONN=..." "API_KEY=your-secure-key"
+
+# Deploy
+func azure functionapp publish codex-miroir-fn
+```
+
+### Schritt 2.2: Frontend API Integration (2-3 Stunden)
+**Anpassung der bestehenden React App**
+
 ```javascript
-// src/services/storage-service.js
-const { BlobServiceClient } = require('@azure/storage-blob');
-
-class AzureStorageService {
+// Neue API Service Klasse
+class CodexAPI {
   constructor() {
-    this.connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-    this.blobServiceClient = BlobServiceClient.fromConnectionString(this.connectionString);
-    this.containerName = 'users';
+    this.baseURL = 'https://codex-miroir-fn.azurewebsites.net/api/codex';
+    this.apiKey = process.env.REACT_APP_API_KEY;
   }
-  
-  async init() {
-    const containerClient = this.blobServiceClient.getContainerClient(this.containerName);
-    await containerClient.createIfNotExists({ access: 'private' });
+
+  async createTask(list, taskData) {
+    const response = await fetch(`${this.baseURL}?action=createTask`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.apiKey
+      },
+      body: JSON.stringify({
+        list,
+        id: this.generateTaskId(),
+        title: taskData.title,
+        created_at_iso: new Date().toISOString(),
+        scheduled_slot: this.getNextSlot(list),
+        category: taskData.category
+      })
+    });
+    return response.json();
   }
-  
-  async getUserFile(userId, fileName) {
-    try {
-      const blobClient = this.blobServiceClient
-        .getContainerClient(this.containerName)
-        .getBlobClient(`${userId}/${fileName}`);
-      
-      const downloadResponse = await blobClient.download();
-      const content = await streamToBuffer(downloadResponse.readableStreamBody);
-      return content.toString();
-    } catch (error) {
-      if (error.statusCode === 404) return null;
-      throw error;
-    }
-  }
-  
-  async saveUserFile(userId, fileName, content) {
-    const blobClient = this.blobServiceClient
-      .getContainerClient(this.containerName)
-      .getBlobClient(`${userId}/${fileName}`);
-    
-    await blobClient.upload(content, content.length, {
-      overwrite: true,
-      metadata: {
-        lastModified: new Date().toISOString()
-      }
+
+  async completeCurrentTask(list) {
+    const currentTask = await this.getCurrentTask(list);
+    if (!currentTask) return null;
+
+    return fetch(`${this.baseURL}?action=completeTask`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.apiKey
+      },
+      body: JSON.stringify({
+        list,
+        taskPathAbs: currentTask.path,
+        closed_at_iso: new Date().toISOString()
+      })
     });
   }
-  
-  async createUser(userId) {
-    // Erstelle Benutzerverzeichnis mit Template-Dateien
-    const templates = ['business-tasks.md', 'private-tasks.md', 'config.json'];
-    
-    for (const template of templates) {
-      const templateContent = await this.getTemplate(template);
-      await this.saveUserFile(userId, template, templateContent);
-    }
-  }
-  
-  async userExists(userId) {
-    const blobClient = this.blobServiceClient
-      .getContainerClient(this.containerName)
-      .getBlobClient(`${userId}/config.json`);
-    
-    return await blobClient.exists();
+
+  generateTaskId() {
+    return 'T-' + Date.now().toString(36).toUpperCase();
   }
 }
-
-// Helper function
-async function streamToBuffer(readableStream) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    readableStream.on('data', (data) => chunks.push(data instanceof Buffer ? data : Buffer.from(data)));
-    readableStream.on('end', () => resolve(Buffer.concat(chunks)));
-    readableStream.on('error', reject);
-  });
-}
-
-module.exports = { AzureStorageService };
 ```
 
-#### Schritt 2.2: Template Files erstellen (1 Stunde)
-```markdown
-# templates/business-tasks.md
-# Business Tasks - User: {USER_ID}
+### Schritt 2.3: UI Vereinfachung (1-2 Stunden)
+**Anpassung der React Komponenten**
 
-## Metadata
-```yaml
-created: {CREATED_DATE}
-lastModified: {CREATED_DATE}
-totalTasks: 0
-activeTasks: 0
-completedTasks: 0
-```
+```jsx
+// Vereinfachte CurrentTask Komponente
+function CurrentTask({ list }) {
+  const [currentTask, setCurrentTask] = useState(null);
+  const api = new CodexAPI();
 
-## Active Tasks
-<!-- No active tasks -->
+  useEffect(() => {
+    loadCurrentTask();
+  }, [list]);
 
-## Pending Tasks  
-<!-- No pending tasks -->
+  const loadCurrentTask = async () => {
+    // Lade aktuellen Task aus current.md
+    const tasks = await api.getCurrentTasks(list);
+    setCurrentTask(tasks[0] || null);
+  };
 
-## Completed Tasks
-<!-- No completed tasks -->
-```
+  const completeTask = async () => {
+    await api.completeCurrentTask(list);
+    loadCurrentTask(); // Reload
+  };
 
-#### Schritt 2.3: Unit Tests für Storage (1 Stunde)
-```javascript
-// test/unit/storage-service.test.js
-const { AzureStorageService } = require('../../src/services/storage-service');
-
-describe('AzureStorageService', () => {
-  let storageService;
-  
-  beforeEach(() => {
-    storageService = new AzureStorageService();
-  });
-  
-  test('should save and retrieve user file', async () => {
-    const userId = 'test-user-123';
-    const fileName = 'test.md';
-    const content = '# Test Content';
-    
-    await storageService.saveUserFile(userId, fileName, content);
-    const retrieved = await storageService.getUserFile(userId, fileName);
-    
-    expect(retrieved).toBe(content);
-  });
-});
-```
-
-### Tag 3: User Management & Basic API
-
-#### Schritt 3.1: User Service Implementation (2 Stunden)
-```javascript
-// src/services/user-service.js
-const crypto = require('crypto');
-
-class UserService {
-  constructor(storageService) {
-    this.storage = storageService;
+  if (!currentTask) {
+    return <div className="no-task">Keine aktiven Tasks</div>;
   }
-  
-  generateUserId() {
-    return crypto.randomBytes(32).toString('hex');
-  }
-  
-  async createUser() {
-    const userId = this.generateUserId();
-    await this.storage.createUser(userId);
-    return userId;
-  }
-  
-  async validateUser(userId) {
-    if (!userId || userId.length !== 64 || !/^[a-f0-9]+$/.test(userId)) {
-      return false;
-    }
-    return await this.storage.userExists(userId);
-  }
-  
-  getUserUrl(userId, baseUrl = '') {
-    return `${baseUrl}/?user=${userId}`;
-  }
-}
 
-module.exports = { UserService };
-```
-
-#### Schritt 3.2: Basic API Functions (2 Stunden)
-```javascript
-// src/functions/api-users.js
-const { app } = require('@azure/functions');
-const { AzureStorageService } = require('../services/storage-service');
-const { UserService } = require('../services/user-service');
-
-app.http('createUser', {
-  methods: ['POST'],
-  route: 'api/users',
-  authLevel: 'anonymous',
-  handler: async (request, context) => {
-    try {
-      const storageService = new AzureStorageService();
-      await storageService.init();
-      
-      const userService = new UserService(storageService);
-      const userId = await userService.createUser();
-      
-      const baseUrl = `https://${request.headers.host}`;
-      const userUrl = userService.getUserUrl(userId, baseUrl);
-      
-      return {
-        status: 201,
-        jsonBody: {
-          userId,
-          url: userUrl,
-          message: 'User created successfully'
-        }
-      };
-    } catch (error) {
-      context.error('Error creating user:', error);
-      return {
-        status: 500,
-        jsonBody: { error: 'Failed to create user' }
-      };
-    }
-  }
-});
-
-app.http('validateUser', {
-  methods: ['GET'],
-  route: 'api/users/{userId}',
-  authLevel: 'anonymous',
-  handler: async (request, context) => {
-    try {
-      const { userId } = request.params;
-      
-      const storageService = new AzureStorageService();
-      await storageService.init();
-      
-      const userService = new UserService(storageService);
-      const isValid = await userService.validateUser(userId);
-      
-      return {
-        status: isValid ? 200 : 404,
-        jsonBody: { valid: isValid }
-      };
-    } catch (error) {
-      context.error('Error validating user:', error);
-      return {
-        status: 500,
-        jsonBody: { error: 'Failed to validate user' }
-      };
-    }
-  }
-});
-```
-
-#### Schritt 3.3: Basic Frontend (1.5 Stunden)
-```html
-<!-- public/index.html -->
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codex Miroir - Task Manager</title>
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="manifest" href="/manifest.json">
-</head>
-<body>
-    <div id="app">
-        <div id="loading" class="loading">Loading...</div>
-        <div id="error" class="error hidden"></div>
-        <div id="main-content" class="hidden">
-            <h1>Codex Miroir</h1>
-            <div id="user-info"></div>
-            <div id="mode-toggle">
-                <button id="toggle-btn">Switch to Private</button>
-            </div>
-            <div id="task-content">
-                <!-- Task content will be loaded here -->
-            </div>
-        </div>
+  return (
+    <div className="current-task">
+      <h2>{currentTask.title}</h2>
+      <p>Kategorie: {currentTask.category}</p>
+      {currentTask.deadline && (
+        <p>Deadline: {currentTask.deadline}</p>
+      )}
+      <button onClick={completeTask} className="complete-btn">
+        Task abschließen
+      </button>
     </div>
-    <script src="/js/app.js"></script>
-</body>
-</html>
+  );
+}
 ```
+
+### Schritt 2.4: Slot-System Integration (1 Stunde)
+```javascript
+// Slot-Berechnung für Kalender
+class SlotCalculator {
+  getCurrentWeek() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const week = this.getWeekNumber(now);
+    return `${year}-W${week.toString().padStart(2, '0')}`;
+  }
+
+  getNextAvailableSlot(list) {
+    const week = this.getCurrentWeek();
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sunday, 1=Monday
+    
+    if (list === 'pro') {
+      // Business: Mo-Fr, 2 Slots
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeek];
+        const hour = today.getHours();
+        
+        if (hour < 9) return `${week}-${dayName}-AM`;
+        if (hour < 13) return `${week}-${dayName}-PM`;
+        
+        // Nächster Tag
+        const nextDay = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayOfWeek + 1] || 'Mon';
+        return `${week}-${nextDay}-AM`;
+      }
+    } else {
+      // Private: Mo-Fr Abend, Sa-So 2 Slots
+      // Implementation...
+    }
+  }
+}
+```
+
+## Tag 3: Testing & Finalisierung (2-4 Stunden)
+
+### Schritt 3.1: Integration Tests (1-2 Stunden)
+```javascript
+// Einfache Test Suite
+const tests = [
+  {
+    name: 'Create Pro Task',
+    action: 'createTask',
+    data: {
+      list: 'pro',
+      id: 'T-TEST-001',
+      title: 'Test Programmierung',
+      created_at_iso: '2025-01-20T10:00:00',
+      scheduled_slot: '2025-W03-Mon-AM',
+      category: 'programmierung'
+    }
+  },
+  {
+    name: 'Complete Task',
+    action: 'completeTask',
+    data: {
+      list: 'pro',
+      taskPathAbs: '/codex-miroir/pro/tasks/2025/2025-01-20--T-TEST-001-test-programmierung.md',
+      closed_at_iso: '2025-01-20T13:30:00'
+    }
+  }
+];
+
+// Test Runner
+async function runTests() {
+  for (const test of tests) {
+    console.log(`Testing: ${test.name}`);
+    const result = await callAPI(test.action, test.data);
+    console.log(result.ok ? '✅ PASS' : '❌ FAIL');
+  }
+}
+```
+
+### Schritt 3.2: Storage Validation (30 Min)
+```bash
+# Check Blob Storage Structure
+az storage blob list \
+  --account-name your-storage \
+  --container-name codex-miroir \
+  --output table
+
+# Should show:
+# pro/current.md
+# pro/archive.md  
+# pro/tasks/2025/2025-01-20--T-TEST-001-test-programmierung.md
+```
+
+### Schritt 3.3: Frontend Testing (1 Stunde)
+- [ ] Task Creation funktional
+- [ ] Task Completion funktional
+- [ ] Mode Switch (Pro/Priv) funktional
+- [ ] FIFO-Reihenfolge korrekt
+- [ ] European Date Format durchgängig
+
+### Schritt 3.4: Performance Validation (30 Min)
+```bash
+# API Performance Test
+time curl -H "x-api-key: $API_KEY" \
+          "$FUNCTION_URL/api/codex?action=report&list=pro&week=2025-W03"
+
+# Target: < 500ms Response Time
+```
+
+## Deployment Checklist
+
+### Azure Configuration
+- [ ] Function App deployed und funktional
+- [ ] Storage Account mit "codex-miroir" Container
+- [ ] API Key als App Setting konfiguriert
+- [ ] CORS für Frontend Domain aktiviert
+
+### Frontend Configuration  
+- [ ] API_KEY als Environment Variable
+- [ ] FUNCTION_URL konfiguriert
+- [ ] Build und Deployment erfolgreich
+
+### Functional Validation
+- [ ] Task Creation: Pro + Priv
+- [ ] Task Completion funktional
+- [ ] Push to End funktional
+- [ ] Report Generation funktional
+- [ ] "When" Query funktional
+
+## Rollback Plan
+
+### Bei Problemen
+1. **Sofortiger Rollback**: Zurück zur aktuellen Version
+2. **API Fallback**: Temporäre Weiterleitung auf alte API
+3. **Data Backup**: Blob Storage Snapshots erstellen
+4. **Incident Analysis**: Logs und Metriken auswerten
+
+## Success Metrics
+
+### Performance
+- ✅ API Response < 500ms
+- ✅ Frontend Load < 2 Sekunden  
+- ✅ Task Creation < 1 Sekunde
+
+### Functionality
+- ✅ Alle 5 API Actions funktional
+- ✅ Markdown Tables korrekt formatiert
+- ✅ European Date Format durchgängig
+- ✅ FIFO-Prinzip durchgesetzt
+
+### Simplicity
+- ✅ Nur 1 Azure Function
+- ✅ Nur 2 NPM Dependencies
+- ✅ Wartbare Codebasis < 400 Zeilen
+- ✅ Minimaler Configuration Overhead
+
+---
+
+**Geschätzter Gesamtaufwand**: 10-16 Stunden  
+**Dauer**: 2-3 Arbeitstage  
+**Komplexitätsreduktion**: 80% weniger Aufwand als ursprünglich geplant
+
+**Kritischer Erfolgsfaktor**: Das neue Konzept ist so viel einfacher, dass die meiste Zeit für Testing und Polishing verwendet werden kann statt für komplexe Architektur-Implementierung.
 
 ## Phase 2: Task Management Migration (3-4 Arbeitstage)
 

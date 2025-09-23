@@ -1,320 +1,336 @@
-# Refinement Backlog - Erweiterte Features für spätere Iterationen
+# Refinement Backlog - Features nach Basis-Implementation
 
 ## Übersicht
-Dieses Dokument sammelt alle Features und Verbesserungen, die aufgrund des Umfangs der Refactoring-Initiative nicht in der ersten Implementierung enthalten sind, aber für zukünftige Iterationen geplant werden sollten.
+Nach der erfolgreichen Implementierung der minimalistischen "Codex Miroir" Azure Function sollten folgende Features schrittweise hinzugefügt werden. **Priorität liegt auf Stabilität und Benutzerfreundlichkeit** vor komplexen Features.
 
-## Phase 3: Enhanced Features (Zukünftige Iteration)
+## Sofortige Verbesserungen (Woche 1-2 nach Go-Live)
 
-### 3.1 Advanced Calendar System
-**Komplexität**: Hoch  
-**Geschätzter Aufwand**: 20-25 Stunden
+### 1.1 Frontend Verbesserungen
+**Aufwand**: 4-6 Stunden
 
-#### Calendar Logic Implementation
+#### UI/UX Optimierungen
+- **Responsive Design**: Mobile-optimierte Darstellung
+- **Loading States**: Spinner während API-Calls  
+- **Error Handling**: Benutzerfreundliche Fehlermeldungen
+- **Keyboard Shortcuts**: Schnelle Navigation (Space = Complete, N = New Task)
+
+#### Slot-Anzeige Verbesserung
 ```javascript
-// calendar-service.js - Für spätere Implementierung
-class CalendarService {
-  constructor() {
-    this.businessHours = {
-      weekdays: [
-        { start: '09:00', end: '12:30' }, // Slot 1: 3.5h
-        { start: '13:30', end: '17:00' }  // Slot 2: 3.5h
-      ],
-      evenings: { start: '18:00', end: '21:30' } // Private: 3.5h
-    };
-    
-    this.weekendHours = [
-      { start: '09:00', end: '12:30' }, // Private Slot 1
-      { start: '13:30', end: '17:00' }  // Private Slot 2
-    ];
-  }
+// Aktueller Slot prominent anzeigen
+function SlotIndicator({ currentSlot, nextSlot }) {
+  return (
+    <div className="slot-indicator">
+      <div className="current-slot">
+        <span className="label">Aktuell:</span>
+        <span className="slot">{formatSlot(currentSlot)}</span>
+      </div>
+      <div className="next-slot">
+        <span className="label">Nächster:</span>
+        <span className="slot">{formatSlot(nextSlot)}</span>
+      </div>
+    </div>
+  );
+}
+
+function formatSlot(slot) {
+  // "2025-W03-Mon-AM" → "Mo 20.01., Vormittag"
+  const [year, week, day, period] = slot.split('-');
+  const germanDays = { Mon: 'Mo', Tue: 'Di', Wed: 'Mi', Thu: 'Do', Fri: 'Fr', Sat: 'Sa', Sun: 'So' };
+  const periods = { AM: 'Vormittag', PM: 'Nachmittag' };
   
-  generateWeeklyCalendar(userId, weekStart) {
-    // Complex scheduling logic
-  }
+  return `${germanDays[day]} ${getDateFromSlot(slot)}, ${periods[period]}`;
+}
+```
+
+### 1.2 Markdown Optimierungen
+**Aufwand**: 2-3 Stunden
+
+#### Template Verbesserungen
+```markdown
+# Bessere Task-Templates
+---
+id: T-{COUNTER}
+list: {LIST}
+title: "{TITLE}"
+status: geplant
+created_at: {DD.MM.YYYY HH:MM}
+scheduled_slot: {YYYY-Www-Day-Period}
+duration_slots: 1
+deadline: {DD.MM.YYYY HH:MM}
+project: "{PROJECT}"
+azure_devops: "{DEVOPS_URL}"
+requester: "{PERSON}"
+category_pro: {meeting|programmierung}
+category_priv: {haushalt|projekt}
+estimated_effort: {niedrig|mittel|hoch}
+---
+
+## Kontext & Ziel
+{Was soll erreicht werden? Warum ist das wichtig?}
+
+## Vorgehen
+{Konkrete Schritte zur Umsetzung}
+
+## Akzeptanzkriterien
+- [ ] {Kriterium 1}
+- [ ] {Kriterium 2}
+
+## Notizen
+{Zusätzliche Informationen, Links, etc.}
+
+## Verlauf
+- {DD.MM.YYYY HH:MM} → geplant in `{scheduled_slot}`
+```
+
+### 1.3 Performance Monitoring
+**Aufwand**: 1-2 Stunden
+
+#### Basic Logging
+```javascript
+// Erweiterte Logging-Funktion
+function logAction(action, data, duration = null) {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    action,
+    duration: duration ? `${duration}ms` : null,
+    list: data.list,
+    success: true
+  };
   
-  scheduleTasksToCalendar(tasks, calendar) {
-    // Auto-scheduling algorithm
-  }
+  console.log(JSON.stringify(logEntry));
   
-  calculateSlackTime(task, currentDate) {
-    // Deadline vs. available slots calculation
+  // Optional: An Application Insights senden
+  if (process.env.APPINSIGHTS_INSTRUMENTATIONKEY) {
+    // Send to Azure Monitor
   }
 }
 ```
 
-#### Features für später:
-- **Automatische Terminplanung**: Tasks werden automatisch in verfügbare Kalender-Slots eingeplant
-- **Deadline-basierte Prioritäten**: Priorität wird anhand von Slack-Zeit berechnet
-- **Meeting Management**: Feste Termine vs. flexible Tasks
-- **Capacity Planning**: Überlastung vermeiden durch intelligente Verteilung
+## Mittelfristige Erweiterungen (Monat 2-3)
 
-### 3.2 Voice Control Integration
-**Komplexität**: Sehr Hoch  
-**Geschätzter Aufwand**: 15-20 Stunden
+### 2.1 Erweiterte Kalender-Features  
+**Aufwand**: 8-12 Stunden
 
-#### Whisper API Integration
+#### Intelligente Slot-Zuordnung
 ```javascript
-// voice-service.js - Für spätere Implementierung
-class VoiceService {
-  constructor(openAIService) {
-    this.openAI = openAIService;
+class SlotManager {
+  getNextOptimalSlot(list, taskData) {
+    const { deadline, category, estimated_effort } = taskData;
+    
+    // Berücksichtige Deadline-Druck
+    if (deadline && this.isUrgent(deadline)) {
+      return this.getNextAvailableSlot(list);
+    }
+    
+    // Optimiere nach Kategorie
+    if (category === 'meeting') {
+      return this.getPreferredMeetingSlot(list);
+    }
+    
+    // Standard-Zuordnung
+    return this.getNextAvailableSlot(list);
   }
   
-  async transcribeAudio(audioBlob) {
-    // Whisper API call
-    const formData = new FormData();
-    formData.append('file', audioBlob);
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'de');
+  isUrgent(deadline) {
+    const days = this.getDaysUntilDeadline(deadline);
+    return days <= 2;
+  }
+}
+```
+
+#### Wochen-Übersicht
+```javascript
+// Neue API Action: getWeekOverview
+async function getWeekOverview(query) {
+  const { list, week } = query;
+  const currentMd = await readText(`/codex-miroir/${list}/current.md`);
+  const weekSection = extractWeek(currentMd, week);
+  
+  const slots = this.parseWeekSlots(weekSection);
+  const totalHours = slots.length * 3.5;
+  const availableSlots = this.getAvailableSlots(list, week);
+  
+  return {
+    week,
+    list,
+    totalSlots: slots.length,
+    totalHours,
+    availableSlots: availableSlots.length,
+    utilizationRate: (slots.length / (availableSlots.length + slots.length))
+  };
+}
+```
+
+### 2.2 Einfache Reporting-Features
+**Aufwand**: 6-8 Stunden
+
+#### Meeting vs. Task Ratio
+```javascript
+async function generateSimpleReport(query) {
+  const { list, fromWeek, toWeek } = query;
+  const archiveMd = await readText(`/codex-miroir/${list}/archive.md`);
+  
+  const weeks = this.getWeeksBetween(fromWeek, toWeek);
+  let totalTasks = 0, meetings = 0, programming = 0;
+  
+  for (const week of weeks) {
+    const weekSection = extractWeek(archiveMd, week);
+    const stats = this.analyzeWeekSection(weekSection);
     
-    const response = await this.openAI.createTranscription(formData);
-    return response.text;
+    totalTasks += stats.total;
+    meetings += stats.meetings;
+    programming += stats.programming;
   }
   
-  async processVoiceCommand(transcript) {
-    // Intent recognition with GPT
-    const prompt = `
-      Analyze this German voice command and extract the intent and parameters:
-      "${transcript}"
-      
-      Possible intents:
-      - create_task: Create a new task
-      - complete_task: Mark current task as complete
-      - move_task: Reorder a task
-      - show_report: Display reports
-      
-      Return JSON: { "intent": "...", "params": {...} }
-    `;
-    
-    const response = await this.openAI.createChatCompletion({
-      model: 'gpt-4',
-      messages: [{ role: 'user', content: prompt }]
+  return {
+    period: `${fromWeek} bis ${toWeek}`,
+    totalTasks,
+    meetings,
+    programming,
+    meetingRatio: meetings / totalTasks,
+    programmingRatio: programming / totalTasks,
+    totalHours: totalTasks * 3.5
+  };
+}
+```
+
+### 2.3 Task-Verknüpfungen
+**Aufwand**: 4-6 Stunden
+
+#### Projekt-Gruppierung
+```markdown
+<!-- Erweiterte Task-Metadaten -->
+---
+project: "Migration Azure Functions"
+epic: "Backend Modernisierung"
+dependencies: ["T-001", "T-002"]
+follows_up: "T-003"
+---
+```
+
+#### Smart Queries
+```javascript
+// Neue API Actions
+async function getTasksByProject(query) {
+  const { list, project } = query;
+  // Durchsuche alle Tasks nach Projekt
+}
+
+async function getUpcomingDeadlines(query) {
+  const { list, days = 7 } = query;
+  // Finde Tasks mit Deadline in nächsten X Tagen
+}
+```
+
+## Experimentelle Features (Monat 4+)
+
+### 3.1 Basis Voice Control
+**Aufwand**: 10-15 Stunden
+
+#### Einfache Sprachbefehle
+```javascript
+// Nur die wichtigsten Commands
+const voiceCommands = {
+  'complete': () => completeCurrentTask(),
+  'next': () => showNextTasks(),
+  'new task': () => openTaskCreation(),
+  'push back': () => pushCurrentTaskToEnd()
+};
+
+// Browser Speech Recognition (keine OpenAI)
+function setupVoiceControl() {
+  if ('webkitSpeechRecognition' in window) {
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = 'de-DE';
+    recognition.onresult = handleVoiceCommand;
+  }
+}
+```
+
+### 3.2 Bulk Operations
+**Aufwand**: 6-8 Stunden
+
+#### Task-Import/Export
+```javascript
+// CSV Import für größere Task-Listen
+async function importTasksFromCSV(csvContent, list) {
+  const lines = csvContent.split('\n');
+  const tasks = lines.map(line => this.parseCSVLine(line));
+  
+  for (const taskData of tasks) {
+    await createTask({
+      list,
+      ...taskData,
+      created_at_iso: new Date().toISOString(),
+      scheduled_slot: this.getNextSlot(list)
     });
-    
-    return JSON.parse(response.choices[0].message.content);
   }
 }
 ```
 
-#### Voice Commands (geplant):
-- "Erstelle neue Aufgabe: [Beschreibung]"
-- "Markiere aktuelle Aufgabe als erledigt"
-- "Verschiebe Task [Name] nach oben"
-- "Zeige mir den Wochenreport"
-- "Wie viel Zeit habe ich noch heute?"
+### 3.3 Team Features (Weit in der Zukunft)
+**Aufwand**: 20-30 Stunden
 
-### 3.3 Advanced Reporting System
-**Komplexität**: Mittel  
-**Geschätzter Aufwand**: 12-15 Stunden
+#### Multi-User Support
+- Shared Calendars für Teams
+- Task-Delegation zwischen Benutzern
+- Team-Reporting und Kapazitätsplanung
 
-#### Report Generator
-```javascript
-// report-service.js - Für spätere Implementierung
-class ReportService {
-  async generateWeeklyReport(userId, weekStart) {
-    const businessTasks = await this.getCompletedTasksInRange(userId, 'business', weekStart);
-    const privateTasks = await this.getCompletedTasksInRange(userId, 'private', weekStart);
-    
-    return {
-      week: this.getWeekString(weekStart),
-      business: this.calculateBusinessMetrics(businessTasks),
-      private: this.calculatePrivateMetrics(privateTasks),
-      efficiency: this.calculateEfficiencyMetrics(businessTasks, privateTasks),
-      recommendations: this.generateRecommendations(businessTasks, privateTasks)
-    };
-  }
-  
-  calculateBusinessMetrics(tasks) {
-    const meetings = tasks.filter(t => t.type === 'meeting');
-    const regularTasks = tasks.filter(t => t.type === 'task');
-    
-    return {
-      totalTasks: tasks.length,
-      meetings: meetings.length,
-      regularTasks: regularTasks.length,
-      totalHours: this.calculateTotalHours(tasks),
-      meetingRatio: meetings.length / tasks.length,
-      avgTaskDuration: this.calculateAvgDuration(tasks)
-    };
-  }
-}
-```
+## Technische Verbesserungen
 
-#### Report Features (geplant):
-- **Wöchentliche Reports**: Automatisch generierte Wochenzusammenfassungen
-- **Meeting vs. Task Ratio**: Verhältnis von Meetings zu produktiver Arbeitszeit
-- **Efficiency Tracking**: Adhärenz an geplante Zeiten
-- **Trend Analysis**: Entwicklung der Produktivität über Zeit
-- **Export Optionen**: PDF, CSV, Web-View
+### Performance Optimizations
+- **Caching**: Häufig genutzte Markdown-Dateien cachen
+- **Batch Operations**: Mehrere Tasks auf einmal verarbeiten
+- **Compression**: Große Markdown-Dateien komprimieren
 
-### 3.4 AI-Enhanced Task Management
-**Komplexität**: Sehr Hoch  
-**Geschätzter Aufwand**: 25-30 Stunden
+### Security Enhancements
+- **API Rate Limiting**: Schutz vor Missbrauch
+- **Input Sanitization**: XSS-Schutz für Markdown-Content
+- **Backup Strategy**: Automatische Backups der Blob Storage
 
-#### Smart Task Chunking
-```javascript
-// ai-enhanced-service.js - Für spätere Implementierung
-class AIEnhancedTaskService {
-  async intelligentTaskChunking(title, description, context = {}) {
-    const prompt = `
-      Break down this task into optimal 3.5-hour chunks considering:
-      - Task complexity and cognitive load
-      - Dependencies between subtasks
-      - Current workload and available time slots
-      - Historical data about similar tasks
-      
-      Task: ${title}
-      Description: ${description}
-      Context: ${JSON.stringify(context)}
-      
-      Return structured chunks with estimates, dependencies, and optimal sequencing.
-    `;
-    
-    // Advanced GPT-4 integration with context awareness
-  }
-  
-  async predictTaskDuration(task, historicalData) {
-    // Machine learning based duration prediction
-  }
-  
-  async optimizeTaskOrder(tasks, constraints) {
-    // Advanced scheduling optimization
-  }
-}
-```
+### Monitoring & Observability
+- **Health Checks**: Function Health Monitoring
+- **Custom Metrics**: Task-Creation Rate, Response Times
+- **Alerting**: Bei Fehlern oder Performance-Problemen
 
-#### AI Features (geplant):
-- **Context-Aware Chunking**: Berücksichtigung von Arbeitskontext und Energielevels
-- **Duration Prediction**: ML-basierte Schätzung von Aufgabendauern
-- **Optimal Scheduling**: AI-optimierte Reihenfolge basierend auf Constraints
-- **Productivity Insights**: Personalisierte Empfehlungen zur Produktivitätssteigerung
+## Priorisierung
 
-## Phase 4: Advanced Integration (Fernzukunft)
+### Hoch (Sofort nach Go-Live)
+1. Frontend UX Verbesserungen
+2. Error Handling & Loading States
+3. Mobile Responsive Design
+4. Basic Performance Monitoring
 
-### 4.1 Multi-Tenant Architecture
-**Komplexität**: Sehr Hoch  
-**Geschätzter Aufwand**: 40-50 Stunden
+### Mittel (Monat 2-3)
+1. Erweiterte Kalender-Features
+2. Einfache Reports
+3. Task-Projekt-Verknüpfungen
+4. Wochen-Übersicht
 
-#### Team Management
-- **Shared Calendars**: Teams können Kalender teilen und koordinieren
-- **Task Delegation**: Aufgaben zwischen Teammitgliedern übertragen
-- **Progress Tracking**: Team-weite Fortschrittsverfolgung
-- **Resource Management**: Kapazitätsplanung für Teams
+### Niedrig (Experimentell)
+1. Voice Control (Browser-basiert)
+2. CSV Import/Export
+3. Advanced Analytics
+4. Team Features
 
-### 4.2 Advanced Analytics & ML
-**Komplexität**: Sehr Hoch  
-**Geschätzter Aufwand**: 30-40 Stunden
+## Aufwand-Zusammenfassung
 
-#### Predictive Analytics
-- **Burnout Prediction**: Frühwarnsystem für Überlastung
-- **Optimal Work Patterns**: Personalisierte Arbeitsrhythmus-Empfehlungen
-- **Task Success Prediction**: Wahrscheinlichkeit für rechtzeitige Fertigstellung
-- **Capacity Forecasting**: Vorhersage zukünftiger Arbeitskapazität
+- **Sofortige Verbesserungen**: 8-12 Stunden
+- **Mittelfristige Erweiterungen**: 20-30 Stunden  
+- **Experimentelle Features**: 40-60 Stunden
+- **Technische Verbesserungen**: 15-25 Stunden
 
-### 4.3 External Integrations
-**Komplexität**: Mittel-Hoch  
-**Geschätzter Aufwand**: 20-30 Stunden
+**Gesamtaufwand für alle Refinements**: ~85-130 Stunden
 
-#### Integration Targets
-- **Calendar Apps**: Outlook, Google Calendar, Apple Calendar
-- **Project Management**: Jira, Asana, Trello
-- **Communication**: Slack, Teams, Discord
-- **Time Tracking**: Toggl, RescueTime, Clockify
+## Empfehlung
 
-## Technische Schulden & Verbesserungen
+**Phase 1** (erste 2 Wochen): Fokus auf Stabilität und Usability  
+**Phase 2** (Monat 2-3): Produktivitäts-Features hinzufügen  
+**Phase 3** (ab Monat 4): Experimentelle Features je nach Bedarf
 
-### Performance Optimizations (Zukünftig)
-- **Caching Layer**: Redis für häufig genutzte Daten
-- **CDN Integration**: Static Assets über Azure CDN
-- **Database Indexing**: Optimierte Abfragen für große Datenmengen
-- **Background Processing**: Queue-basierte Verarbeitung für schwere Operationen
-
-### Security Enhancements (Zukünftig)
-- **Advanced Authentication**: Multi-Factor Authentication
-- **Data Encryption**: End-to-End Verschlüsselung für sensitive Daten
-- **Audit Logging**: Detaillierte Protokollierung aller Aktionen
-- **GDPR Compliance**: Vollständige Datenschutz-Compliance
-
-### Monitoring & Observability (Zukünftig)
-- **Application Insights**: Detaillierte Performance-Metriken
-- **Custom Dashboards**: Business Intelligence Dashboards
-- **Alert System**: Proaktive Benachrichtigungen bei Problemen
-- **Health Checks**: Automatisierte System-Gesundheitsprüfungen
-
-## Mobile & Cross-Platform (Spätere Iteration)
-
-### Progressive Web App Enhancements
-- **Offline-First**: Vollständige Offline-Funktionalität
-- **Push Notifications**: Erinnerungen und Updates
-- **Background Sync**: Synchronisation bei Netzwerk-Wiederherstellung
-- **Install Prompts**: Native App-ähnliche Installation
-
-### Native Mobile Apps (Fernzukunft)
-- **React Native**: Cross-platform mobile Apps
-- **Platform-specific Features**: Kamera, Standort, Kontakte
-- **Biometric Authentication**: Fingerprint, Face ID
-- **Siri/Google Assistant**: Voice Assistant Integration
-
-## Priorisierung für zukünftige Sprints
-
-### Hohe Priorität (Nächste 3 Monate)
-1. **Basic Calendar System**: Vereinfachte Version des Kalender-Systems
-2. **Simple Voice Control**: Grundlegende Sprachbefehle
-3. **Weekly Reports**: Basis-Reporting-Funktionalität
-
-### Mittlere Priorität (3-6 Monate)
-1. **Advanced Calendar**: Vollständiges Kalendersystem mit Auto-Scheduling
-2. **Enhanced Voice Control**: Erweiterte KI-basierte Sprachverarbeitung
-3. **Task Optimization**: AI-enhanced Task Management
-
-### Niedrige Priorität (6+ Monate)
-1. **Team Features**: Multi-User Funktionalität
-2. **External Integrations**: Drittanbieter-Integrationen
-3. **Advanced Analytics**: Predictive Analytics und ML
-
-## Schätzungen für Refinement Items
-
-### Gesamtaufwand nach Kategorien
-- **Calendar System**: 20-25 Stunden
-- **Voice Control**: 15-20 Stunden
-- **Reporting**: 12-15 Stunden
-- **AI Enhancements**: 25-30 Stunden
-- **Multi-Tenant**: 40-50 Stunden
-- **Analytics & ML**: 30-40 Stunden
-- **Integrations**: 20-30 Stunden
-
-**Gesamtaufwand für alle Refinement Items**: ~162-210 Stunden
-
-### Empfohlene Iteration Schedule
-- **Q2 2024**: Phase 3 (Enhanced Features) - 50-60 Stunden
-- **Q3 2024**: Performance & Security Improvements - 30-40 Stunden
-- **Q4 2024**: Advanced Integration & Analytics - 50-70 Stunden
-- **Q1 2025**: Mobile & Cross-Platform - 40-50 Stunden
-
-## Risiken für zukünftige Implementierungen
-
-### Technische Risiken
-1. **AI API Costs**: OpenAI API Kosten können bei intensiver Nutzung steigen
-2. **Voice Processing Latency**: Echtzeit-Sprachverarbeitung kann langsam sein
-3. **Calendar Complexity**: Terminplanung-Algorithmen sind mathematisch komplex
-4. **Storage Scalability**: Markdown-Files können bei vielen Usern unhandlich werden
-
-### Business Risiken
-1. **Feature Creep**: Zu viele Features können die Einfachheit gefährden
-2. **User Adoption**: Komplexe Features könnten Nutzer überfordern
-3. **Maintenance Overhead**: Mehr Features bedeuten mehr Wartungsaufwand
-4. **Competition**: Andere Tools könnten ähnliche Features schneller implementieren
-
-### Mitigation Strategies
-1. **Schrittweise Einführung**: Features schrittweise und optional einführen
-2. **User Feedback**: Intensive Nutzertests vor größeren Feature-Releases
-3. **Performance Monitoring**: Kontinuierliche Überwachung der System-Performance
-4. **Modular Architecture**: Features modular implementieren für einfache Wartung
+Das Ziel sollte sein, das **minimalistische Konzept beizubehalten** und nur Features hinzuzufügen, die den Workflow messbar verbessern, ohne die Einfachheit zu gefährden.
 
 ---
 
-**Erstellt**: 2024-01-20  
-**Version**: 1.0  
-**Status**: Refinement Backlog - Für zukünftige Planung
-
-**Empfehlung**: Diese Features sollten erst nach erfolgreicher Implementierung und Stabilisierung der Grundfunktionalität (Phase 1-2) angegangen werden.
+**Wichtiger Hinweis**: Jedes neue Feature sollte erst nach erfolgreicher Nutzung der Basis-Implementation für mindestens 2-4 Wochen evaluiert werden. Die "Spiegelkodex"-Philosophie verlangt bewusste Zurückhaltung bei Feature-Ergänzungen.

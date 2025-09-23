@@ -1,8 +1,22 @@
-# Komplettumbau: Von Next.js zu Azure Functions PWA
+# Komplettumbau: Von Next.js zu minimaler Azure Functions PWA - "Codex Miroir"
 
 ## Executive Summary
 
-Dieses Dokument beschreibt den geplanten kompletten Umbau der CodexMiroir Task Management Applikation von einer Next.js/Express/PostgreSQL Architektur zu einer modernen Azure Functions basierten Progressive Web App (PWA) mit JavaScript und Azure Storage.
+Dieses Dokument beschreibt den kompletten Umbau der CodexMiroir Task Management Applikation zu einer **minimalistischen "Spiegelkodex"-Anwendung** basierend auf dem neuen vereinfachten Konzept. Das Ziel ist eine ultra-schlanke Azure Functions Implementierung mit striktem FIFO-Prinzip und Markdown-basierter Datenhaltung.
+
+## Grundprinzipien des neuen Konzepts
+
+### "Spiegelkodex" Philosophie
+- **Fokus-erzwingend**: Nur der aktuelle Task wird prominent angezeigt
+- **Mentale Entlastung**: Keine editierbare Liste, nur sichtbare FIFO-Warteschlange  
+- **Transparenz**: Zeigt Auftraggebern automatisch die erzeugte Last
+- **Strikte Regeln**: Kein Pausieren, kein Multitasking, nur linearer Abarbeitungsfluss
+
+### Zwei getrennte Backlogs
+- **Beruflich (pro)**: Mo-Fr, 2 Slots pro Tag (Vormittag 09:00-12:30, Nachmittag 13:30-17:00)
+- **Privat (priv)**: Mo-Fr 1 Slot abends (18:00-21:30), Sa/So je 2 Slots (09:00-12:30, 13:30-17:00)
+- **Slot-System**: Jeder Task = exakt 1 Slot = 3,5 Stunden
+- **Mode-Wechsel**: Dark Mode = beruflich, Light Mode = privat
 
 ## Aktuelle Architektur (Ist-Zustand)
 
@@ -21,186 +35,193 @@ Dieses Dokument beschreibt den geplanten kompletten Umbau der CodexMiroir Task M
 - **AI Integration**: OpenAI für Task-Chunking
 - **Storage**: Datenbankbasiert
 
-### Aktuelle Features
-- Dual FIFO Task Management (professional/private)
-- Task Chunking in 3,5h Blöcke
-- Token-basierte Sicherheit
-- OpenAI Integration
-- PWA Funktionalität
-- CSV Export
+## Neue Ziel-Architektur (Vereinfacht)
 
-## Ziel-Architektur (Soll-Zustand)
-
-### Azure Functions Architecture
+### Minimalistische Azure Functions Architecture
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Azure Functions App                      │
+│              Azure Functions App (Single Function)              │
 ├─────────────────────────────────────────────────────────────────┤
-│  Route "/"           │  Route "/api"                            │
-│  ├─ Static PWA UI    │  ├─ GET  /api/tasks/{userId}            │
-│  ├─ Service Worker   │  ├─ POST /api/tasks/{userId}            │
-│  └─ JavaScript       │  ├─ PUT  /api/tasks/{userId}/{taskId}   │
-│                      │  ├─ DELETE /api/tasks/{userId}/{taskId} │
-│                      │  ├─ POST /api/chunk/{userId}            │
-│                      │  ├─ POST /api/voice/{userId}            │
-│                      │  └─ GET  /api/report/{userId}           │
+│  Route: /api/codex?action=ACTION                                │
+│  ├─ createTask    (POST)                                        │
+│  ├─ completeTask  (POST)                                        │
+│  ├─ pushToEnd     (POST)                                        │
+│  ├─ report        (GET)                                         │
+│  └─ when          (GET)                                         │
 └─────────────────────────────────────────────────────────────────┘
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Azure Storage Account                        │
+│                Azure Storage Account (Blob)                     │
 ├─────────────────────────────────────────────────────────────────┤
-│  Container: users                                               │
-│  ├─ {userId}/                                                   │
-│  │  ├─ business-tasks.md                                        │
-│  │  ├─ private-tasks.md                                         │
-│  │  ├─ calendar.md                                              │
-│  │  └─ config.json                                              │
-│  └─ templates/                                                  │
-│     ├─ task-template.md                                         │
-│     └─ calendar-template.md                                     │
+│  Container: codex-miroir                                        │
+│  ├─ pro/                                                        │
+│  │  ├─ current.md      (aktuelle Tasks nach Wochen)            │
+│  │  ├─ archive.md      (abgeschlossene Tasks)                  │
+│  │  └─ tasks/YYYY/YYYY-MM-DD--ID-slug.md                       │
+│  └─ priv/                                                       │
+│     ├─ current.md                                               │
+│     ├─ archive.md                                               │
+│     └─ tasks/YYYY/YYYY-MM-DD--ID-slug.md                        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### User Management System
-- **Secret URLs**: Jeder User hat eine eindeutige, geheime URL mit einem kryptographischen Key
-- **Format**: `https://app.azurewebsites.net/?user={SECRET_KEY}`
-- **Zugriff**: Jeder Secret Key ermöglicht Zugriff auf genau 2 Listen (business + private)
-- **Sicherheit**: 64-Zeichen Hex-String als User-Identifikator
+### Authentifizierung (Vereinfacht)
+- **API-Key basiert**: Einfacher `x-api-key` Header
+- **Kein User-Management**: Ein einziger Nutzer
+- **Sicherheit**: Umgebungsvariable statt komplexer Token-System
 
-### Storage System (Markdown Files)
+### Markdown Storage System (Neue Struktur)
+
+#### Task-Datei Format
 ```markdown
-# Business Tasks - {USER_ID}
-## Metadata
-- Created: 2024-01-15
-- Last Modified: 2024-01-20
-- Total Tasks: 15
-- Active Task: task-003
+---
+id: T-0123
+list: pro              # 'pro' | 'priv'
+title: "API Spec"
+status: geplant        # geplant | aktiv | abgeschlossen
+created_at: 23.09.2025 09:12
+scheduled_slot: 2025-W39-Tue-AM
+duration_slots: 1
+deadline: 30.09.2025 16:00
+project:
+azure_devops:
+requester:
+category_pro: programmierung   # pro: meeting | programmierung
+category_priv:                 # priv: haushalt | projekt
+---
+## Notiz
+kurz…
 
-## Active Task
-### task-003 | Meeting Vorbereitung Q1 Review
-- **Status**: active
-- **Estimated**: 210 minutes (3.5h)
-- **Remaining**: 180 minutes
-- **Deadline**: 2024-01-22T09:00:00Z
-- **Created**: 2024-01-20T08:00:00Z
-- **Priority**: high
-- **Type**: meeting
-
-**Description**: Vorbereitung der Präsentation für Q1 Review Meeting mit Stakeholdern.
-
-## Pending Tasks
-### task-004 | Code Review Microservice Auth
-- **Status**: pending
-- **Estimated**: 210 minutes (3.5h)
-- **Deadline**: 2024-01-25T17:00:00Z
-- **Type**: task
-- **Priority**: medium
-
-**Description**: Review des neuen Authentifizierungs-Microservices inkl. Security Tests.
-
-## Completed Tasks
-### task-001 | Email Migration Plan ✓
-- **Status**: completed
-- **Completed**: 2024-01-19T16:30:00Z
-- **Type**: task
+## Verlauf
+- 23.09.2025 09:15 → geplant in `2025-W39-Tue-AM`
 ```
 
-### JavaScript Migration
-- **Von TypeScript zu JavaScript**: Alle Serverkomponenten werden zu JavaScript konvertiert
-- **Azure Functions Runtime**: Node.js 18+ mit nativen ES6 Modules
-- **Dependency Injection**: Implementierung eines DI Containers
-- **Clean Code**: Modulare Architektur mit klarer Trennung der Verantwortlichkeiten
+#### Current.md (Aktuelle Tasks)
+```markdown
+# Codex Miroir — CURRENT (pro)
 
-### Erweiterte Features
+> Aktueller Slot: `2025-W39-Tue-AM`
 
-#### 1. Calendar System (Neues Feature)
-```
-Wochentag-Schema:
-┌─────────────┬─────────────┬─────────────┐
-│   Montag    │   Dienstag  │   Mittwoch  │
-├─────────────┼─────────────┼─────────────┤
-│ 09:00-12:30 │ 09:00-12:30 │ 09:00-12:30 │ Business Slot 1
-│ 13:30-17:00 │ 13:30-17:00 │ 13:30-17:00 │ Business Slot 2
-│ 18:00-21:30 │ 18:00-21:30 │ 18:00-21:30 │ Private Slot
-└─────────────┴─────────────┴─────────────┘
-
-Wochenende:
-┌─────────────┬─────────────┐
-│   Samstag   │   Sonntag   │
-├─────────────┼─────────────┤
-│ 09:00-12:30 │ 09:00-12:30 │ Private Slot 1
-│ 13:30-17:00 │ 13:30-17:00 │ Private Slot 2
-└─────────────┴─────────────┘
+## Woche 2025-W39
+| Slot-ID           | Task                                | Kategorie        | Deadline        |
+|-------------------|-------------------------------------|------------------|-----------------|
+| 2025-W39-Tue-AM   | [T-0123: API Spec](./tasks/2025/2025-09-23--T-0123-api-spec.md) | programmierung | 30.09.2025 16:00 |
+| 2025-W39-Tue-PM   | [T-0124: Stakeholder Sync](./tasks/2025/2025-09-23--T-0124-sync.md) | meeting      |                 |
 ```
 
-#### 2. Voice Control Integration
-- **Whisper API**: Sprach-zu-Text Konvertierung
-- **OpenAI LLM**: Intent Recognition und Tool Selection
-- **Unterstützte Aktionen**:
-  - "Erstelle neue Aufgabe: [Beschreibung]"
-  - "Markiere aktuelle Aufgabe als erledigt"
-  - "Verschiebe Task [Name] nach oben"
-  - "Zeige mir den Wochenreport"
+#### Archive.md (Abgeschlossene Tasks)
+```markdown
+# Codex Miroir — ARCHIVE (pro)
 
-#### 3. Advanced Task Management
-- **Task Types**: Unterscheidung zwischen `task` und `meeting`
-- **Priority Calculation**: Automatische Priorität basierend auf Deadline und Slack Time
-- **Manual Priority**: Manuelle Überschreibung durch Verschieben
-- **Task Chunking**: AI-gestützte Zerlegung in 3,5h Blöcke
+## Woche 2025-W39
+| Abgeschlossen am     | Slot-ID           | Task                                  | Kategorie        | Dauer |
+|----------------------|-------------------|---------------------------------------|------------------|-------|
+| 24.09.2025 16:45     | 2025-W39-Wed-PM   | [T-0123: API Spec](./tasks/2025/2025-09-23--T-0123-api-spec.md) | programmierung | 1     |
+```
 
-#### 4. Reporting System
+### Vereinfachte API (Eine Function)
+
+#### Azure Function: `index.js`
 ```javascript
-// Weekly Report Structure
-{
-  "week": "2024-W03",
-  "user": "user-123",
-  "business": {
-    "totalTasks": 12,
-    "completedTasks": 10,
-    "meetings": 6,
-    "regularTasks": 4,
-    "totalHours": 35,
-    "meetingRatio": 0.6
-  },
-  "private": {
-    "totalTasks": 8,
-    "completedTasks": 7,
-    "totalHours": 24.5
-  },
-  "efficiency": {
-    "taskCompletionRate": 0.85,
-    "averageTaskDuration": 3.2,
-    "adherenceToSchedule": 0.78
-  }
-}
+const { BlobServiceClient } = require("@azure/storage-blob");
+const matter = require("gray-matter");
+
+// Umgebungsvariablen
+const CONN = process.env.AZURE_BLOB_CONN;
+const CONTAINER = process.env.BLOB_CONTAINER || "codex-miroir";
+const API_KEY = process.env.API_KEY;
+
+// Actions:
+// POST /api/codex?action=createTask
+// POST /api/codex?action=completeTask  
+// POST /api/codex?action=pushToEnd
+// GET  /api/codex?action=report
+// GET  /api/codex?action=when
 ```
 
-## Migration Strategy
+### Datums- und Zeitformat
+- **Sichtbare Daten**: dd.mm.yyyy [HH:MM] (Europäisch)
+- **Slot-IDs**: ISO-like (2025-W39-Tue-AM/PM)
+- **Interne Verarbeitung**: ISO 8601
+- **Konsistenz**: Alle User-sichtbaren Daten im deutschen Format
 
-### Phase 1: Foundation (Woche 1-2)
-1. Azure Functions App Setup
-2. Azure Storage Account Configuration
-3. Basic JavaScript Framework
-4. User Management System
+## JavaScript Migration
+- **Von TypeScript zu JavaScript**: Komplette Umstellung auf Vanilla JavaScript
+- **Begründung**: Einfachheit vor Type Safety
+- **Dependencies**: Minimal (azure/storage-blob + gray-matter)
+- **Framework-frei**: Keine komplexen React-Konstrukte mehr
 
-### Phase 2: Core Migration (Woche 3-4)
-5. Task Management Migration
-6. Markdown Storage Implementation
-7. UI Migration zu JavaScript
-8. Basic Calendar System
+### Task Management Philosophie (Vereinfacht)
 
-### Phase 3: Enhanced Features (Woche 5-6)
-9. Voice Control Integration
-10. Advanced Calendar Logic
-11. Reporting System
-12. Performance Optimization
+#### FIFO-Prinzip (Strikt)
+- **Nur ein aktiver Task**: Prominente Anzeige des aktuellen Tasks
+- **Nicht editierbare Warteschlange**: Pending Tasks nur sichtbar, nicht manipulierbar
+- **Automatisches Verschieben**: Nicht bearbeitbare Tasks wandern ans Ende
+- **Kein Multitasking**: Fokus auf eine Aufgabe zur Zeit
 
-### Phase 4: Testing & Deployment (Woche 7-8)
-13. Comprehensive Testing
-14. User Acceptance Testing
-15. Performance Testing
-16. Production Deployment
+#### Task-Eigenschaften (Reduziert)
+- **Kernfelder**: ID, Titel, Notiz, Slot, Deadline, Kategorie
+- **Zusatzfelder**: Azure DevOps Ticket, Ansprechpartner, Projekt
+- **Kategorien**: 
+  - **Pro**: meeting | programmierung
+  - **Priv**: haushalt | projekt
+- **Feste Dauer**: Jeder Task = 1 Slot = 3,5 Stunden
+
+#### Kalender-System (Wochenbasiert)
+```
+Beruflich (pro):
+Mo-Fr: Vormittag (09:00-12:30) + Nachmittag (13:30-17:00)
+
+Privat (priv):  
+Mo-Fr: Abend (18:00-21:30)
+Sa-So: Vormittag (09:00-12:30) + Nachmittag (13:30-17:00)
+```
+
+## Migration Strategy (Vereinfacht)
+
+### Phase 1: Minimale Azure Function (1-2 Tage)
+1. **Single Function Setup**: Eine Azure Function mit allen Actions
+2. **Blob Storage Integration**: Container + Markdown-Dateien
+3. **API-Key Authentifizierung**: Einfacher Header-basierter Schutz
+
+### Phase 2: Markdown-System (2-3 Tage)  
+4. **Parser Implementation**: gray-matter für Frontmatter
+5. **CRUD Operations**: Create, Complete, PushToEnd Funktionen
+6. **Tabellen-Management**: Wochen-basierte Markdown-Tabellen
+
+### Phase 3: Frontend Anpassung (2-3 Tage)
+7. **API Integration**: Neue Endpunkte anbinden
+8. **UI Vereinfachung**: Fokus auf aktuellen Task
+9. **Theme Integration**: Dark/Light für Pro/Priv
+
+### Phase 4: Testing & Go-Live (1 Tag)
+10. **Integration Tests**: API + Storage Validation
+11. **Performance Tests**: Markdown Parse-Performance
+12. **Deployment**: Azure Functions Deployment
+
+## Erfolgskriterien (Angepasst)
+
+### Technische Kriterien
+- ✅ Eine Azure Function mit 5 Actions
+- ✅ Markdown-basierte Datenhaltung funktional
+- ✅ API Response Times < 500ms
+- ✅ Europäisches Datumsformat durchgängig
+- ✅ Blob Storage zuverlässig
+
+### Funktionale Kriterien
+- ✅ FIFO-Prinzip strikt durchgesetzt
+- ✅ Nur aktueller Task prominent sichtbar
+- ✅ Wochenbasiertes Reporting funktional
+- ✅ Push-to-End für nicht bearbeitbare Tasks
+- ✅ Dark/Light Mode für Pro/Priv Unterscheidung
+
+### Vereinfachungs-Kriterien
+- ✅ Keine User-Management Komplexität
+- ✅ Keine Voice Control in Phase 1
+- ✅ Keine AI-Integration initial
+- ✅ Minimale Dependencies (nur 2 NPM packages)
+- ✅ Wartbare, übersichtliche Codebasis
 
 ## Risiken und Mitigation
 
