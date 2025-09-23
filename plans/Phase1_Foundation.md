@@ -4,10 +4,11 @@
 Diese Phase implementiert eine **ultra-minimalistische Azure Function** basierend auf dem neuen Konzept. Fokus liegt auf Einfachheit und dem strikten FIFO-Prinzip ohne komplexe User-Management oder DI-Container.
 
 ## Ziele
-- Eine Azure Function mit allen 5 Actions
+- Eine Azure Function mit Voice-Enhanced Actions (8 statt 5)
 - Azure Blob Storage für Markdown-Dateien  
 - API-Key basierte Authentifizierung
 - Europäisches Datumsformat durchgängig
+- Voice-First Interface mit Web Speech API Integration
 
 ## Vereinfachte Struktur
 ```
@@ -23,7 +24,7 @@ codex-miroir-fn/
 ### 1.1 Azure Functions Projekt Setup (1 Stunde)
 **Geschätzter Aufwand**: 1 Stunde
 
-#### Minimale Dependencies
+#### Minimale Dependencies + Voice Support
 ```json
 {
   "name": "codex-miroir-fn",
@@ -32,7 +33,8 @@ codex-miroir-fn/
   "main": "index.js",
   "dependencies": {
     "@azure/storage-blob": "^12.18.0",
-    "gray-matter": "^4.0.3"
+    "gray-matter": "^4.0.3",
+    "axios": "^1.6.0"
   }
 }
 ```

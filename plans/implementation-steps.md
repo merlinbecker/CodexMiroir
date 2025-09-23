@@ -28,8 +28,8 @@ cd codex-miroir-fn
 # Functions Projekt initialisieren (JavaScript, v4)
 func init . --javascript --model v4
 
-# Minimale Dependencies
-npm install @azure/storage-blob gray-matter
+# Minimale Dependencies + Voice Support
+npm install @azure/storage-blob gray-matter axios
 ```
 
 ### Schritt 1.2: Function Configuration (15 Min)
@@ -67,12 +67,90 @@ npm install @azure/storage-blob gray-matter
 }
 ```
 
-### Schritt 1.3: Komplette Function Implementation (3-4 Stunden)
-**Direkt die vollständige index.js aus concept_new.md übernehmen**
+### Schritt 1.3: Voice-Enhanced Function Implementation (4-5 Stunden)
+**Erweitere die minimale index.js aus concept_new.md mit Voice-Funktionalität**
 
 ```javascript
-// index.js (vollständige Implementierung wie im Konzept)
+// Erweiterte index.js mit Voice Features
 const { BlobServiceClient } = require("@azure/storage-blob");
+const matter = require("gray-matter");
+const axios = require("axios"); // NEU für OpenAI Integration
+
+// Existing code from concept_new.md +
+// NEW Voice Functions:
+
+// Voice Command Processing
+async function processCommand(body) {
+  const { text, list } = body;
+  
+  const prompt = `
+Du bist ein deutscher Task-Management-Assistent für "Codex Miroir".
+Analysiere diesen Sprachbefehl: "${text}"
+Modus: ${list} (pro = beruflich, priv = privat)
+
+Verfügbare Aktionen:
+- create_task: Neue Aufgabe erstellen
+- complete_task: Aktuelle Aufgabe abschließen  
+- push_to_end: Aufgabe ans Ende verschieben
+- get_status: Status abfragen
+
+Antworte in JSON mit intent, parameters und response.
+`;
+
+  const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+    model: 'gpt-4',
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.3
+  }, {
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  const result = JSON.parse(response.data.choices[0].message.content);
+  
+  // Execute recognized action
+  if (result.intent === 'create_task' && result.parameters.title) {
+    await createTask({
+      list,
+      id: generateTaskId(),
+      title: result.parameters.title,
+      created_at_iso: new Date().toISOString(),
+      scheduled_slot: getNextSlot(list),
+      category: result.parameters.category || (list === 'pro' ? 'programmierung' : 'projekt')
+    });
+    result.executed = true;
+  }
+  
+  return result;
+}
+
+// Task Decomposition
+async function decomposeTask(body) {
+  // AI-powered task breakdown into 3.5h chunks
+}
+
+// Voice-optimized Current Task
+async function getCurrentTask(query) {
+  // Returns task info optimized for voice response
+}
+
+// Updated Main Function with new voice actions
+module.exports = async function (context, req) {
+  // ... existing actions from concept_new.md
+  
+  // NEW Voice actions
+  if (req.method === "POST" && action === "processcommand") {
+    return context.res = { status: 200, jsonBody: await processCommand(req.body || {}) };
+  }
+  if (req.method === "POST" && action === "decomposetask") {
+    return context.res = { status: 200, jsonBody: await decomposeTask(req.body || {}) };
+  }
+  if (req.method === "GET" && action === "getcurrenttask") {
+    return context.res = { status: 200, jsonBody: await getCurrentTask(req.query) };
+  }
+};
 const matter = require("gray-matter");
 
 // Alle Helper Functions und Actions wie in concept_new.md
@@ -123,17 +201,18 @@ az functionapp config appsettings set \
 func azure functionapp publish codex-miroir-fn
 ```
 
-### Schritt 2.2: Frontend API Integration (2-3 Stunden)
-**Anpassung der bestehenden React App**
+### Schritt 2.2: Voice-Enhanced Frontend Integration (3-4 Stunden)
+**Erweiterte React App mit Voice-First Interface**
 
 ```javascript
-// Neue API Service Klasse
-class CodexAPI {
+// Voice-Enhanced API Service Klasse
+class VoiceCodexAPI {
   constructor() {
     this.baseURL = 'https://codex-miroir-fn.azurewebsites.net/api/codex';
     this.apiKey = process.env.REACT_APP_API_KEY;
   }
 
+  // Existing task operations
   async createTask(list, taskData) {
     const response = await fetch(`${this.baseURL}?action=createTask`, {
       method: 'POST',
@@ -147,28 +226,45 @@ class CodexAPI {
         title: taskData.title,
         created_at_iso: new Date().toISOString(),
         scheduled_slot: this.getNextSlot(list),
-        category: taskData.category
+        category: taskData.category,
+        deadline_iso: taskData.deadline
       })
     });
     return response.json();
   }
 
-  async completeCurrentTask(list) {
-    const currentTask = await this.getCurrentTask(list);
-    if (!currentTask) return null;
-
-    return fetch(`${this.baseURL}?action=completeTask`, {
+  // NEW: Voice command processing
+  async processVoiceCommand(text, list) {
+    const response = await fetch(`${this.baseURL}?action=processCommand`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': this.apiKey
       },
-      body: JSON.stringify({
-        list,
-        taskPathAbs: currentTask.path,
-        closed_at_iso: new Date().toISOString()
-      })
+      body: JSON.stringify({ text, list })
     });
+    return response.json();
+  }
+
+  // NEW: Task decomposition
+  async decomposeTask(title, description, list) {
+    const response = await fetch(`${this.baseURL}?action=decomposeTask`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.apiKey
+      },
+      body: JSON.stringify({ title, description, list })
+    });
+    return response.json();
+  }
+
+  // NEW: Voice-optimized current task
+  async getCurrentTaskVoice(list) {
+    const response = await fetch(`${this.baseURL}?action=getCurrentTask&list=${list}`, {
+      headers: { 'x-api-key': this.apiKey }
+    });
+    return response.json();
   }
 
   generateTaskId() {
@@ -177,47 +273,224 @@ class CodexAPI {
 }
 ```
 
-### Schritt 2.3: UI Vereinfachung (1-2 Stunden)
-**Anpassung der React Komponenten**
+### Schritt 2.3: Voice-First UI Components (2-3 Stunden)
+**Vereinfachte React Komponenten mit Voice-Fokus**
 
 ```jsx
-// Vereinfachte CurrentTask Komponente
-function CurrentTask({ list }) {
-  const [currentTask, setCurrentTask] = useState(null);
-  const api = new CodexAPI();
+// Voice-Enhanced TaskInput Component
+function VoiceTaskInput({ currentMode, onTaskUpdate, isLoading }) {
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [lastResponse, setLastResponse] = useState('');
+  const [showManualInput, setShowManualInput] = useState(false);
+  
+  const api = new VoiceCodexAPI();
+  const recognition = useRef(null);
 
   useEffect(() => {
-    loadCurrentTask();
-  }, [list]);
+    // Initialize Web Speech API
+    if ('webkitSpeechRecognition' in window) {
+      recognition.current = new webkitSpeechRecognition();
+      recognition.current.continuous = false;
+      recognition.current.interimResults = false;
+      recognition.current.lang = 'de-DE';
+      
+      recognition.current.onresult = (event) => {
+        const result = event.results[0][0].transcript;
+        setTranscript(result);
+        handleVoiceCommand(result);
+      };
+      
+      recognition.current.onend = () => setIsListening(false);
+      recognition.current.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+    }
+  }, []);
 
-  const loadCurrentTask = async () => {
-    // Lade aktuellen Task aus current.md
-    const tasks = await api.getCurrentTasks(list);
-    setCurrentTask(tasks[0] || null);
+  const startListening = () => {
+    if (recognition.current && !isProcessing) {
+      setIsListening(true);
+      setTranscript('');
+      setLastResponse('');
+      recognition.current.start();
+    }
   };
 
-  const completeTask = async () => {
-    await api.completeCurrentTask(list);
-    loadCurrentTask(); // Reload
+  const stopListening = () => {
+    if (recognition.current) {
+      recognition.current.stop();
+    }
   };
 
-  if (!currentTask) {
-    return <div className="no-task">Keine aktiven Tasks</div>;
-  }
+  const handleVoiceCommand = async (text) => {
+    setIsProcessing(true);
+    try {
+      const result = await api.processVoiceCommand(
+        text, 
+        currentMode === 'professional' ? 'pro' : 'priv'
+      );
+      
+      setLastResponse(result.response);
+      
+      if (result.executed) {
+        onTaskUpdate(); // Trigger UI refresh
+      }
+      
+      // Speak response back to user
+      if ('speechSynthesis' in window && result.response) {
+        const utterance = new SpeechSynthesisUtterance(result.response);
+        utterance.lang = 'de-DE';
+        utterance.rate = 0.9;
+        speechSynthesis.speak(utterance);
+      }
+      
+    } catch (error) {
+      const errorMsg = 'Entschuldigung, ich konnte den Befehl nicht verarbeiten.';
+      setLastResponse(errorMsg);
+      
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(errorMsg);
+        utterance.lang = 'de-DE';
+        speechSynthesis.speak(utterance);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const list = currentMode === 'professional' ? 'pro' : 'priv';
+  const isBlocked = isLoading || isProcessing;
 
   return (
-    <div className="current-task">
-      <h2>{currentTask.title}</h2>
-      <p>Kategorie: {currentTask.category}</p>
-      {currentTask.deadline && (
-        <p>Deadline: {currentTask.deadline}</p>
+    <div className="voice-input-container p-6 border-t border-border bg-gradient-to-t from-card to-background">
+      {/* Main Voice Button */}
+      <div className="text-center space-y-4">
+        <button
+          onClick={isListening ? stopListening : startListening}
+          disabled={isBlocked}
+          className={`w-24 h-24 rounded-full transition-all duration-300 ${
+            isListening 
+              ? 'bg-red-500 text-white animate-pulse scale-110 shadow-lg shadow-red-500/50' 
+              : isProcessing
+              ? 'bg-amber-500 text-white animate-bounce'
+              : 'bg-primary text-primary-foreground hover:scale-105 shadow-lg'
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {isListening ? (
+            <MicOff className="w-10 h-10 mx-auto" />
+          ) : isProcessing ? (
+            <Loader className="w-10 h-10 mx-auto animate-spin" />
+          ) : (
+            <Mic className="w-10 h-10 mx-auto" />
+          )}
+        </button>
+        
+        {/* Status Text */}
+        <div className="text-base font-medium">
+          {isListening && (
+            <span className="text-red-500 animate-pulse">🎤 Ich höre...</span>
+          )}
+          {isProcessing && (
+            <span className="text-amber-500">⚙️ Verarbeite Befehl...</span>
+          )}
+          {!isListening && !isProcessing && (
+            <span className="text-muted-foreground">
+              Taste drücken und sprechen
+            </span>
+          )}
+        </div>
+      </div>
+      
+      {/* Transcript Display */}
+      {transcript && (
+        <div className="mt-4 p-3 bg-accent rounded-lg border">
+          <div className="text-sm font-medium text-accent-foreground">
+            💬 Gehört:
+          </div>
+          <div className="text-accent-foreground/80 italic">
+            "{transcript}"
+          </div>
+        </div>
       )}
-      <button onClick={completeTask} className="complete-btn">
-        Task abschließen
-      </button>
+      
+      {/* Response Display */}
+      {lastResponse && (
+        <div className="mt-3 p-3 bg-secondary rounded-lg border">
+          <div className="text-sm font-medium text-secondary-foreground">
+            🤖 Antwort:
+          </div>
+          <div className="text-secondary-foreground/80">
+            {lastResponse}
+          </div>
+        </div>
+      )}
+      
+      {/* Voice Commands Help */}
+      <details className="mt-4">
+        <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+          💡 Verfügbare Sprachbefehle anzeigen
+        </summary>
+        <div className="mt-2 text-xs text-muted-foreground space-y-1">
+          <div><strong>Aufgaben:</strong> "Erstelle Aufgabe: [Titel]"</div>
+          <div><strong>Abschließen:</strong> "Aufgabe erledigt"</div>
+          <div><strong>Verschieben:</strong> "Ans Ende verschieben"</div>
+          <div><strong>Status:</strong> "Wie ist der Status?"</div>
+          <div><strong>Modus:</strong> "Wechsle zu privat/beruflich"</div>
+        </div>
+      </details>
+      
+      {/* Manual Input Fallback */}
+      <div className="mt-4 text-center">
+        <button
+          onClick={() => setShowManualInput(!showManualInput)}
+          className="text-xs text-muted-foreground hover:text-foreground underline"
+        >
+          ⌨️ Manuelle Eingabe {showManualInput ? 'ausblenden' : 'anzeigen'}
+        </button>
+      </div>
+      
+      {showManualInput && (
+        <div className="mt-3 space-y-2">
+          <input
+            type="text"
+            placeholder="Text-Befehl eingeben..."
+            className="w-full px-3 py-2 bg-input border border-border rounded-md text-sm"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handleVoiceCommand(e.target.value);
+                e.target.value = '';
+              }
+            }}
+          />
+          <div className="text-xs text-muted-foreground">
+            Enter drücken zum Ausführen
+          </div>
+        </div>
+      )}
+      
+      {/* Mode Indicator */}
+      <div className="mt-4 text-center">
+        <span className="inline-flex items-center text-sm text-muted-foreground">
+          {currentMode === 'professional' ? (
+            <>
+              <Moon className="w-4 h-4 mr-2" />
+              Beruflicher Modus
+            </>
+          ) : (
+            <>
+              <Sun className="w-4 h-4 mr-2" />
+              Privater Modus
+            </>
+          )}
+        </span>
+      </div>
     </div>
   );
 }
+```
 ```
 
 ### Schritt 2.4: Slot-System Integration (1 Stunde)
@@ -375,11 +648,11 @@ time curl -H "x-api-key: $API_KEY" \
 
 ---
 
-**Geschätzter Gesamtaufwand**: 10-16 Stunden  
-**Dauer**: 2-3 Arbeitstage  
-**Komplexitätsreduktion**: 80% weniger Aufwand als ursprünglich geplant
+**Geschätzter Gesamtaufwand**: 12-18 Stunden  
+**Dauer**: 2-3 Arbeitstage (erweitert für Voice Features)  
+**Komplexitätsreduktion**: 70% weniger Code als ursprünglich geplant
 
-**Kritischer Erfolgsfaktor**: Das neue Konzept ist so viel einfacher, dass die meiste Zeit für Testing und Polishing verwendet werden kann statt für komplexe Architektur-Implementierung.
+**Kritischer Erfolgsfaktor**: Voice-First Interface macht das System hands-free nutzbar und steigert die Produktivität erheblich. Die minimalistische Architektur bleibt bestehen, wird aber um intelligente Sprachverarbeitung erweitert.
 
 ## Phase 2: Task Management Migration (3-4 Arbeitstage)
 
