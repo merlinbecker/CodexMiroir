@@ -12,6 +12,8 @@ All requests require authentication via API key:
 
 ## Endpoints
 
+### Core Task Management
+
 ### 1. Create Task
 **POST** `/api/codex?action=createTask`
 
@@ -129,6 +131,107 @@ Returns the next available time slot for new tasks.
 {
   "nextSlot": "2025-W39-Mon-AM",
   "message": "Nächster verfügbarer Slot: Montag Vormittag"
+}
+```
+
+### Voice Command Processing
+
+### 6. Process Voice Command
+**POST** `/api/codex?action=processCommand`
+
+Processes natural language voice commands and executes appropriate actions.
+
+**Request Body:**
+```json
+{
+  "text": "Erstelle eine neue Aufgabe: Meeting vorbereiten",  // Required: Voice command text
+  "list": "pro"                                          // Required: "pro" or "priv"
+}
+```
+
+**Response:**
+```json
+{
+  "intent": "create_task",
+  "parameters": {
+    "title": "Meeting vorbereiten",
+    "category": "meeting"
+  },
+  "response": "Ich erstelle die Aufgabe 'Meeting vorbereiten' für dich.",
+  "confidence": 0.95,
+  "executed": true,
+  "taskId": "T-001234567",
+  "fallback": false
+}
+```
+
+### 7. Decompose Task
+**POST** `/api/codex?action=decomposeTask`
+
+Uses AI to break down large tasks into 3.5-hour chunks.
+
+**Request Body:**
+```json
+{
+  "list": "pro",                                         // Required: "pro" or "priv"
+  "title": "Neue Website entwickeln",                    // Required: Task title
+  "description": "Komplette Neuentwicklung der Website", // Optional: Task description
+  "estimated_hours": 14                                  // Optional: Estimated total hours
+}
+```
+
+**Response:**
+```json
+{
+  "subtasks": [
+    {
+      "title": "Konzept und Wireframes erstellen",
+      "estimated_hours": 3.5,
+      "order": 1
+    },
+    {
+      "title": "Design und Mockups entwickeln", 
+      "estimated_hours": 3.5,
+      "order": 2
+    }
+  ],
+  "total_slots": 4,
+  "notes": "Empfehlung: Zwischen Design und Entwicklung Feedback einholen",
+  "fallback": false
+}
+```
+
+### 8. Get Current Task (Voice-Optimized)
+**GET** `/api/codex?action=getCurrentTask`
+
+Returns current task information optimized for voice responses.
+
+**Request Body:**
+```json
+{
+  "list": "pro"  // Required: "pro" or "priv"
+}
+```
+
+**Response:**
+```json
+{
+  "hasTask": true,
+  "currentTask": {
+    "slot": "2025-W39-Tue-AM",
+    "task": "T-001: API Specification",
+    "category": "programmierung",
+    "deadline": "30.09.2025"
+  },
+  "taskDetails": {
+    "id": "T-001",
+    "title": "API Specification",
+    "status": "geplant"
+  },
+  "message": "Aktuelle Aufgabe: T-001: API Specification",
+  "voiceResponse": "Deine aktuelle berufliche Aufgabe ist: T-001: API Specification. Geplant für 2025-W39-Tue-AM, Deadline 30.09.2025. Kategorie: programmierung.",
+  "slot": "2025-W39-Tue-AM",
+  "deadline": "30.09.2025"
 }
 ```
 
