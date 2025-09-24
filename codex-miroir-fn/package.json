@@ -1,0 +1,14 @@
+{
+  "name": "codex-miroir-fn",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "index.js",
+  "dependencies": {
+    "@azure/storage-blob": "^12.18.0",
+    "gray-matter": "^4.0.3",
+    "axios": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
