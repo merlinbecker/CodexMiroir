@@ -1,20 +1,20 @@
-# Azure Function Integration Setup
+# CodexMiroir - Azure Function Only
 
-This document describes how the frontend has been integrated into the Azure Function app.
+Azure Function-only PWA implementation of the CodexMiroir task management system.
 
 ## Architecture Overview
 
-The Azure Function app now serves both:
-1. **API endpoints** at `/api/codex` - The existing task management API
-2. **Frontend assets** at `/` (root) - The React client application
+Single Azure Function app serving:
+1. **API endpoints** at `/api/codex` - Task management API with voice integration
+2. **Frontend PWA** at `/` (root) - Static PWA with offline functionality
 
 ## Directory Structure
 
 ```
-codex-miroir-fn/
+/ (Root)
 ├── host.json                    # Function app configuration
-├── package.json                 # Dependencies
-├── index.html                   # Main frontend entry point
+├── package.json                 # Azure Function dependencies
+├── index.html                   # PWA entry point
 ├── manifest.json                # PWA manifest
 ├── sw.js                        # Service worker
 ├── assets/                      # Built CSS and JS assets
@@ -22,10 +22,14 @@ codex-miroir-fn/
 │   └── index-BRPh6qcI.js
 ├── codex/                       # API function
 │   ├── function.json           # Route: api/codex
-│   └── index.js                # Task management API
-└── static/                      # Static file serving function
-    ├── function.json           # Route: {*path} (catch-all)
-    └── index.js                # Static file server
+│   └── index.js                # Task management API with voice processing
+├── static/                      # Static file serving function
+│   ├── function.json           # Route: {*path} (catch-all)
+│   └── index.js                # Static file server
+├── test.js                      # Test suite
+├── documentation/               # Project documentation
+├── plans/                       # Implementation plans
+└── attached_assets/             # Project assets
 ```
 
 ## Configuration Changes
@@ -47,14 +51,13 @@ codex-miroir-fn/
 ## Deployment
 
 ### Prerequisites
-1. Build the frontend: `cd /path/to/project && npm run build`
-2. Copy built assets to function directory (already done)
+- Azure Functions Core Tools v4
+- Node.js 18+
+- Azure account and resource group
 
 ### Azure Function Deployment
 ```bash
-cd codex-miroir-fn
-
-# Deploy to Azure
+# Deploy from root directory
 func azure functionapp publish codex-miroir-fn
 
 # Configure environment variables
@@ -62,19 +65,26 @@ az functionapp config appsettings set \
   --name codex-miroir-fn \
   --resource-group myResourceGroup \
   --settings \
-    "AZURE_BLOB_CONN=..." \
-    "API_KEY=your-secure-key" \
+    "AZURE_BLOB_CONN=your-storage-connection-string" \
+    "API_KEY=your-secure-api-key" \
+    "OPENAI_API_KEY=your-openai-key" \
     "AZUREWEBJOBSDISABLEHOMEPAGE=true"
 ```
 
 ## Testing
 
-The integration includes test files:
-- `verify-setup.js` - Validates file structure and configuration
-- `test-static.js` - Tests static file serving logic
-- `test-api.js` - Validates API function still works
+Run the comprehensive test suite:
+```bash
+node test.js
+```
 
-All tests pass ✅
+Tests include:
+- Voice command processing validation
+- Task management API functionality  
+- Static file serving logic
+- PWA offline capabilities
+
+All tests should pass ✅
 
 ## Frontend Access
 
