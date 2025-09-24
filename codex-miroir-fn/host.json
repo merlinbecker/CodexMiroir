@@ -5,5 +5,8 @@
       "routePrefix": ""
     }
   },
-  "functionTimeout": "00:02:00"
+  "functionTimeout": "00:02:00",
+  "environmentVariables": {
+    "AZUREWEBJOBSDISABLEHOMEPAGE": "true"
+  }
 }

@@ -6,7 +6,7 @@
       "direction": "in", 
       "name": "req", 
       "methods": ["get","post"], 
-      "route": "codex" 
+      "route": "api/codex" 
     },
     { 
       "type": "http", 
