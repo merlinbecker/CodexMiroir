@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodexMiroir - Task Management</title>
+    
+    <!-- Include Tailwind CSS from CDN for quick setup -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom CSS Variables for Design System -->
+    <style>
+        :root {
+            --background: hsl(60, 54%, 96%);
+            --foreground: hsl(240, 10%, 3.9%);
+            --card: hsl(60, 54%, 98%);
+            --card-foreground: hsl(240, 10%, 3.9%);
+            --primary: hsl(262, 83%, 58%);
+            --primary-foreground: hsl(60, 54%, 98%);
+            --secondary: hsl(60, 4.8%, 95.9%);
+            --secondary-foreground: hsl(240, 5.9%, 10%);
+            --muted: hsl(60, 4.8%, 95.9%);
+            --muted-foreground: hsl(240, 3.8%, 46.1%);
+            --accent: hsl(262, 83%, 95%);
+            --accent-foreground: hsl(262, 83%, 58%);
+            --destructive: hsl(356.3033, 90.5579%, 54.3137%);
+            --destructive-foreground: hsl(0, 0%, 100%);
+            --border: hsl(240, 5.9%, 90%);
+            --input: hsl(240, 5.9%, 90%);
+            --ring: hsl(262, 83%, 58%);
+            --radius: 0.5rem;
+        }
+        
+        .dark {
+            --background: hsl(222, 84%, 4.9%);
+            --foreground: hsl(210, 40%, 98%);
+            --card: hsl(222, 84%, 8%);
+            --primary: hsl(210, 40%, 85%);
+            --secondary: hsl(217, 32%, 17%);
+            --muted: hsl(217, 32%, 17%);
+            --accent: hsl(217, 32%, 17%);
+            --border: hsl(217, 32%, 17%);
+            --input: hsl(217, 32%, 17%);
+        }
+        
+        body {
+            background-color: var(--background);
+            color: var(--foreground);
+            font-family: Inter, system-ui, sans-serif;
+        }
+        
+        .card {
+            background-color: var(--card);
+            color: var(--card-foreground);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+        }
+        
+        .btn-secondary {
+            background-color: var(--secondary);
+            color: var(--secondary-foreground);
+        }
+        
+        .btn-destructive {
+            background-color: var(--destructive);
+            color: var(--destructive-foreground);
+        }
+        
+        .input {
+            background-color: var(--background);
+            border: 1px solid var(--input);
+            color: var(--foreground);
+        }
+        
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .task-card {
+            transition: all 0.2s ease;
+        }
+        
+        .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .priority-high {
+            border-left: 4px solid hsl(356, 90%, 54%);
+        }
+        
+        .priority-medium {
+            border-left: 4px solid hsl(42, 92%, 56%);
+        }
+        
+        .priority-low {
+            border-left: 4px solid hsl(147, 78%, 42%);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <header class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-foreground">CodexMiroir</h1>
+                    <p class="text-muted-foreground">Dual-FIFO Task Management</p>
+                </div>
+                
+                <!-- Mode Toggle -->
+                <div class="flex items-center space-x-2">
+                    <button id="mode-toggle" class="btn-secondary px-4 py-2 rounded-lg transition-colors hover:opacity-80">
+                        <span id="mode-text">Professional</span>
+                    </button>
+                    <button id="theme-toggle" class="btn-secondary p-2 rounded-lg transition-colors hover:opacity-80">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Stats Bar -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="card p-4 rounded-lg">
+                <h3 class="text-sm font-medium text-muted-foreground">Total Tasks</h3>
+                <p class="text-2xl font-bold" id="stats-total">0</p>
+            </div>
+            <div class="card p-4 rounded-lg">
+                <h3 class="text-sm font-medium text-muted-foreground">Pending</h3>
+                <p class="text-2xl font-bold text-yellow-600" id="stats-pending">0</p>
+            </div>
+            <div class="card p-4 rounded-lg">
+                <h3 class="text-sm font-medium text-muted-foreground">In Progress</h3>
+                <p class="text-2xl font-bold text-blue-600" id="stats-progress">0</p>
+            </div>
+            <div class="card p-4 rounded-lg">
+                <h3 class="text-sm font-medium text-muted-foreground">Completed</h3>
+                <p class="text-2xl font-bold text-green-600" id="stats-completed">0</p>
+            </div>
+        </div>
+
+        <!-- Add Task Form -->
+        <div class="card p-6 rounded-lg mb-8">
+            <h2 class="text-xl font-semibold mb-4">Add New Task</h2>
+            <form id="task-form" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Title *</label>
+                        <input type="text" id="task-title" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary" placeholder="Task title" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Priority</label>
+                        <select id="task-priority" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-2">Description</label>
+                    <textarea id="task-description" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary" rows="3" placeholder="Task description"></textarea>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Due Date</label>
+                        <input type="date" id="task-due-date" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Category</label>
+                        <input type="text" id="task-category" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary" placeholder="e.g., Work, Personal">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-primary px-6 py-3 rounded-lg transition-colors hover:opacity-90 focus:ring-2 focus:ring-primary">
+                    <span class="flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2 hidden" id="loading-spinner" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2"/>
+                            <circle cx="12" cy="12" r="10"/>
+                        </svg>
+                        Add Task
+                    </span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Filter and Search -->
+        <div class="card p-4 rounded-lg mb-6">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1">
+                    <input type="text" id="search-input" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary" placeholder="Search tasks...">
+                </div>
+                <div class="flex gap-2">
+                    <select id="status-filter" class="input p-3 rounded-lg focus:ring-2 focus:ring-primary">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                    <select id="priority-filter" class="input p-3 rounded-lg focus:ring-2 focus:ring-primary">
+                        <option value="">All Priorities</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tasks Grid -->
+        <div id="tasks-container" class="space-y-4">
+            <div id="loading-state" class="hidden card p-8 rounded-lg text-center">
+                <div class="animate-pulse">
+                    <div class="w-16 h-16 mx-auto mb-4 bg-muted rounded-full"></div>
+                    <p class="text-muted-foreground">Loading tasks...</p>
+                </div>
+            </div>
+            
+            <div id="empty-state" class="hidden card p-8 rounded-lg text-center">
+                <div class="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
+                    <svg class="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold mb-2">No tasks found</h3>
+                <p class="text-muted-foreground">Create your first task to get started!</p>
+            </div>
+            
+            <!-- Tasks will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <!-- Task Modal for editing -->
+    <div id="task-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="card p-6 rounded-lg max-w-md w-full">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold" id="modal-title">Edit Task</h3>
+                <button id="close-modal" class="text-muted-foreground hover:text-foreground">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="modal-content">
+                <!-- Modal content will be dynamically inserted -->
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

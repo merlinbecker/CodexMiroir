@@ -8,23 +8,29 @@ Single Azure Function app serving:
 1. **API endpoints** at `/api/codex` - Task management API with voice integration
 2. **Frontend PWA** at `/` (root) - Static PWA with offline functionality
 
+### Azure Functions v4 Compatibility
+This project has been updated to use the Azure Functions v4 Node.js programming model:
+- **Main entry point**: `index.js` at root level registers all functions
+- **No function.json files**: Configuration is done in code using the `@azure/functions` package
+- **Backward compatible**: Existing function implementations remain unchanged
+- **Requires**: Azure Functions Core Tools v4 and `@azure/functions` v4 package
+
 ## Directory Structure
 
 ```
 / (Root)
 ├── host.json                    # Function app configuration
 ├── package.json                 # Azure Function dependencies
+├── index.js                     # Main entry point (Azure Functions v4)
 ├── index.html                   # PWA entry point
 ├── manifest.json                # PWA manifest
 ├── sw.js                        # Service worker
 ├── assets/                      # Built CSS and JS assets
 │   ├── index-B5Mxc1fT.css
 │   └── index-BRPh6qcI.js
-├── codex/                       # API function
-│   ├── function.json           # Route: api/codex
+├── codex/                       # API function implementation
 │   └── index.js                # Task management API with voice processing
-├── static/                      # Static file serving function
-│   ├── function.json           # Route: {*path} (catch-all)
+├── static/                      # Static file serving implementation
 │   └── index.js                # Static file server
 ├── test.js                      # Test suite
 ├── documentation/               # Project documentation

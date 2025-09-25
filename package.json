@@ -10,6 +10,7 @@
     "test:ci": "jest --coverage --ci --watchAll=false"
   },
   "dependencies": {
+    "@azure/functions": "^4.0.0",
     "@azure/storage-blob": "^12.18.0",
     "axios": "^1.6.0",
     "gray-matter": "^4.0.3"

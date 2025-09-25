@@ -43,14 +43,29 @@ module.exports = async function (context, req) {
       requestPath = 'index.html';
     }
     
-    // Construct file path - files are in the parent directory alongside this function
-    const filePath = path.join(__dirname, '..', requestPath);
+    // Try multiple locations: frontend first, then assets, then root
+    const possiblePaths = [
+      path.join(__dirname, '..', 'frontend', requestPath),
+      path.join(__dirname, '..', 'assets', requestPath),
+      path.join(__dirname, '..', requestPath)
+    ];
     
-    context.log('Serving file:', filePath);
+    let filePath = null;
+    let fileContent = null;
     
-    try {
-      // Check if file exists and read it
-      const fileContent = await fs.readFile(filePath);
+    // Try each path until we find the file
+    for (const testPath of possiblePaths) {
+      try {
+        fileContent = await fs.readFile(testPath);
+        filePath = testPath;
+        context.log('Serving file from:', testPath);
+        break;
+      } catch (error) {
+        continue; // Try next path
+      }
+    }
+    
+    if (fileContent && filePath) {
       const mimeType = getMimeType(filePath);
       
       context.res = {
@@ -62,12 +77,12 @@ module.exports = async function (context, req) {
         body: fileContent,
         isRaw: true
       };
-    } catch (fileError) {
-      // File not found, serve index.html for SPA routing
-      if (fileError.code === 'ENOENT' && requestPath !== 'index.html') {
-        const indexPath = path.join(__dirname, '..', 'index.html');
+    } else {
+      // File not found in any location, try to serve index.html from frontend for SPA routing
+      if (requestPath !== 'index.html') {
+        const frontendIndexPath = path.join(__dirname, '..', 'frontend', 'index.html');
         try {
-          const indexContent = await fs.readFile(indexPath);
+          const indexContent = await fs.readFile(frontendIndexPath);
           context.res = {
             status: 200,
             headers: {
@@ -81,7 +96,7 @@ module.exports = async function (context, req) {
           context.res = {
             status: 404,
             headers: { 'Content-Type': 'text/html' },
-            body: '<html><body><h1>404 - Frontend not found</h1><p>Please build the frontend first.</p></body></html>'
+            body: '<html><body><h1>404 - Frontend not found</h1><p>Please check that the frontend is properly set up.</p></body></html>'
           };
         }
       } else {
@@ -94,7 +109,7 @@ module.exports = async function (context, req) {
     }
     
   } catch (error) {
-    context.log.error('Static file serving error:', error);
+    context.log('Static file serving error:', error);
     context.res = {
       status: 500,
       headers: { 'Content-Type': 'text/html' },
