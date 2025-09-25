@@ -6,6 +6,13 @@
     }
   },
   "functionTimeout": "00:02:00",
+  "logging": {
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true
+      }
+    }
+  },
   "environmentVariables": {
     "AZUREWEBJOBSDISABLEHOMEPAGE": "true"
   }
