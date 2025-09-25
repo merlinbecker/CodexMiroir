@@ -7,11 +7,19 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        "ms-vscode.vscode-typescript-next",
-        "bradlc.vscode-tailwindcss",
-        "esbenp.prettier-vscode",
-        "ms-vscode.vscode-json"
-      ]
+          "ms-vscode.vscode-typescript-next",
+          "bradlc.vscode-tailwindcss",
+          "esbenp.prettier-vscode",
+          "ms-vscode.vscode-json",
+          "ms-azuretools.vscode-azurefunctions"
+        ],
+        "settings": {
+          "azureFunctions.deploySubpath": "./",
+          "azureFunctions.projectLanguage": "JavaScript",
+          "azureFunctions.projectRuntime": "~4",
+          "azureFunctions.preDeployTask": "npm install",
+          "azureFunctions.funcToolsVersion": "4"
+        }
     }
   },
   "forwardPorts": [3000, 5173, 8080],
