@@ -5,259 +5,374 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CodexMiroir - Task Management</title>
     
-    <!-- Include Tailwind CSS from CDN for quick setup -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Pico CSS -->
+    <link rel="stylesheet" href="styles.css">
     
-    <!-- Custom CSS Variables for Design System -->
-    <style>
-        :root {
-            --background: hsl(60, 54%, 96%);
-            --foreground: hsl(240, 10%, 3.9%);
-            --card: hsl(60, 54%, 98%);
-            --card-foreground: hsl(240, 10%, 3.9%);
-            --primary: hsl(262, 83%, 58%);
-            --primary-foreground: hsl(60, 54%, 98%);
-            --secondary: hsl(60, 4.8%, 95.9%);
-            --secondary-foreground: hsl(240, 5.9%, 10%);
-            --muted: hsl(60, 4.8%, 95.9%);
-            --muted-foreground: hsl(240, 3.8%, 46.1%);
-            --accent: hsl(262, 83%, 95%);
-            --accent-foreground: hsl(262, 83%, 58%);
-            --destructive: hsl(356.3033, 90.5579%, 54.3137%);
-            --destructive-foreground: hsl(0, 0%, 100%);
-            --border: hsl(240, 5.9%, 90%);
-            --input: hsl(240, 5.9%, 90%);
-            --ring: hsl(262, 83%, 58%);
-            --radius: 0.5rem;
-        }
-        
-        .dark {
-            --background: hsl(222, 84%, 4.9%);
-            --foreground: hsl(210, 40%, 98%);
-            --card: hsl(222, 84%, 8%);
-            --primary: hsl(210, 40%, 85%);
-            --secondary: hsl(217, 32%, 17%);
-            --muted: hsl(217, 32%, 17%);
-            --accent: hsl(217, 32%, 17%);
-            --border: hsl(217, 32%, 17%);
-            --input: hsl(217, 32%, 17%);
-        }
-        
-        body {
-            background-color: var(--background);
-            color: var(--foreground);
-            font-family: Inter, system-ui, sans-serif;
-        }
-        
-        .card {
-            background-color: var(--card);
-            color: var(--card-foreground);
-            border: 1px solid var(--border);
-        }
-        
-        .btn-primary {
-            background-color: var(--primary);
-            color: var(--primary-foreground);
-        }
-        
-        .btn-secondary {
-            background-color: var(--secondary);
-            color: var(--secondary-foreground);
-        }
-        
-        .btn-destructive {
-            background-color: var(--destructive);
-            color: var(--destructive-foreground);
-        }
-        
-        .input {
-            background-color: var(--background);
-            border: 1px solid var(--input);
-            color: var(--foreground);
-        }
-        
-        .loading {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-        
-        .task-card {
-            transition: all 0.2s ease;
-        }
-        
-        .task-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        
-        .priority-high {
-            border-left: 4px solid hsl(356, 90%, 54%);
-        }
-        
-        .priority-medium {
-            border-left: 4px solid hsl(42, 92%, 56%);
-        }
-        
-        .priority-low {
-            border-left: 4px solid hsl(147, 78%, 42%);
-        }
-    </style>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="min-h-screen p-4">
-    <div class="max-w-4xl mx-auto">
-        <!-- Header -->
-        <header class="mb-8">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold text-foreground">CodexMiroir</h1>
-                    <p class="text-muted-foreground">Dual-FIFO Task Management</p>
+<body x-data="appData()" x-init="init()">
+    <div class="main-container">
+        <!-- View 1: Main View -->
+        <div x-show="currentView === 'main'">
+            <!-- Current Task -->
+            <div class="current-task">
+                <h2>Aktuelle Aufgabe</h2>
+                <div x-show="currentTask">
+                    <h3 x-text="currentTask?.title || 'Keine aktuelle Aufgabe'"></h3>
+                    <p x-text="currentTask?.description || ''"></p>
+                    <small x-text="formatDate(new Date())"></small>
                 </div>
-                
-                <!-- Mode Toggle -->
-                <div class="flex items-center space-x-2">
-                    <button id="mode-toggle" class="btn-secondary px-4 py-2 rounded-lg transition-colors hover:opacity-80">
-                        <span id="mode-text">Professional</span>
-                    </button>
-                    <button id="theme-toggle" class="btn-secondary p-2 rounded-lg transition-colors hover:opacity-80">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-                        </svg>
-                    </button>
+                <div x-show="!currentTask">
+                    <p>Keine Aufgabe für den aktuellen Zeitpunkt</p>
                 </div>
             </div>
-        </header>
 
-        <!-- Stats Bar -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div class="card p-4 rounded-lg">
-                <h3 class="text-sm font-medium text-muted-foreground">Total Tasks</h3>
-                <p class="text-2xl font-bold" id="stats-total">0</p>
-            </div>
-            <div class="card p-4 rounded-lg">
-                <h3 class="text-sm font-medium text-muted-foreground">Geplant</h3>
-                <p class="text-2xl font-bold text-yellow-600" id="stats-pending">0</p>
-            </div>
-            <div class="card p-4 rounded-lg">
-                <h3 class="text-sm font-medium text-muted-foreground">Abgeschlossen</h3>
-                <p class="text-2xl font-bold text-green-600" id="stats-completed">0</p>
-            </div>
-        </div>
-
-        <!-- Add Task Form -->
-        <div class="card p-6 rounded-lg mb-8">
-            <h2 class="text-xl font-semibold mb-4">Add New Task</h2>
-            <form id="task-form" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-2">Title *</label>
-                        <input type="text" id="task-title" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary" placeholder="Task title" required>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-2">Category</label>
-                        <select id="task-category" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary">
-                            <option value="allgemein">Allgemein</option>
-                            <option value="programmierung">Programmierung</option>
-                            <option value="meeting">Meeting</option>
-                            <option value="projekt">Projekt</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium mb-2">Description</label>
-                    <textarea id="task-description" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary" rows="3" placeholder="Task description"></textarea>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-2">Due Date (Deadline)</label>
-                        <input type="date" id="task-due-date" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-2">Project</label>
-                        <input type="text" id="task-project" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary" placeholder="e.g., CodexMiroir">
-                    </div>
-                </div>
-                
-                <button type="submit" class="btn-primary px-6 py-3 rounded-lg transition-colors hover:opacity-90 focus:ring-2 focus:ring-primary">
-                    <span class="flex items-center justify-center">
-                        <svg class="w-5 h-5 mr-2 hidden" id="loading-spinner" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2"/>
-                            <circle cx="12" cy="12" r="10"/>
-                        </svg>
-                        Add Task
-                    </span>
+            <!-- Input Buttons -->
+            <div class="input-buttons">
+                <button class="voice-btn" 
+                        :class="{ 'listening': isListening }"
+                        @click="openVoiceModal()" 
+                        @mousedown="startLongPress()" 
+                        @mouseup="endLongPress()"
+                        @touchstart="startLongPress()" 
+                        @touchend="endLongPress()">
+                    <span>🎤</span>
+                    <span x-text="isListening ? 'Höre zu...' : 'Spracheingabe'"></span>
                 </button>
-            </form>
-        </div>
-
-        <!-- Filter and Search -->
-        <div class="card p-4 rounded-lg mb-6">
-            <div class="flex flex-col md:flex-row gap-4">
-                <div class="flex-1">
-                    <input type="text" id="search-input" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary" placeholder="Search tasks...">
-                </div>
-                <div class="flex gap-2">
-                    <select id="status-filter" class="input p-3 rounded-lg focus:ring-2 focus:ring-primary">
-                        <option value="">All Status</option>
-                        <option value="pending">Geplant</option>
-                        <option value="completed">Abgeschlossen</option>
-                    </select>
-                    <select id="priority-filter" class="input p-3 rounded-lg focus:ring-2 focus:ring-primary">
-                        <option value="">All Categories</option>
-                        <option value="programmierung">Programmierung</option>
-                        <option value="meeting">Meeting</option>
-                        <option value="projekt">Projekt</option>
-                        <option value="allgemein">Allgemein</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tasks Grid -->
-        <div id="tasks-container" class="space-y-4">
-            <div id="loading-state" class="hidden card p-8 rounded-lg text-center">
-                <div class="animate-pulse">
-                    <div class="w-16 h-16 mx-auto mb-4 bg-muted rounded-full"></div>
-                    <p class="text-muted-foreground">Loading tasks...</p>
-                </div>
-            </div>
-            
-            <div id="empty-state" class="hidden card p-8 rounded-lg text-center">
-                <div class="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
-                    <svg class="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
-                </div>
-                <h3 class="text-lg font-semibold mb-2">No tasks found</h3>
-                <p class="text-muted-foreground">Create your first task to get started!</p>
-            </div>
-            
-            <!-- Tasks will be dynamically inserted here -->
-        </div>
-    </div>
-
-    <!-- Task Modal for editing -->
-    <div id="task-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="card p-6 rounded-lg max-w-md w-full">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold" id="modal-title">Edit Task</h3>
-                <button id="close-modal" class="text-muted-foreground hover:text-foreground">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
+                
+                <button class="text-btn" @click="openTextModal()">
+                    <span>✍️</span>
+                    <span>Texteingabe</span>
                 </button>
             </div>
-            
-            <div id="modal-content">
-                <!-- Modal content will be dynamically inserted -->
+
+            <!-- Daily Tasks Container -->
+            <div class="daily-tasks">
+                <div class="day-header">
+                    <h3 x-text="formatDayHeader(currentDate)"></h3>
+                    <small x-text="'KW ' + getWeekNumber(currentDate)"></small>
+                </div>
+                
+                <!-- Navigation Arrows -->
+                <div class="nav-arrows">
+                    <button class="nav-btn" @click="scrollToPreviousDay()" :disabled="!canScrollUp">
+                        <span>←</span>
+                    </button>
+                    <button class="nav-btn" @click="scrollToNextDay()" :disabled="!canScrollDown">
+                        <span>→</span>
+                    </button>
+                </div>
+
+                <!-- Tasks List -->
+                <div class="scroll-container">
+                    <template x-for="task in todaysTasks" :key="task.id">
+                        <div class="task-item">
+                            <h4 x-text="task.title"></h4>
+                            <p x-text="task.description"></p>
+                            <small x-text="task.deadline"></small>
+                        </div>
+                    </template>
+                    <div x-show="todaysTasks.length === 0">
+                        <p>Keine Aufgaben für heute</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Button -->
+            <button @click="openSettingsModal()" style="position: fixed; bottom: 20px; right: 20px; border-radius: 50%; width: 50px; height: 50px;">
+                ⚙️
+            </button>
+        </div>
+
+        <!-- View 2: Voice Recording Modal -->
+        <div class="modal" :class="{ 'show': currentView === 'voice' }">
+            <div class="modal-content">
+                <div class="recording-indicator">
+                    <div class="recording-circle">
+                        🎤
+                    </div>
+                    <h3>Sprechen Sie jetzt...</h3>
+                    <p x-text="'Verbleibende Zeit: ' + recordingTimeLeft + 's'"></p>
+                    <button @click="stopRecording()">Beenden</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 3: Text Input Modal -->
+        <div class="modal" :class="{ 'show': currentView === 'text' }">
+            <div class="modal-content">
+                <h3>Neue Aufgabe erstellen</h3>
+                <form @submit.prevent="saveTask()">
+                    <div class="form-group">
+                        <label>Titel</label>
+                        <input type="text" x-model="newTask.title" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Notiz</label>
+                        <textarea x-model="newTask.description" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Deadline</label>
+                        <input type="date" x-model="newTask.deadline">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Projekt</label>
+                        <input type="text" x-model="newTask.project">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Tags</label>
+                        <input type="text" x-model="newTask.tags" placeholder="Tag1, Tag2, Tag3">
+                    </div>
+                    
+                    <div>
+                        <button type="submit">Speichern</button>
+                        <button type="button" @click="closeModal()">Abbrechen</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- View 4: Settings Modal -->
+        <div class="modal" :class="{ 'show': currentView === 'settings' }">
+            <div class="modal-content">
+                <h3>Einstellungen</h3>
+                <div>
+                    <h4>Aktuelles Token</h4>
+                    <div class="token-display" x-text="currentToken || 'Kein Token gesetzt'"></div>
+                    <button @click="copyToken()">Token kopieren</button>
+                </div>
+                <button @click="closeModal()">Schließen</button>
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="token-manager.js"></script>
-    <script src="codex-api.js"></script>
-    <script src="app.js"></script>
+    <!-- Alpine.js App Logic -->
+    <script>
+        function appData() {
+            return {
+                // Views
+                currentView: 'main',
+                
+                // Data
+                currentTask: null,
+                tasks: [],
+                todaysTasks: [],
+                currentDate: new Date(),
+                currentToken: '',
+                
+                // Voice/Input states  
+                isListening: false,
+                recordingTimeLeft: 10,
+                recordingTimer: null,
+                longPressTimer: null,
+                
+                // Form data
+                newTask: {
+                    title: '',
+                    description: '',
+                    deadline: '',
+                    project: '',
+                    tags: ''
+                },
+                
+                // Navigation
+                canScrollUp: true,
+                canScrollDown: true,
+
+                // Initialization
+                init() {
+                    this.loadToken();
+                    this.loadTasks();
+                    this.setupEventListeners();
+                    this.updateCurrentTask();
+                },
+
+                // Event listeners for custom events
+                setupEventListeners() {
+                    window.addEventListener('scrollUp', () => this.scrollToPreviousDay());
+                    window.addEventListener('scrollDown', () => this.scrollToNextDay());
+                    window.addEventListener('longPressStart', () => this.openVoiceModal());
+                    window.addEventListener('longPressEnd', () => this.closeVoiceModal());
+                },
+
+                // Date/Time functions
+                formatDate(date) {
+                    return date.toLocaleDateString('de-DE', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                },
+
+                formatDayHeader(date) {
+                    return date.toLocaleDateString('de-DE', { 
+                        weekday: 'long', 
+                        day: 'numeric',
+                        month: 'long'
+                    });
+                },
+
+                getWeekNumber(date) {
+                    const target = new Date(date.valueOf());
+                    const dayNumber = (date.getUTCDay() + 6) % 7;
+                    target.setUTCDate(target.getUTCDate() - dayNumber + 3);
+                    const firstThursday = target.valueOf();
+                    target.setUTCMonth(0, 1);
+                    if (target.getUTCDay() !== 4) {
+                        target.setUTCMonth(0, 1 + ((4 - target.getUTCDay()) + 7) % 7);
+                    }
+                    return 1 + Math.ceil((firstThursday - target) / 604800000);
+                },
+
+                // Modal controls
+                openVoiceModal() {
+                    this.currentView = 'voice';
+                    this.startVoiceRecording();
+                },
+
+                openTextModal() {
+                    this.currentView = 'text';
+                    this.resetNewTask();
+                },
+
+                openSettingsModal() {
+                    this.currentView = 'settings';
+                },
+
+                closeModal() {
+                    this.currentView = 'main';
+                    this.stopRecording();
+                },
+
+                closeVoiceModal() {
+                    if (this.currentView === 'voice') {
+                        this.closeModal();
+                    }
+                },
+
+                // Voice Recording
+                startVoiceRecording() {
+                    if (!('webkitSpeechRecognition' in window)) {
+                        alert('Spracherkennung wird nicht unterstützt');
+                        return;
+                    }
+
+                    this.isListening = true;
+                    this.recordingTimeLeft = 10;
+                    
+                    this.recordingTimer = setInterval(() => {
+                        this.recordingTimeLeft--;
+                        if (this.recordingTimeLeft <= 0) {
+                            this.stopRecording();
+                        }
+                    }, 1000);
+
+                    // TODO: Implement actual speech recognition
+                    console.log('Voice recording started');
+                },
+
+                stopRecording() {
+                    this.isListening = false;
+                    if (this.recordingTimer) {
+                        clearInterval(this.recordingTimer);
+                        this.recordingTimer = null;
+                    }
+                    console.log('Voice recording stopped');
+                },
+
+                // Long press handling
+                startLongPress() {
+                    this.longPressTimer = setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('longPressStart'));
+                    }, 500);
+                },
+
+                endLongPress() {
+                    if (this.longPressTimer) {
+                        clearTimeout(this.longPressTimer);
+                        this.longPressTimer = null;
+                    }
+                    window.dispatchEvent(new CustomEvent('longPressEnd'));
+                },
+
+                // Navigation
+                scrollToPreviousDay() {
+                    this.currentDate.setDate(this.currentDate.getDate() - 1);
+                    this.updateTodaysTasks();
+                    window.dispatchEvent(new CustomEvent('scrollUp'));
+                },
+
+                scrollToNextDay() {
+                    this.currentDate.setDate(this.currentDate.getDate() + 1);
+                    this.updateTodaysTasks();
+                    window.dispatchEvent(new CustomEvent('scrollDown'));
+                },
+
+                // Task management
+                resetNewTask() {
+                    this.newTask = {
+                        title: '',
+                        description: '',
+                        deadline: '',
+                        project: '',
+                        tags: ''
+                    };
+                },
+
+                saveTask() {
+                    const task = {
+                        id: Date.now(),
+                        ...this.newTask,
+                        created: new Date().toISOString(),
+                        status: 'pending'
+                    };
+                    
+                    this.tasks.push(task);
+                    this.updateTodaysTasks();
+                    this.updateCurrentTask();
+                    this.closeModal();
+                    console.log('Task saved:', task);
+                },
+
+                loadTasks() {
+                    // TODO: Load from API
+                    this.tasks = [];
+                    this.updateTodaysTasks();
+                },
+
+                updateTodaysTasks() {
+                    const today = this.currentDate.toDateString();
+                    this.todaysTasks = this.tasks.filter(task => 
+                        new Date(task.deadline).toDateString() === today
+                    );
+                },
+
+                updateCurrentTask() {
+                    // Get the first pending task for today
+                    this.currentTask = this.todaysTasks.find(task => task.status === 'pending') || null;
+                },
+
+                // Token management
+                loadToken() {
+                    this.currentToken = localStorage.getItem('codexToken') || '';
+                },
+
+                copyToken() {
+                    if (this.currentToken) {
+                        navigator.clipboard.writeText(this.currentToken);
+                        alert('Token kopiert!');
+                    }
+                }
+            };
+        }
+    </script>
 </body>
 </html>
