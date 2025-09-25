@@ -6,7 +6,18 @@ class TaskManager {
         this.isDarkMode = false;
         this.currentTaskId = null;
         
-        this.init();
+        // Warte auf das Laden der API-Client-Klassen
+        this.waitForApiClient().then(() => {
+            this.api = window.codexApi;
+            this.init();
+        });
+    }
+    
+    async waitForApiClient() {
+        // Warte bis codexApi verfügbar ist
+        while (!window.codexApi) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
     }
     
     async init() {
@@ -41,6 +52,7 @@ class TaskManager {
             this.filterTasks();
         });
         
+        // Category filter (das priority-filter Element wird als category filter verwendet)
         document.getElementById('priority-filter').addEventListener('change', () => {
             this.filterTasks();
         });
@@ -60,20 +72,11 @@ class TaskManager {
     async loadTasks() {
         try {
             this.showLoadingState();
-            const response = await fetch('/api/tasks/chunk', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
             
-            if (response.ok) {
-                const data = await response.json();
-                this.tasks = Array.isArray(data) ? data : [];
-            } else {
-                console.warn('Failed to load tasks, using empty array');
-                this.tasks = [];
-            }
+            // Verwende den neuen API-Client
+            const data = await this.api.getTasks();
+            this.tasks = Array.isArray(data) ? data : [];
+            
         } catch (error) {
             console.error('Error loading tasks:', error);
             this.tasks = [];
@@ -86,9 +89,9 @@ class TaskManager {
     async handleTaskSubmit() {
         const title = document.getElementById('task-title').value.trim();
         const description = document.getElementById('task-description').value.trim();
-        const priority = document.getElementById('task-priority').value;
+        const category = document.getElementById('task-category').value;
         const dueDate = document.getElementById('task-due-date').value;
-        const category = document.getElementById('task-category').value.trim();
+        const project = document.getElementById('task-project').value.trim();
         
         if (!title) {
             this.showNotification('Task title is required', 'error');
@@ -98,40 +101,32 @@ class TaskManager {
         const taskData = {
             title,
             description,
-            priority,
-            due_date: dueDate || null,
-            category: category || 'General',
-            status: 'pending',
+            category: category || 'allgemein',
+            due_date: dueDate,
+            project: project || '',
             mode: this.currentMode,
-            created_at: new Date().toISOString()
+            estimatedMinutes: 210 // Standard 3.5h für Codex-System
         };
         
         try {
-            this.setFormLoading(true);
+            this.showLoadingState();
             
-            const response = await fetch('/api/tasks/chunk', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(taskData)
-            });
+            // Verwende den neuen API-Client
+            const newTask = await this.api.createTask(taskData);
             
-            if (response.ok) {
-                const result = await response.json();
-                this.showNotification('Task created successfully!', 'success');
-                this.resetForm();
-                await this.loadTasks();
-                this.updateStats();
-            } else {
-                const error = await response.text();
-                throw new Error(error || 'Failed to create task');
-            }
+            this.tasks.unshift(newTask);
+            this.renderTasks();
+            this.updateStats();
+            
+            // Reset form
+            document.getElementById('task-form').reset();
+            this.showNotification('Task created successfully!', 'success');
+            
         } catch (error) {
             console.error('Error creating task:', error);
-            this.showNotification('Failed to create task: ' + error.message, 'error');
+            this.showNotification(`Error creating task: ${error.message}`, 'error');
         } finally {
-            this.setFormLoading(false);
+            this.hideLoadingState();
         }
     }
     
@@ -140,23 +135,28 @@ class TaskManager {
             const task = this.tasks.find(t => t.id === taskId);
             if (!task) return;
             
-            const updatedTask = { ...task, status: newStatus, updated_at: new Date().toISOString() };
-            
-            const response = await fetch('/api/tasks/chunk', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(updatedTask)
-            });
-            
-            if (response.ok) {
-                await this.loadTasks();
-                this.updateStats();
-                this.showNotification('Task updated successfully!', 'success');
+            // Da das Codex-System nur "geplant" und "abgeschlossen" kennt,
+            // simulieren wir Status-Updates lokal oder schließen die Task ab
+            if (newStatus === 'completed') {
+                await this.api.completeTask(taskId);
+                // Remove from local array
+                this.tasks = this.tasks.filter(t => t.id !== taskId);
             } else {
-                throw new Error('Failed to update task');
+                // Für andere Status-Updates: nur lokal aktualisieren
+                const taskIndex = this.tasks.findIndex(t => t.id === taskId);
+                if (taskIndex !== -1) {
+                    this.tasks[taskIndex] = { 
+                        ...this.tasks[taskIndex], 
+                        status: newStatus, 
+                        updated_at: new Date().toISOString() 
+                    };
+                }
             }
+            
+            this.renderTasks();
+            this.updateStats();
+            this.showNotification('Task updated successfully!', 'success');
+            
         } catch (error) {
             console.error('Error updating task:', error);
             this.showNotification('Failed to update task', 'error');
@@ -169,23 +169,17 @@ class TaskManager {
         }
         
         try {
-            const response = await fetch(`/api/tasks/chunk?id=${taskId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+            // Verwende den neuen API-Client
+            await this.api.deleteTask(taskId);
             
-            if (response.ok) {
-                await this.loadTasks();
-                this.updateStats();
-                this.showNotification('Task deleted successfully!', 'success');
-            } else {
-                throw new Error('Failed to delete task');
-            }
+            // Remove from local array
+            this.tasks = this.tasks.filter(task => task.id !== taskId);
+            this.renderTasks();
+            this.updateStats();
+            this.showNotification('Task deleted successfully!', 'success');
         } catch (error) {
             console.error('Error deleting task:', error);
-            this.showNotification('Failed to delete task', 'error');
+            this.showNotification(`Error deleting task: ${error.message}`, 'error');
         }
     }
     
@@ -212,20 +206,21 @@ class TaskManager {
     
     createTaskElement(task) {
         const taskDiv = document.createElement('div');
-        taskDiv.className = `task-card card p-4 rounded-lg priority-${task.priority || 'medium'} cursor-pointer`;
+        taskDiv.className = `task-card card p-4 rounded-lg status-${task.status || 'pending'} cursor-pointer`;
         taskDiv.dataset.taskId = task.id;
         
         const statusColor = this.getStatusColor(task.status);
-        const priorityIcon = this.getPriorityIcon(task.priority);
         
         taskDiv.innerHTML = `
             <div class="flex items-start justify-between mb-3">
                 <div class="flex-1">
                     <div class="flex items-center gap-2 mb-2">
                         <h3 class="font-semibold text-lg">${this.escapeHtml(task.title)}</h3>
-                        <span class="priority-badge px-2 py-1 rounded-full text-xs font-medium ${this.getPriorityClass(task.priority)}">
-                            ${priorityIcon} ${(task.priority || 'medium').toUpperCase()}
-                        </span>
+                        ${task.slot ? `
+                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                ${task.slot}
+                            </span>
+                        ` : ''}
                     </div>
                     ${task.description ? `<p class="text-muted-foreground mb-2">${this.escapeHtml(task.description)}</p>` : ''}
                     <div class="flex items-center gap-4 text-sm text-muted-foreground">
@@ -236,12 +231,12 @@ class TaskManager {
                             </svg>
                             ${this.formatDate(task.created_at)}
                         </span>
-                        ${task.due_date ? `
-                            <span class="flex items-center gap-1">
+                        ${task.deadline ? `
+                            <span class="flex items-center gap-1 text-orange-600">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
-                                Due: ${this.formatDate(task.due_date)}
+                                Deadline: ${task.deadline}
                             </span>
                         ` : ''}
                         ${task.category ? `
@@ -249,41 +244,32 @@ class TaskManager {
                                 ${this.escapeHtml(task.category)}
                             </span>
                         ` : ''}
+                        <span class="text-xs text-blue-600">
+                            ${task.mode === 'professional' ? '💼 Beruflich' : '🏠 Privat'}
+                        </span>
                     </div>
                 </div>
                 <div class="flex flex-col gap-2">
                     <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColor}">
-                        ${(task.status || 'pending').replace('_', ' ').toUpperCase()}
+                        ${task.status === 'pending' ? 'GEPLANT' : 'ABGESCHLOSSEN'}
                     </span>
                 </div>
             </div>
             
             <div class="flex items-center justify-between pt-3 border-t border-border">
                 <div class="flex gap-2">
-                    ${task.status !== 'in_progress' ? `
-                        <button onclick="taskManager.updateTaskStatus('${task.id}', 'in_progress')" 
-                                class="btn-primary px-3 py-1 rounded-lg text-xs transition-colors hover:opacity-80">
-                            Start
-                        </button>
-                    ` : ''}
                     ${task.status !== 'completed' ? `
                         <button onclick="taskManager.updateTaskStatus('${task.id}', 'completed')" 
                                 class="bg-green-600 text-white px-3 py-1 rounded-lg text-xs transition-colors hover:bg-green-700">
-                            Complete
-                        </button>
-                    ` : ''}
-                    ${task.status === 'completed' ? `
-                        <button onclick="taskManager.updateTaskStatus('${task.id}', 'pending')" 
-                                class="btn-secondary px-3 py-1 rounded-lg text-xs transition-colors hover:opacity-80">
-                            Reopen
+                            ✓ Abschließen
                         </button>
                     ` : ''}
                 </div>
                 <div class="flex gap-2">
-                    <button onclick="taskManager.editTask('${task.id}')" 
-                            class="text-muted-foreground hover:text-foreground transition-colors">
+                    <button onclick="taskManager.deleteTask('${task.id}')" 
+                            class="text-red-600 hover:text-red-800 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                         </svg>
                     </button>
                     <button onclick="taskManager.deleteTask('${task.id}')" 
@@ -318,23 +304,15 @@ class TaskManager {
             filtered = filtered.filter(task => task.status === statusFilter);
         }
         
-        // Priority filter
-        const priorityFilter = document.getElementById('priority-filter').value;
-        if (priorityFilter) {
-            filtered = filtered.filter(task => task.priority === priorityFilter);
+        // Category filter (statt Priority)
+        const categoryFilter = document.getElementById('priority-filter').value;
+        if (categoryFilter) {
+            filtered = filtered.filter(task => task.category === categoryFilter);
         }
         
-        // Sort by priority and creation date
+        // Sort by FIFO (creation date) - wie im Codex-System
         return filtered.sort((a, b) => {
-            const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
-            const aPriority = priorityOrder[a.priority] || 2;
-            const bPriority = priorityOrder[b.priority] || 2;
-            
-            if (aPriority !== bPriority) {
-                return bPriority - aPriority; // Higher priority first
-            }
-            
-            return new Date(b.created_at) - new Date(a.created_at); // Newer first
+            return new Date(a.created_at) - new Date(b.created_at); // FIFO: Ältere zuerst
         });
     }
     
@@ -345,12 +323,10 @@ class TaskManager {
     updateStats() {
         const totalTasks = this.tasks.length;
         const pendingTasks = this.tasks.filter(t => t.status === 'pending').length;
-        const inProgressTasks = this.tasks.filter(t => t.status === 'in_progress').length;
         const completedTasks = this.tasks.filter(t => t.status === 'completed').length;
         
         document.getElementById('stats-total').textContent = totalTasks;
         document.getElementById('stats-pending').textContent = pendingTasks;
-        document.getElementById('stats-progress').textContent = inProgressTasks;
         document.getElementById('stats-completed').textContent = completedTasks;
     }
     
@@ -440,28 +416,9 @@ class TaskManager {
     getStatusColor(status) {
         const colors = {
             'pending': 'bg-yellow-100 text-yellow-800',
-            'in_progress': 'bg-blue-100 text-blue-800',
             'completed': 'bg-green-100 text-green-800'
         };
         return colors[status] || colors.pending;
-    }
-    
-    getPriorityIcon(priority) {
-        const icons = {
-            'high': '🔴',
-            'medium': '🟡',
-            'low': '🟢'
-        };
-        return icons[priority] || icons.medium;
-    }
-    
-    getPriorityClass(priority) {
-        const classes = {
-            'high': 'bg-red-100 text-red-800',
-            'medium': 'bg-yellow-100 text-yellow-800',
-            'low': 'bg-green-100 text-green-800'
-        };
-        return classes[priority] || classes.medium;
     }
     
     formatDate(dateString) {
@@ -502,19 +459,17 @@ class TaskManager {
     
     async updateTask(taskId, updatedData) {
         try {
-            const response = await fetch('/api/tasks/chunk', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ ...updatedData, id: taskId, updated_at: new Date().toISOString() })
-            });
-            
-            if (response.ok) {
-                await this.loadTasks();
+            // Da das Codex-System keine Updates unterstützt, simulieren wir das lokal
+            const taskIndex = this.tasks.findIndex(task => task.id === taskId);
+            if (taskIndex !== -1) {
+                this.tasks[taskIndex] = { 
+                    ...this.tasks[taskIndex], 
+                    ...updatedData, 
+                    updated_at: new Date().toISOString() 
+                };
+                this.renderTasks();
+                this.updateStats();
                 this.showNotification('Task updated successfully!', 'success');
-            } else {
-                throw new Error('Failed to update task');
             }
         } catch (error) {
             console.error('Error updating task:', error);

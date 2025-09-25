@@ -128,21 +128,17 @@
         </header>
 
         <!-- Stats Bar -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div class="card p-4 rounded-lg">
                 <h3 class="text-sm font-medium text-muted-foreground">Total Tasks</h3>
                 <p class="text-2xl font-bold" id="stats-total">0</p>
             </div>
             <div class="card p-4 rounded-lg">
-                <h3 class="text-sm font-medium text-muted-foreground">Pending</h3>
+                <h3 class="text-sm font-medium text-muted-foreground">Geplant</h3>
                 <p class="text-2xl font-bold text-yellow-600" id="stats-pending">0</p>
             </div>
             <div class="card p-4 rounded-lg">
-                <h3 class="text-sm font-medium text-muted-foreground">In Progress</h3>
-                <p class="text-2xl font-bold text-blue-600" id="stats-progress">0</p>
-            </div>
-            <div class="card p-4 rounded-lg">
-                <h3 class="text-sm font-medium text-muted-foreground">Completed</h3>
+                <h3 class="text-sm font-medium text-muted-foreground">Abgeschlossen</h3>
                 <p class="text-2xl font-bold text-green-600" id="stats-completed">0</p>
             </div>
         </div>
@@ -157,11 +153,12 @@
                         <input type="text" id="task-title" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary" placeholder="Task title" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-2">Priority</label>
-                        <select id="task-priority" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary">
-                            <option value="low">Low</option>
-                            <option value="medium" selected>Medium</option>
-                            <option value="high">High</option>
+                        <label class="block text-sm font-medium mb-2">Category</label>
+                        <select id="task-category" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary">
+                            <option value="allgemein">Allgemein</option>
+                            <option value="programmierung">Programmierung</option>
+                            <option value="meeting">Meeting</option>
+                            <option value="projekt">Projekt</option>
                         </select>
                     </div>
                 </div>
@@ -173,12 +170,12 @@
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium mb-2">Due Date</label>
+                        <label class="block text-sm font-medium mb-2">Due Date (Deadline)</label>
                         <input type="date" id="task-due-date" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-2">Category</label>
-                        <input type="text" id="task-category" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary" placeholder="e.g., Work, Personal">
+                        <label class="block text-sm font-medium mb-2">Project</label>
+                        <input type="text" id="task-project" class="input w-full p-3 rounded-lg focus:ring-2 focus:ring-primary" placeholder="e.g., CodexMiroir">
                     </div>
                 </div>
                 
@@ -203,15 +200,15 @@
                 <div class="flex gap-2">
                     <select id="status-filter" class="input p-3 rounded-lg focus:ring-2 focus:ring-primary">
                         <option value="">All Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="completed">Completed</option>
+                        <option value="pending">Geplant</option>
+                        <option value="completed">Abgeschlossen</option>
                     </select>
                     <select id="priority-filter" class="input p-3 rounded-lg focus:ring-2 focus:ring-primary">
-                        <option value="">All Priorities</option>
-                        <option value="high">High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
+                        <option value="">All Categories</option>
+                        <option value="programmierung">Programmierung</option>
+                        <option value="meeting">Meeting</option>
+                        <option value="projekt">Projekt</option>
+                        <option value="allgemein">Allgemein</option>
                     </select>
                 </div>
             </div>
@@ -258,6 +255,9 @@
         </div>
     </div>
 
+    <!-- Scripts -->
+    <script src="token-manager.js"></script>
+    <script src="codex-api.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
