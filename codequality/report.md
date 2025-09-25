@@ -7,7 +7,7 @@ title: "Code Quality Metrics"
 radar-beta
   axis s["Security"], r["Reliability"], m["Maintainability"]
   axis c["Coverage"], d["Code Duplication"], l["Lines of Code"]
-  curve current["Current"]{5, 3, 5, 0, 5, 5}
+  curve current["Current"]{5, 5, 5, 0, 5, 3}
   max 5
   min 0
 ```
@@ -15,11 +15,11 @@ radar-beta
 | Metric | Current Value | Rating |
 |--------|---------------|--------|
 | Security Rating | 1.0 | 🟩 |
-| Reliability Rating | 3.0 | 🟨 |
+| Reliability Rating | 1.0 | 🟩 |
 | Maintainability Rating | 1.0 | 🟩 |
 | Coverage | 0.0% | ❌ |
-| Code Duplication | 1.2% | 🟩 |
-| Lines of Code | 6915 | 📊 |
+| Code Duplication | 4.0% | 🟩 |
+| Lines of Code | 660 | 📊 |
 ## SonarCloud Badges
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
@@ -28,4 +28,4 @@ radar-beta
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=coverage)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
-Generated on: 2025-09-25T07:42:20.242Z
+Generated on: 2025-09-25T14:51:45.559Z
