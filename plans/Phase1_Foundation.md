@@ -120,17 +120,23 @@ codex-miroir/
 ### 1.3 Authentication & Core Functions (2 Stunden)
 **Geschätzter Aufwand**: 2 Stunden
 
-#### API-Key Authentication
+#### Token-Based Authentication
 ```javascript
-const API_KEY = process.env.API_KEY;
-
-const auth = (req) => {
-  if (!API_KEY || req.headers["x-api-key"] !== API_KEY) {
-    const e = new Error("unauthorized"); 
+// Token-based authentication
+function validateToken(token) {
+  if (!token || typeof token !== 'string' || token.length < 8) {
+    const e = new Error("invalid or missing token"); 
     e.code = 401; 
     throw e;
   }
-};
+  // Additional token validation can be added here (e.g., format check, database lookup)
+  return token;
+}
+
+// Generate user-specific container path based on token
+function getUserContainerPath(token, list) {
+  return `users/${token}/codex-miroir/${list}`;
+}
 ```
 
 #### Date Format Utilities
@@ -196,7 +202,7 @@ const matter = require("gray-matter");
 // Environment & Authentication
 const CONN = process.env.AZURE_BLOB_CONN;
 const CONTAINER = process.env.BLOB_CONTAINER || "codex-miroir";
-const API_KEY = process.env.API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // Storage helpers (defined above)
 // Date utilities (defined above)
@@ -324,14 +330,14 @@ az storage blob list --account-name myaccount --container-name codex-miroir
 ### Environment Setup
 - [ ] Azure Storage Account
 - [ ] Blob Container "codex-miroir"
-- [ ] API Key Environment Variable
 - [ ] Connection String konfiguriert
+- [ ] Token-based authentication implemented
 
 ### Validation
 - [ ] Function local lauffähig
 - [ ] Blob Storage Integration funktional
-- [ ] API-Key Authentication aktiv
-- [ ] Alle 5 Actions implementiert
+- [ ] Token-based Authentication aktiv
+- [ ] Alle 8 Actions implementiert
 
 ## Akzeptanzkriterien
 
@@ -350,7 +356,7 @@ az storage blob list --account-name myaccount --container-name codex-miroir
 - ✅ Markdown-Tabellen korrekt formatiert
 
 ### Sicherheit
-- ✅ API-Key Authentifizierung funktional
+- ✅ Token-based Authentifizierung funktional
 - ✅ Input Validation für alle Actions
 - ✅ Error Handling ohne Daten-Leaks
 
