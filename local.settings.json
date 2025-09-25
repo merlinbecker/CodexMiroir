@@ -4,7 +4,6 @@
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "node",
     "FUNCTIONS_EXTENSION_VERSION": "~4",
-    "API_KEY": "dev-local-key-123",
     "AZURE_BLOB_CONN": "DefaultEndpointsProtocol=https;AccountName=devstorageaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstorageaccount1;",
     "BLOB_CONTAINER": "codex-miroir",
     "OPENAI_API_KEY": "sk-dummy-openai-key-for-development"

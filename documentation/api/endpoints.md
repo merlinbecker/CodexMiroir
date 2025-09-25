@@ -2,22 +2,28 @@
 
 ## Base URL
 ```
-https://your-function-app.azurewebsites.net/api/codex
+https://your-function-app.azurewebsites.net/api/codex/{secure_token}
 ```
 
 ## Authentication
-All requests require authentication via API key:
-- Header: `x-api-key: YOUR_API_KEY`
-- Or query parameter: `?apiKey=YOUR_API_KEY`
+All requests require a secure token in the URL path:
+- URL format: `/api/codex/{secure_token}?action=...`
+- The secure token serves as both user identification and access control
+- Minimum token length: 8 characters
+
+## Token-based User Separation
+Each token creates a separate user space with isolated markdown files:
+- Path structure: `users/{token}/codex-miroir/{list}/`
+- Example: `users/mySecureToken123/codex-miroir/pro/current.md`
 
 ## Endpoints
 
 ### Core Task Management
 
 ### 1. Create Task
-**POST** `/api/codex?action=createTask`
+**POST** `/api/codex/{secure_token}?action=createTask`
 
-Creates a new task in the specified list (pro/priv).
+Creates a new task in the specified list (pro/priv) for the user identified by the secure token.
 
 **Request Body:**
 ```json
@@ -40,13 +46,13 @@ Creates a new task in the specified list (pro/priv).
 ```json
 {
   "ok": true,
-  "taskPath": "codex-miroir/pro/tasks/2025/2025-09-23--T-001-api-specification.md",
-  "currentPath": "codex-miroir/pro/current.md"
+  "taskPath": "users/mySecureToken123/codex-miroir/pro/tasks/2025/2025-09-23--T-001-api-specification.md",
+  "currentPath": "users/mySecureToken123/codex-miroir/pro/current.md"
 }
 ```
 
 ### 2. Complete Task
-**POST** `/api/codex?action=completeTask`
+**POST** `/api/codex/{secure_token}?action=completeTask`
 
 Marks a task as completed and moves it to archive.
 
@@ -54,7 +60,7 @@ Marks a task as completed and moves it to archive.
 ```json
 {
   "list": "pro",                           // Required: "pro" or "priv"
-  "taskPathAbs": "codex-miroir/pro/tasks/2025/2025-09-23--T-001-api-specification.md",
+  "taskPathAbs": "users/mySecureToken123/codex-miroir/pro/tasks/2025/2025-09-23--T-001-api-specification.md",
   "closed_at_iso": "2025-09-23T16:30:00Z"  // Required: Completion timestamp
 }
 ```
@@ -67,7 +73,7 @@ Marks a task as completed and moves it to archive.
 ```
 
 ### 3. Push to End
-**POST** `/api/codex?action=pushToEnd`
+**POST** `/api/codex/{secure_token}?action=pushToEnd`
 
 Reschedules a task to a later time slot.
 
@@ -75,7 +81,7 @@ Reschedules a task to a later time slot.
 ```json
 {
   "list": "pro",                           // Required: "pro" or "priv"
-  "taskPathAbs": "codex-miroir/pro/tasks/2025/2025-09-23--T-001-api-specification.md",
+  "taskPathAbs": "users/mySecureToken123/codex-miroir/pro/tasks/2025/2025-09-23--T-001-api-specification.md",
   "new_scheduled_slot": "2025-W40-Wed-PM"  // Required: New time slot
 }
 ```
@@ -88,7 +94,7 @@ Reschedules a task to a later time slot.
 ```
 
 ### 4. Report Tasks
-**GET** `/api/codex?action=report`
+**GET** `/api/codex/{secure_token}?action=report`
 
 Returns current tasks for the specified list.
 
@@ -115,7 +121,7 @@ Returns current tasks for the specified list.
 ```
 
 ### 5. When Available
-**GET** `/api/codex?action=when`
+**GET** `/api/codex/{secure_token}?action=when`
 
 Returns the next available time slot for new tasks.
 
@@ -137,7 +143,7 @@ Returns the next available time slot for new tasks.
 ### Voice Command Processing
 
 ### 6. Process Voice Command
-**POST** `/api/codex?action=processCommand`
+**POST** `/api/codex/{secure_token}?action=processCommand`
 
 Processes natural language voice commands and executes appropriate actions.
 
@@ -166,7 +172,7 @@ Processes natural language voice commands and executes appropriate actions.
 ```
 
 ### 7. Decompose Task
-**POST** `/api/codex?action=decomposeTask`
+**POST** `/api/codex/{secure_token}?action=decomposeTask`
 
 Uses AI to break down large tasks into 3.5-hour chunks.
 
@@ -202,7 +208,7 @@ Uses AI to break down large tasks into 3.5-hour chunks.
 ```
 
 ### 8. Get Current Task (Voice-Optimized)
-**GET** `/api/codex?action=getCurrentTask`
+**GET** `/api/codex/{secure_token}?action=getCurrentTask`
 
 Returns current task information optimized for voice responses.
 
@@ -307,19 +313,27 @@ Examples:
 ### Azure Blob Storage Container: `codex-miroir`
 ```
 codex-miroir/
-├── pro/
-│   ├── current.md      # Current professional tasks
-│   ├── archive.md      # Completed professional tasks
-│   └── tasks/
-│       └── YYYY/
-│           └── YYYY-MM-DD--ID-slug.md
-└── priv/
-    ├── current.md      # Current private tasks
-    ├── archive.md      # Completed private tasks
-    └── tasks/
-        └── YYYY/
-            └── YYYY-MM-DD--ID-slug.md
+└── users/
+    └── {secure_token}/
+        └── codex-miroir/
+            ├── pro/
+            │   ├── current.md      # Current professional tasks
+            │   ├── archive.md      # Completed professional tasks
+            │   └── tasks/
+            │       └── YYYY/
+            │           └── YYYY-MM-DD--ID-slug.md
+            └── priv/
+                ├── current.md      # Current private tasks
+                ├── archive.md      # Completed private tasks
+                └── tasks/
+                    └── YYYY/
+                        └── YYYY-MM-DD--ID-slug.md
 ```
+
+### Token-Based User Isolation
+- Each secure token creates a separate user directory
+- Path format: `users/{secure_token}/codex-miroir/{list}/`
+- Example: `users/mySecureToken123/codex-miroir/pro/current.md`
 
 ### Task File Naming Convention
 ```
@@ -335,8 +349,7 @@ Example: `2025-09-23--T-001-api-specification.md`
 
 ### Creating a Professional Task
 ```bash
-curl -X POST "https://your-function.azurewebsites.net/api/codex?action=createTask" \
-  -H "x-api-key: YOUR_API_KEY" \
+curl -X POST "https://your-function.azurewebsites.net/api/codex/mySecureToken123?action=createTask" \
   -H "Content-Type: application/json" \
   -d '{
     "list": "pro",
@@ -352,20 +365,18 @@ curl -X POST "https://your-function.azurewebsites.net/api/codex?action=createTas
 
 ### Getting Current Tasks
 ```bash
-curl -X GET "https://your-function.azurewebsites.net/api/codex?action=report" \
-  -H "x-api-key: YOUR_API_KEY" \
+curl -X GET "https://your-function.azurewebsites.net/api/codex/mySecureToken123?action=report" \
   -H "Content-Type: application/json" \
   -d '{"list": "pro"}'
 ```
 
 ### Completing a Task
 ```bash
-curl -X POST "https://your-function.azurewebsites.net/api/codex?action=completeTask" \
-  -H "x-api-key: YOUR_API_KEY" \
+curl -X POST "https://your-function.azurewebsites.net/api/codex/mySecureToken123?action=completeTask" \
   -H "Content-Type: application/json" \
   -d '{
     "list": "pro",
-    "taskPathAbs": "codex-miroir/pro/tasks/2025/2025-09-23--T-001-api-specification.md",
+    "taskPathAbs": "users/mySecureToken123/codex-miroir/pro/tasks/2025/2025-09-23--T-001-api-specification.md",
     "closed_at_iso": "2025-09-23T16:30:00Z"
   }'
 ```

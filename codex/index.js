@@ -5,8 +5,23 @@ const axios = require("axios");
 // Environment & Authentication
 const CONN = process.env.AZURE_BLOB_CONN;
 const CONTAINER = process.env.BLOB_CONTAINER || "codex-miroir";
-const API_KEY = process.env.API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+// Token-based authentication
+function validateToken(token) {
+  if (!token || typeof token !== 'string' || token.length < 8) {
+    const e = new Error("invalid or missing token"); 
+    e.code = 401; 
+    throw e;
+  }
+  // Additional token validation can be added here (e.g., format check, database lookup)
+  return token;
+}
+
+// Generate user-specific container path based on token
+function getUserContainerPath(token, list) {
+  return `users/${token}/codex-miroir/${list}`;
+}
 
 // Storage helpers
 let blobClient = null;
@@ -123,7 +138,7 @@ const replaceWeek = (content, week, newSection) => {
 };
 
 // Action Functions
-async function createTask(body) {
+async function createTask(body, token) {
   const { 
     list, id, title, created_at_iso, scheduled_slot, category, 
     deadline_iso, project, azure_devops, requester, duration_slots = 1 
@@ -133,11 +148,15 @@ async function createTask(body) {
     throw new Error("missing fields");
   }
 
-  // Generate file paths
+  // Validate token
+  validateToken(token);
+
+  // Generate file paths with token-based user directory
   const year = ymd(created_at_iso).slice(0, 4);
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   const relTask = `./tasks/${year}/${ymd(created_at_iso)}--${id}-${slug}.md`;
-  const absTask = `codex-miroir/${list}/tasks/${year}/${ymd(created_at_iso)}--${id}-${slug}.md`;
+  const userContainerPath = getUserContainerPath(token, list);
+  const absTask = `${userContainerPath}/tasks/${year}/${ymd(created_at_iso)}--${id}-${slug}.md`;
 
   // Create task file with frontmatter
   const fm = {
@@ -158,7 +177,7 @@ async function createTask(body) {
 
   // Update current.md
   const week = weekOf(scheduled_slot);
-  const currentPath = `codex-miroir/${list}/current.md`;
+  const currentPath = `${userContainerPath}/current.md`;
   let current = await readText(currentPath) || `# Codex Miroir — CURRENT (${list})\n\n> Aktueller Slot: \`${scheduled_slot}\`\n`;
   let sec = extractWeek(current, week) || `## Woche ${week}\n${ensureTableCurrent("")}`;
   
@@ -170,9 +189,12 @@ async function createTask(body) {
   return { ok: true, taskPath: absTask, currentPath };
 }
 
-async function completeTask(body) {
+async function completeTask(body, token) {
   const { list, taskPathAbs, closed_at_iso } = body;
   if (!list || !taskPathAbs || !closed_at_iso) throw new Error("missing fields");
+
+  // Validate token
+  validateToken(token);
 
   // Update task file
   const md = await readText(taskPathAbs);
@@ -187,16 +209,17 @@ async function completeTask(body) {
   const updatedMD = matter.stringify(parsed.content.replace(/## Verlauf[\s\S]*/, verlauf), fm);
   await writeText(taskPathAbs, updatedMD);
 
-  // Remove from current.md and add to archive.md
-  const currentPath = `codex-miroir/${list}/current.md`;
-  const archivePath = `codex-miroir/${list}/archive.md`;
+  // Remove from current.md and add to archive.md with token-based paths
+  const userContainerPath = getUserContainerPath(token, list);
+  const currentPath = `${userContainerPath}/current.md`;
+  const archivePath = `${userContainerPath}/archive.md`;
   
   let current = await readText(currentPath) || "";
   const week = weekOf(fm.scheduled_slot);
   let sec = extractWeek(current, week);
   
   if (sec) {
-    const relPath = taskPathAbs.replace(`codex-miroir/${list}/`, "./");
+    const relPath = taskPathAbs.replace(`${userContainerPath}/`, "./");
     sec = removeRowByRelLink(sec, relPath);
     current = replaceWeek(current, week, sec);
     await writeText(currentPath, current);
@@ -206,7 +229,7 @@ async function completeTask(body) {
   let archive = await readText(archivePath) || `# Codex Miroir — ARCHIVE (${list})\n\n`;
   let archiveSec = extractWeek(archive, week) || `## Woche ${week}\n${ensureTableCurrent("")}`;
   
-  const relTask = taskPathAbs.replace(`codex-miroir/${list}/`, "./");
+  const relTask = taskPathAbs.replace(`${userContainerPath}/`, "./");
   const row = `| ${fm.scheduled_slot.padEnd(19)} | [${fm.id}: ${fm.title}](${relTask}) | ${fm.category_pro || fm.category_priv || ""} | ${fm.deadline || ""} |`;
   archiveSec = appendRow(archiveSec, row);
   archive = replaceWeek(archive, week, archiveSec);
@@ -215,9 +238,12 @@ async function completeTask(body) {
   return { ok: true };
 }
 
-async function pushToEnd(body) {
+async function pushToEnd(body, token) {
   const { list, taskPathAbs, new_scheduled_slot } = body;
   if (!list || !taskPathAbs || !new_scheduled_slot) throw new Error("missing fields");
+
+  // Validate token
+  validateToken(token);
 
   // Update task file
   const md = await readText(taskPathAbs);
@@ -234,15 +260,16 @@ async function pushToEnd(body) {
   const updatedMD = matter.stringify(verlauf, fm);
   await writeText(taskPathAbs, updatedMD);
 
-  // Update current.md - remove from old week, add to new week
-  const currentPath = `codex-miroir/${list}/current.md`;
+  // Update current.md - remove from old week, add to new week with token-based paths
+  const userContainerPath = getUserContainerPath(token, list);
+  const currentPath = `${userContainerPath}/current.md`;
   let current = await readText(currentPath) || `# Codex Miroir — CURRENT (${list})\n\n`;
   
   // Remove from old week
   const oldWeek = weekOf(oldSlot);
   let oldSec = extractWeek(current, oldWeek);
   if (oldSec) {
-    const relPath = taskPathAbs.replace(`codex-miroir/${list}/`, "./");
+    const relPath = taskPathAbs.replace(`${userContainerPath}/`, "./");
     oldSec = removeRowByRelLink(oldSec, relPath);
     current = replaceWeek(current, oldWeek, oldSec);
   }
@@ -251,7 +278,7 @@ async function pushToEnd(body) {
   const newWeek = weekOf(new_scheduled_slot);
   let newSec = extractWeek(current, newWeek) || `## Woche ${newWeek}\n${ensureTableCurrent("")}`;
   
-  const relTask = taskPathAbs.replace(`codex-miroir/${list}/`, "./");
+  const relTask = taskPathAbs.replace(`${userContainerPath}/`, "./");
   const row = `| ${new_scheduled_slot.padEnd(19)} | [${fm.id}: ${fm.title}](${relTask}) | ${fm.category_pro || fm.category_priv || ""} | ${fm.deadline || ""} |`;
   newSec = appendRow(newSec, row);
   current = replaceWeek(current, newWeek, newSec);
@@ -260,11 +287,15 @@ async function pushToEnd(body) {
   return { ok: true };
 }
 
-async function report(body) {
+async function report(body, token) {
   const { list } = body;
   if (!list) throw new Error("missing list parameter");
 
-  const currentPath = `codex-miroir/${list}/current.md`;
+  // Validate token
+  validateToken(token);
+
+  const userContainerPath = getUserContainerPath(token, list);
+  const currentPath = `${userContainerPath}/current.md`;
   const current = await readText(currentPath);
   
   if (!current) {
@@ -292,9 +323,12 @@ async function report(body) {
   return { tasks, total: tasks.length };
 }
 
-async function when(body) {
+async function when(body, token) {
   const { list } = body;
   if (!list) throw new Error("missing list parameter");
+
+  // Validate token
+  validateToken(token);
 
   // Get next available slot logic - simplified for now
   const now = new Date();
@@ -328,9 +362,12 @@ function getNextSlot(list) {
 }
 
 // Voice Command Processing
-async function processCommand(body) {
+async function processCommand(body, token) {
   const { text, list } = body;
   if (!text || !list) throw new Error("missing text or list parameter");
+
+  // Validate token
+  validateToken(token);
 
   const prompt = `Du bist ein deutscher Task-Management-Assistent für "Codex Miroir".
 Analysiere diesen Sprachbefehl: "${text}"
@@ -382,7 +419,7 @@ Ausgabe: {"intent": "create_task", "parameters": {"title": "Meeting vorbereiten"
         created_at_iso: new Date().toISOString(),
         scheduled_slot: getNextSlot(list),
         category: result.parameters.category || (list === 'pro' ? 'allgemein' : 'projekt')
-      });
+      }, token);
       result.executed = true;
       result.taskId = taskId;
     }
@@ -452,9 +489,12 @@ function simpleCommandProcessing(text, list) {
 }
 
 // Task Decomposition using AI
-async function decomposeTask(body) {
+async function decomposeTask(body, token) {
   const { list, title, description, estimated_hours } = body;
   if (!title) throw new Error("missing title parameter");
+
+  // Validate token
+  validateToken(token);
 
   const prompt = `Du bist ein Experte für Task Management und Zeitplanung.
 Zerlege diese Aufgabe in kleinere Teilaufgaben à 3.5 Stunden (1 Slot):
@@ -523,11 +563,15 @@ Antworte in JSON:
 }
 
 // Voice-optimized Current Task
-async function getCurrentTask(body) {
+async function getCurrentTask(body, token) {
   const { list } = body;
   if (!list) throw new Error("missing list parameter");
 
-  const currentPath = `codex-miroir/${list}/current.md`;
+  // Validate token
+  validateToken(token);
+
+  const userContainerPath = getUserContainerPath(token, list);
+  const currentPath = `${userContainerPath}/current.md`;
   const current = await readText(currentPath);
   
   if (!current) {
@@ -569,7 +613,7 @@ async function getCurrentTask(body) {
   // Try to get task details from file
   let taskDetails = null;
   try {
-    const taskMd = await readText(`codex-miroir/${list}/${currentTask.taskPath.replace('./', '')}`);
+    const taskMd = await readText(`${userContainerPath}/${currentTask.taskPath.replace('./', '')}`);
     if (taskMd) {
       const parsed = matter(taskMd);
       taskDetails = parsed.data;
@@ -598,12 +642,23 @@ module.exports = async function (context, req) {
   context.log('Codex Miroir function triggered');
 
   try {
-    // Authentication
-    const apiKey = req.headers['x-api-key'] || req.query.apiKey;
-    if (!API_KEY || apiKey !== API_KEY) {
+    // Get token from URL path
+    const token = req.params.token;
+    if (!token) {
       context.res = {
         status: 401,
-        body: { error: "Unauthorized" }
+        body: { error: "Token missing in URL path" }
+      };
+      return;
+    }
+
+    // Validate token
+    try {
+      validateToken(token);
+    } catch (error) {
+      context.res = {
+        status: 401,
+        body: { error: error.message }
       };
       return;
     }
@@ -614,28 +669,28 @@ module.exports = async function (context, req) {
     let result;
     switch (action) {
       case 'createTask':
-        result = await createTask(body);
+        result = await createTask(body, token);
         break;
       case 'completeTask':
-        result = await completeTask(body);
+        result = await completeTask(body, token);
         break;
       case 'pushToEnd':
-        result = await pushToEnd(body);
+        result = await pushToEnd(body, token);
         break;
       case 'report':
-        result = await report(body);
+        result = await report(body, token);
         break;
       case 'when':
-        result = await when(body);
+        result = await when(body, token);
         break;
       case 'processCommand':
-        result = await processCommand(body);
+        result = await processCommand(body, token);
         break;
       case 'decomposeTask':
-        result = await decomposeTask(body);
+        result = await decomposeTask(body, token);
         break;
       case 'getCurrentTask':
-        result = await getCurrentTask(body);
+        result = await getCurrentTask(body, token);
         break;
       default:
         throw new Error(`Unknown action: ${action}`);

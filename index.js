@@ -4,11 +4,11 @@ const { app } = require('@azure/functions');
 const codexHandler = require('./codex/index.js');
 const staticHandler = require('./static/index.js');
 
-// Register the codex API function
+// Register the codex API function with token-based routing
 app.http('codex', {
     methods: ['GET', 'POST'],
-    authLevel: 'function',
-    route: 'api/codex',
+    authLevel: 'anonymous',
+    route: 'api/codex/{token}',
     handler: async (request, context) => {
         // Create a compatibility layer for the existing function
         let body = {};
