@@ -45,7 +45,7 @@ This project has been updated to use the Azure Functions v4 Node.js programming 
 - Configured empty route prefix to allow root-level routing
 
 ### 2. Function Routes
-- **API Function**: `/api/codex` - Handles all API requests with authentication
+- **API Function**: `/api/codex/{secure_token}` - Handles all API requests with token-based authentication
 - **Static Function**: `{*path}` - Serves frontend assets and handles SPA routing
 
 ### 3. Static File Serving
@@ -72,7 +72,6 @@ az functionapp config appsettings set \
   --resource-group myResourceGroup \
   --settings \
     "AZURE_BLOB_CONN=your-storage-connection-string" \
-    "API_KEY=your-secure-api-key" \
     "OPENAI_API_KEY=your-openai-key" \
     "AZUREWEBJOBSDISABLEHOMEPAGE=true"
 ```
