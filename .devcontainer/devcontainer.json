@@ -22,7 +22,7 @@
         }
     }
   },
-  "forwardPorts": [3000, 5173, 8080],
-  "postCreateCommand": "npm install && cd server && npm install",
+  "forwardPorts": [3000, 5173, 8080, 7071],
+  "postCreateCommand": "npm install && cd server && npm install && npm install -g azure-functions-core-tools@4 --unsafe-perm true",
   "remoteUser": "node"
 }
