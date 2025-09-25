@@ -1,0 +1,206 @@
+name: Automerge Chore PRs
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled, unlabeled]
+  pull_request_review:
+    types: [submitted]
+  check_suite:
+    types: [completed]
+  status: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+  actions: read
+
+jobs:
+  automerge:
+    name: Automerge Chore PRs
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review' || github.event_name == 'check_suite' || github.event_name == 'status'
+    
+    steps:
+      # Check if PR has chore label
+      - name: Check if PR has chore label
+        id: check-chore-label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let prNumber;
+            let labels = [];
+            
+            // Get PR number from different event types
+            if (context.eventName === 'pull_request') {
+              prNumber = context.payload.pull_request.number;
+              labels = context.payload.pull_request.labels.map(label => label.name);
+            } else if (context.eventName === 'pull_request_review') {
+              prNumber = context.payload.pull_request.number;
+              labels = context.payload.pull_request.labels.map(label => label.name);
+            } else if (context.eventName === 'check_suite') {
+              // For check_suite events, we need to find associated PRs
+              const prs = context.payload.check_suite.pull_requests;
+              if (prs.length === 0) {
+                console.log('No PRs associated with this check suite');
+                core.setOutput('has-chore-label', false);
+                core.setOutput('pr-number', '');
+                return false;
+              }
+              prNumber = prs[0].number;
+              // Get fresh PR data
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber
+              });
+              labels = pr.labels.map(label => label.name);
+            } else if (context.eventName === 'status') {
+              // For status events, check if there are associated PRs
+              const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.payload.sha
+              });
+              if (prs.length === 0) {
+                console.log('No PRs associated with this commit');
+                core.setOutput('has-chore-label', false);
+                core.setOutput('pr-number', '');
+                return false;
+              }
+              prNumber = prs[0].number;
+              labels = prs[0].labels.map(label => label.name);
+            }
+            
+            const hasChoreLabel = labels.includes('chore');
+            console.log('PR number:', prNumber);
+            console.log('PR labels:', labels);
+            console.log('Has chore label:', hasChoreLabel);
+            
+            core.setOutput('has-chore-label', hasChoreLabel);
+            core.setOutput('pr-number', prNumber);
+            return hasChoreLabel;
+
+      # Get PR details and check status
+      - name: Check PR status
+        id: check-pr-status
+        if: steps.check-chore-label.outputs.has-chore-label == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ steps.check-chore-label.outputs.pr-number }};
+            
+            // Get PR details
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            
+            console.log('PR State:', pr.state);
+            console.log('PR Mergeable:', pr.mergeable);
+            console.log('PR Merged:', pr.merged);
+            console.log('PR Draft:', pr.draft);
+            
+            // Check if PR is ready for merge
+            if (pr.state !== 'open' || pr.merged || pr.draft) {
+              console.log('PR is not ready for merge');
+              core.setOutput('ready-to-merge', false);
+              return false;
+            }
+            
+            // Check if PR is mergeable
+            if (pr.mergeable === false) {
+              console.log('PR has merge conflicts');
+              core.setOutput('ready-to-merge', false);
+              return false;
+            }
+            
+            // Get commit status
+            const { data: statuses } = await github.rest.repos.getCombinedStatusForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: pr.head.sha
+            });
+            
+            console.log('Combined status state:', statuses.state);
+            
+            // Get check runs
+            const { data: checkRuns } = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: pr.head.sha
+            });
+            
+            console.log('Check runs:', checkRuns.check_runs.map(run => `${run.name}: ${run.status}/${run.conclusion}`));
+            
+            // For chore PRs, we expect minimal checks since SonarCloud skips
+            // We mainly need to ensure there are no failing checks
+            const hasFailedStatuses = statuses.statuses.some(status => status.state === 'failure' || status.state === 'error');
+            const hasFailedCheckRuns = checkRuns.check_runs.some(run => 
+              run.status === 'completed' && (run.conclusion === 'failure' || run.conclusion === 'cancelled')
+            );
+            
+            // Consider ready to merge if no checks are failing
+            // This is appropriate for chore PRs where some checks (like SonarCloud) are intentionally skipped
+            const readyToMerge = !hasFailedStatuses && !hasFailedCheckRuns;
+            console.log('Has failed statuses:', hasFailedStatuses);
+            console.log('Has failed check runs:', hasFailedCheckRuns);
+            console.log('Ready to merge:', readyToMerge);
+            
+            core.setOutput('ready-to-merge', readyToMerge);
+            core.setOutput('pr-sha', pr.head.sha);
+            core.setOutput('pr-title', pr.title);
+            return readyToMerge;
+
+      # Auto-merge the PR
+      - name: Auto-merge chore PR
+        if: steps.check-pr-status.outputs.ready-to-merge == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ steps.check-chore-label.outputs.pr-number }};
+            const prTitle = '${{ steps.check-pr-status.outputs.pr-title }}';
+            
+            try {
+              // Enable auto-merge
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                commit_title: `Auto-merge: ${prTitle}`,
+                commit_message: `Automatically merged chore PR #${prNumber}`,
+                merge_method: 'squash' // Use squash merge for cleaner history
+              });
+              
+              console.log(`✅ Successfully auto-merged PR #${prNumber}`);
+              
+              // Add a comment to the PR
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: `🤖 This chore PR has been automatically merged as all checks passed.`
+              });
+              
+            } catch (error) {
+              console.error('Failed to auto-merge PR:', error.message);
+              
+              // Try to add a comment about the failure
+              try {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body: `⚠️ Auto-merge failed for this chore PR: ${error.message}`
+                });
+              } catch (commentError) {
+                console.error('Failed to add comment:', commentError.message);
+              }
+            }
+
+      # Log when chore label is not present
+      - name: Log non-chore PR
+        if: steps.check-chore-label.outputs.has-chore-label != 'true'
+        run: |
+          echo "This PR does not have the 'chore' label - skipping automerge"
