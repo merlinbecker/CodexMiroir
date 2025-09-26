@@ -44,10 +44,10 @@ The quality analysis workflow:
 
 ## Radar Chart
 
-The radar chart visualizes quality metrics on a 0-1.0 scale:
-- 1.0: Excellent (A rating or 100% coverage)
-- 0.8: Good (B rating or >80% coverage) 
-- 0.6: Average (C rating or >60% coverage)
-- 0.4: Below Average (D rating or >40% coverage)
-- 0.2: Poor (E rating or >20% coverage)
-- 0.0: No data available
+The radar chart visualizes quality metrics on a 0-5 scale:
+- 5: Excellent (A rating or >80% coverage)
+- 4: Good (B rating or >60% coverage)
+- 3: Average (C rating or >40% coverage)
+- 2: Below Average (D rating or >20% coverage)
+- 1: Poor (E rating or <20% coverage)
+- 0: No data available
