@@ -1,84 +1,84 @@
-# Overview
+# CodexMiroir - Minimalistic PWA Task Manager
 
-Codex Caché is a minimalistic Progressive Web App (PWA) designed as a dual-FIFO task manager for personal productivity. The application manages two separate task backlogs (professional and private) with strict first-in-first-out task ordering. The system emphasizes mental offloading and focus by displaying only the current active task prominently, with AI-powered task chunking and automatic reprioritization based on deadlines.
+CodexMiroir ist ein sprachgesteuertes, minimalistisches Task-Management-System als Progressive Web App (PWA). Das System implementiert die "Spiegelkodex"-Philosophie - ein FIFO-Ansatz (First-In-First-Out), der Fokus durch prominente Anzeige nur der aktuellen Aufgabe erzwingt. Das System operiert in deutscher Sprache und unterstützt sowohl berufliches als auch privates Aufgabenmanagement mit unterschiedlichen visuellen Themes.
 
-# User Preferences
+# Benutzereinstellungen
 
-Preferred communication style: Simple, everyday language.
+Bevorzugter Kommunikationsstil: Einfache, alltägliche Sprache auf Deutsch.
 
-# System Architecture
+# Systemarchitektur
 
-## Frontend Architecture
-The application uses React with TypeScript as the primary frontend framework, built with Vite for fast development and production builds. The UI follows a mobile-first, minimalistic design approach using:
+## Frontend-Architektur
+Die Anwendung verwendet eine Progressive Web App (PWA) mit modernem Vanilla JavaScript als primäres Frontend-Framework. Die Benutzeroberfläche folgt einem mobile-first, minimalistischen Design-Ansatz mit:
 
-- **React Components**: Modular component structure with custom hooks for state management
-- **Styling**: Tailwind CSS with shadcn/ui component library for consistent design
-- **Theme System**: Dual-theme architecture supporting light mode (private tasks) and dark mode (professional tasks)
-- **PWA Features**: Service worker implementation for offline functionality and app-like experience
-- **Routing**: Wouter for lightweight client-side routing
+- **PWA-Komponenten**: Modulare Komponentenstruktur mit Vanilla JS-Klassen
+- **Styling**: Modernes CSS mit fokussiertem Design
+- **Theme-System**: Dual-Theme-Architektur mit Dark Mode (beruflich) und Light Mode (privat)
+- **PWA-Features**: Service Worker-Implementierung für Offline-Funktionalität
+- **Token-Management**: Sichere lokale Token-Speicherung für Benutzeridentifikation
 
-## Backend Architecture
-The backend is built with Express.js and follows a RESTful API design pattern:
+## Backend-Architektur
+Das Backend basiert vollständig auf Azure Functions und folgt einer serverlosen Architektur:
 
-- **Express Server**: Lightweight REST API with middleware for request logging and error handling
-- **Storage Layer**: Abstracted storage interface supporting both in-memory and database implementations
-- **Route Organization**: Separated route handlers for different task operations (CRUD, chunking, completion)
-- **Development Integration**: Vite middleware integration for seamless development experience
+- **Azure Functions**: Lightweight API mit modularer Struktur
+- **Storage Layer**: Azure Blob Storage mit Markdown-Dateien
+- **Routing**: Action-basiertes Routing für verschiedene Task-Operationen
+- **Token-Authentifizierung**: URL-basierte Token-Authentifizierung für Benutzertrennung
 
-## Data Storage Solutions
-The application uses a flexible data storage approach:
+## Datenspeicher-Lösungen
+Die Anwendung verwendet einen flexiblen Datenspeicher-Ansatz:
 
-- **Database**: PostgreSQL with Drizzle ORM for type-safe database operations
-- **Connection**: Neon serverless PostgreSQL for cloud-hosted database
-- **Schema Management**: Drizzle Kit for migrations and schema management
-- **Runtime Storage**: In-memory storage implementation for development and testing
+- **Storage**: Azure Blob Storage für sichere, skalierbare Datenhaltung
+- **Format**: Markdown-Dateien mit YAML-Frontmatter für menschlich lesbare Task-Daten
+- **Benutzertrennung**: Token-basierte Pfadstruktur (`users/{token}/codex-miroir/`)
+- **Offline-Support**: Lokale Caching-Mechanismen für PWA-Funktionalität
 
-## Task Management System
-The core functionality revolves around strict FIFO task management:
+## Task-Management-System
+Die Kernfunktionalität dreht sich um striktes FIFO-Task-Management:
 
-- **Dual Backlogs**: Separate task queues for professional and private contexts
-- **FIFO Ordering**: Tasks are processed in strict order without manual reordering
-- **Status Management**: Simple three-state system (pending, active, completed)
-- **Auto-chunking**: AI-powered task breakdown into 3.5-hour work blocks
-- **Smart Reprioritization**: Automatic task reordering based on deadlines and urgency
+- **Dual Backlogs**: Getrennte Task-Warteschlangen für berufliche und private Kontexte
+- **FIFO-Ordering**: Tasks werden in strikter Reihenfolge ohne manuelle Neuordnung verarbeitet
+- **Status-Management**: Einfaches Drei-Status-System (geplant, aktiv, abgeschlossen)
+- **Auto-Chunking**: KI-gestützte Task-Aufbereitung in 3,5-Stunden-Arbeitsblöcke
+- **Smart Reprioritization**: Automatische Task-Neuordnung basierend auf Deadlines und Dringlichkeit
 
-## Authentication and Authorization
-The application implements a token-based security model:
+## Authentifizierung und Autorisierung
+Die Anwendung implementiert ein token-basiertes Sicherheitsmodell:
 
-- **Secure Tokens**: Separate read/write access tokens for different operations
-- **Long URLs**: Cryptographically secure random URLs for access control
-- **Session Management**: PostgreSQL-based session storage using connect-pg-simple
+- **Sichere Token**: 16-Zeichen-Token für Benutzertrennung
+- **URL-basiert**: Token werden in der URL übertragen (`/api/codex/{token}`)
+- **Lokale Speicherung**: Token werden im localStorage des Browsers gespeichert
+- **Keine zentrale User-DB**: Jeder Token definiert einen isolierten Datenbereich
 
-# External Dependencies
+# Externe Abhängigkeiten
 
-## AI Integration
-- **OpenAI API**: Used for intelligent task chunking and reprioritization
-- **GPT Models**: Latest GPT model integration for natural language processing of task descriptions
+## KI-Integration
+- **OpenAI API**: Verwendet für intelligente Task-Zerlegung und deutsche Sprachverarbeitung
+- **GPT-Modelle**: Aktuelle GPT-3.5/4-Integration für natürliche Sprachverarbeitung von Task-Beschreibungen
 
-## UI and Styling
-- **Radix UI**: Comprehensive set of accessible React components for core UI elements
-- **Tailwind CSS**: Utility-first CSS framework for responsive design
-- **Lucide Icons**: Consistent icon library for UI elements
-- **Inter Font**: Google Fonts integration for typography
+## UI und Styling
+- **Moderne CSS**: Utility-basiertes CSS für responsive Design
+- **Progressive Web App**: Service Worker für Offline-Funktionalität
+- **Deutsche Lokalisierung**: Vollständige deutsche Benutzeroberfläche
 
-## Database and Storage
-- **Neon Database**: Serverless PostgreSQL hosting platform
-- **Drizzle ORM**: Type-safe database toolkit for schema management and queries
-- **PostgreSQL**: Primary database engine for persistent data storage
+## Datenbank und Storage
+- **Azure Blob Storage**: Serverlose Markdown-Dateispeicherung
+- **Markdown-Format**: Menschlich lesbare Task-Dateien mit YAML-Frontmatter
+- **Token-basierte Pfade**: Automatische Benutzertrennung über Pfadstruktur
 
-## Development and Build Tools
-- **Vite**: Fast build tool and development server
-- **TypeScript**: Type safety and enhanced developer experience
-- **React Query**: Data fetching and caching library for API interactions
-- **Wouter**: Lightweight routing solution for React applications
+## Entwicklung und Build-Tools
+- **Azure Functions**: Serverlose Backend-Ausführung
+- **Node.js 18+**: Modern JavaScript Runtime
+- **Jest**: Testing-Framework für Backend-Tests
+- **Service Worker**: PWA-Offline-Funktionalität
 
-## PWA and Performance
-- **Service Worker**: Custom implementation for offline functionality and caching
-- **Web Speech API**: Browser-native speech recognition for voice input
-- **React Hook Form**: Form state management and validation
-- **Date-fns**: Date manipulation and formatting utilities
+## PWA und Performance
+- **Service Worker**: Custom-Implementierung für Offline-Funktionalität und Caching
+- **Web Speech API**: Browser-native Spracherkennung für Voice-Input
+- **LocalStorage**: Token- und Cache-Management
+- **Moderne JS-Features**: ES6+ für optimierte Performance
 
-## Hosting and Deployment
-- **Replit Integration**: Development environment plugins and tools
-- **Node.js Runtime**: Server-side JavaScript execution environment
-- **ESBuild**: Fast JavaScript bundler for production builds
+## Hosting und Deployment
+- **Azure Functions**: Serverlose Cloud-Ausführung
+- **Azure Blob Storage**: Skalierbare Dateispeicherung
+- **PWA-Distribution**: Über Azure Functions static hosting
