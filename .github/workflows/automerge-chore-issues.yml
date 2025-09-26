@@ -1,0 +1,125 @@
+name: Automerge Chore Issues
+
+# This workflow handles automatic processing of issues labeled with "chore"
+# It works alongside automerge-chore.yml which handles Pull Requests
+# Issues tagged with "chore" are automatically closed with appropriate comments
+
+on:
+  issues:
+    types: [opened, labeled, unlabeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  process-chore-issue:
+    name: Process Chore Issues
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues'
+    
+    steps:
+      # Check if issue has chore label and is from copilot
+      - name: Check if issue qualifies for automerge
+        id: check-chore-issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const labels = issue.labels.map(label => label.name);
+            const hasChoreLabel = labels.includes('chore');
+            const isFromCopilot = issue.user.login === 'copilot' || 
+                                 issue.user.type === 'Bot' ||
+                                 issue.body.includes('@copilot') ||
+                                 issue.title.toLowerCase().includes('copilot');
+            
+            console.log('Issue number:', issue.number);
+            console.log('Issue labels:', labels);
+            console.log('Issue author:', issue.user.login);
+            console.log('Issue type:', issue.user.type);
+            console.log('Has chore label:', hasChoreLabel);
+            console.log('Is from copilot:', isFromCopilot);
+            console.log('Issue state:', issue.state);
+            
+            // Only process open issues with chore label
+            const shouldProcess = issue.state === 'open' && hasChoreLabel;
+            
+            core.setOutput('should-process', shouldProcess);
+            core.setOutput('has-chore-label', hasChoreLabel);
+            core.setOutput('is-from-copilot', isFromCopilot);
+            core.setOutput('issue-number', issue.number);
+            core.setOutput('issue-title', issue.title);
+            return shouldProcess;
+
+      # Auto-close chore issues with a comment
+      - name: Auto-close chore issue
+        if: steps.check-chore-issue.outputs.should-process == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ steps.check-chore-issue.outputs.issue-number }};
+            const issueTitle = '${{ steps.check-chore-issue.outputs.issue-title }}';
+            const isFromCopilot = ${{ steps.check-chore-issue.outputs.is-from-copilot }};
+            
+            try {
+              // Add a comment explaining the auto-close
+              const commentBody = isFromCopilot 
+                ? "🤖 This chore issue from GitHub Copilot has been automatically processed and closed.\n\n" +
+                  "**Why was this closed?**\n" +
+                  "- Issues labeled with \"chore\" are automatically handled\n" +
+                  "- Copilot-generated chore tasks are typically documentation or maintenance requests\n" +
+                  "- These are processed automatically to maintain workflow efficiency\n\n" +
+                  "If this issue requires manual intervention, please:\n" +
+                  "1. Remove the \"chore\" label and reopen\n" +
+                  "2. Or create a new issue with different labels"
+                : "🤖 This chore issue has been automatically processed and closed.\n\n" +
+                  "**Why was this closed?**\n" +
+                  "- Issues labeled with \"chore\" are automatically handled for workflow efficiency\n" +
+                  "- Chore tasks are typically routine maintenance or documentation updates\n\n" +
+                  "If this issue requires manual intervention, please:\n" +
+                  "1. Remove the \"chore\" label and reopen\n" +
+                  "2. Or create a new issue with different labels";
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: commentBody
+              });
+              
+              // Close the issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                state: 'closed',
+                state_reason: 'completed'
+              });
+              
+              console.log(`✅ Successfully auto-closed chore issue #${issueNumber}`);
+              
+            } catch (error) {
+              console.error('Failed to auto-close issue:', error.message);
+              
+              // Try to add a comment about the failure
+              try {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: `⚠️ Auto-close failed for this chore issue: ${error.message}`
+                });
+              } catch (commentError) {
+                console.error('Failed to add error comment:', commentError.message);
+              }
+            }
+
+      # Log when issue doesn't qualify for processing
+      - name: Log non-qualifying issue
+        if: steps.check-chore-issue.outputs.should-process != 'true'
+        run: |
+          echo "This issue does not qualify for automerge processing:"
+          echo "- Has chore label: ${{ steps.check-chore-issue.outputs.has-chore-label }}"
+          echo "- Is from copilot: ${{ steps.check-chore-issue.outputs.is-from-copilot }}"

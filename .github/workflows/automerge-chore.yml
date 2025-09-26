@@ -1,5 +1,9 @@
 name: Automerge Chore PRs
 
+# This workflow handles automatic merging of Pull Requests labeled with "chore"
+# It works alongside automerge-chore-issues.yml which handles Issues
+# PRs tagged with "chore" are automatically merged when checks pass
+
 on:
   pull_request:
     types: [opened, synchronize, labeled, unlabeled]
