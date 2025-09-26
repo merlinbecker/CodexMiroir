@@ -21,6 +21,71 @@ describe('Automerge Chore Logic', () => {
     });
   });
 
+  describe('Issue Qualification Logic', () => {
+    test('should qualify open issue with chore label', () => {
+      const issue = { state: 'open', labels: [{ name: 'chore' }] };
+      const labels = issue.labels.map(label => label.name);
+      const hasChoreLabel = labels.includes('chore');
+      const shouldProcess = issue.state === 'open' && hasChoreLabel;
+      expect(shouldProcess).toBe(true);
+    });
+
+    test('should not qualify closed issue even with chore label', () => {
+      const issue = { state: 'closed', labels: [{ name: 'chore' }] };
+      const labels = issue.labels.map(label => label.name);
+      const hasChoreLabel = labels.includes('chore');
+      const shouldProcess = issue.state === 'open' && hasChoreLabel;
+      expect(shouldProcess).toBe(false);
+    });
+
+    test('should not qualify open issue without chore label', () => {
+      const issue = { state: 'open', labels: [{ name: 'bug' }] };
+      const labels = issue.labels.map(label => label.name);
+      const hasChoreLabel = labels.includes('chore');
+      const shouldProcess = issue.state === 'open' && hasChoreLabel;
+      expect(shouldProcess).toBe(false);
+    });
+  });
+
+  describe('Copilot Detection Logic', () => {
+    test('should detect copilot user by login', () => {
+      const user = { login: 'copilot', type: 'Bot' };
+      const isFromCopilot = user.login === 'copilot' || 
+                           user.type === 'Bot';
+      expect(isFromCopilot).toBe(true);
+    });
+
+    test('should detect copilot user by type', () => {
+      const user = { login: 'github-actions[bot]', type: 'Bot' };
+      const isFromCopilot = user.login === 'copilot' || 
+                           user.type === 'Bot';
+      expect(isFromCopilot).toBe(true);
+    });
+
+    test('should detect copilot mention in body', () => {
+      const issueBody = 'This issue was created by @copilot for documentation';
+      const isFromCopilot = issueBody.includes('@copilot');
+      expect(isFromCopilot).toBe(true);
+    });
+
+    test('should detect copilot mention in title', () => {
+      const issueTitle = 'Copilot suggestion: Update documentation';
+      const isFromCopilot = issueTitle.toLowerCase().includes('copilot');
+      expect(isFromCopilot).toBe(true);
+    });
+
+    test('should not detect copilot for regular user', () => {
+      const user = { login: 'regular-user', type: 'User' };
+      const issueBody = 'Regular issue without copilot';
+      const issueTitle = 'Regular issue title';
+      const isFromCopilot = user.login === 'copilot' || 
+                           user.type === 'Bot' ||
+                           issueBody.includes('@copilot') ||
+                           issueTitle.toLowerCase().includes('copilot');
+      expect(isFromCopilot).toBe(false);
+    });
+  });
+
   describe('Check Status Logic', () => {
     test('should consider PR ready when no failed checks', () => {
       const statuses = [];
