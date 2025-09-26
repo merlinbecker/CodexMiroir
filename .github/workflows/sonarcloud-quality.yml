@@ -142,28 +142,30 @@ jobs:
           const currentData = JSON.parse(process.argv[2] || '{"component":{"measures":[]}}');
           const previousData = JSON.parse(process.argv[3] || '{"measures":[]}');
           
-          // Transform SonarCloud ratings (1=A, 2=B, 3=C, 4=D, 5=E) to radar values (1-5, where 5 is best)
+          // Transform SonarCloud ratings (1=A, 2=B, 3=C, 4=D, 5=E) to radar values (0-1.0, where 1.0 is best)
           function transformRating(value) {
             if (!value || value === 'No data') return 0;
             const num = parseInt(value);
-            return num ? 6 - num : 0; // Invert so 5 is best
+            if (!num) return 0;
+            // Convert to 0-1.0 scale where A=1.0, B=0.8, C=0.6, D=0.4, E=0.2
+            return (6 - num) / 5;
           }
           
-          // Transform percentage values (0-100 to 0-5 scale)
+          // Transform percentage values (0-100 to 0-1.0 scale)
           function transformPercentage(value) {
             if (!value || value === 'No data') return 0;
-            return Math.round(parseFloat(value) / 20); // 0-100 -> 0-5
+            return parseFloat(value) / 100; // 0-100 -> 0-1.0
           }
           
-          // Transform lines of code to a 0-5 scale (logarithmic)
+          // Transform lines of code to a 0-1.0 scale (logarithmic)
           function transformLOC(value) {
             if (!value || value === 'No data') return 0;
             const loc = parseInt(value);
-            if (loc < 100) return 1;
-            if (loc < 500) return 2;
-            if (loc < 1000) return 3;
-            if (loc < 5000) return 4;
-            return 5;
+            if (loc < 100) return 0.2;
+            if (loc < 500) return 0.4;
+            if (loc < 1000) return 0.6;
+            if (loc < 5000) return 0.8;
+            return 1.0;
           }
           
           // Get metric value from measures array
@@ -179,7 +181,7 @@ jobs:
             reliability: transformRating(getMetricValue(currentMeasures, 'reliability_rating')),
             maintainability: transformRating(getMetricValue(currentMeasures, 'sqale_rating')),
             coverage: transformPercentage(getMetricValue(currentMeasures, 'coverage')),
-            duplicateCode: 5 - transformPercentage(getMetricValue(currentMeasures, 'duplicated_lines_density')),
+            duplicateCode: 1.0 - transformPercentage(getMetricValue(currentMeasures, 'duplicated_lines_density')),
             linesOfCode: transformLOC(getMetricValue(currentMeasures, 'ncloc'))
           };
           
@@ -192,7 +194,7 @@ jobs:
               reliability: transformRating(getMetricValue(prevMeasures, 'reliability_rating')),
               maintainability: transformRating(getMetricValue(prevMeasures, 'sqale_rating')),
               coverage: transformPercentage(getMetricValue(prevMeasures, 'coverage')),
-              duplicateCode: 5 - transformPercentage(getMetricValue(prevMeasures, 'duplicated_lines_density')),
+              duplicateCode: 1.0 - transformPercentage(getMetricValue(prevMeasures, 'duplicated_lines_density')),
               linesOfCode: transformLOC(getMetricValue(prevMeasures, 'ncloc'))
             };
           }
@@ -213,7 +215,7 @@ jobs:
             '  axis c["Coverage"], d["Code Duplication"], l["Lines of Code"]',
             `  curve current["Current"]{${current.security}, ${current.reliability}, ${current.maintainability}, ${current.coverage}, ${current.duplicateCode}, ${current.linesOfCode}}`,
             hasPrevious ? `  curve previous["Previous"]{${previous.security}, ${previous.reliability}, ${previous.maintainability}, ${previous.coverage}, ${previous.duplicateCode}, ${previous.linesOfCode}}` : '',
-            '  max 5',
+            '  max 1',
             '  min 0',
             '```',
             '',
@@ -221,11 +223,11 @@ jobs:
             '',
             '| Metric | Current Value | Rating |',
             '|--------|---------------|--------|',
-            `| Security Rating | ${getMetricValue(currentMeasures, 'security_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.security] || '❓'} |`,
-            `| Reliability Rating | ${getMetricValue(currentMeasures, 'reliability_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.reliability] || '❓'} |`,
-            `| Maintainability Rating | ${getMetricValue(currentMeasures, 'sqale_rating') || 'No data'} | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.maintainability] || '❓'} |`,
-            `| Coverage | ${getMetricValue(currentMeasures, 'coverage') || 'No data'}% | ${['❌', '🟥', '🟨', '🟨', '🟩', '🟩'][current.coverage] || '❓'} |`,
-            `| Code Duplication | ${getMetricValue(currentMeasures, 'duplicated_lines_density') || 'No data'}% | ${current.duplicateCode >= 4 ? '🟩' : current.duplicateCode >= 2 ? '🟨' : '🟥'} |`,
+            `| Security Rating | ${getMetricValue(currentMeasures, 'security_rating') || 'No data'} | ${current.security >= 0.8 ? '🟩' : current.security >= 0.4 ? '🟨' : current.security > 0 ? '🟥' : '❓'} |`,
+            `| Reliability Rating | ${getMetricValue(currentMeasures, 'reliability_rating') || 'No data'} | ${current.reliability >= 0.8 ? '🟩' : current.reliability >= 0.4 ? '🟨' : current.reliability > 0 ? '🟥' : '❓'} |`,
+            `| Maintainability Rating | ${getMetricValue(currentMeasures, 'sqale_rating') || 'No data'} | ${current.maintainability >= 0.8 ? '🟩' : current.maintainability >= 0.4 ? '🟨' : current.maintainability > 0 ? '🟥' : '❓'} |`,
+            `| Coverage | ${getMetricValue(currentMeasures, 'coverage') || 'No data'}% | ${current.coverage >= 0.8 ? '🟩' : current.coverage >= 0.4 ? '🟨' : current.coverage > 0 ? '🟥' : '❌'} |`,
+            `| Code Duplication | ${getMetricValue(currentMeasures, 'duplicated_lines_density') || 'No data'}% | ${current.duplicateCode >= 0.8 ? '🟩' : current.duplicateCode >= 0.4 ? '🟨' : '🟥'} |`,
             `| Lines of Code | ${getMetricValue(currentMeasures, 'ncloc') || 'No data'} | 📊 |`,
             '',
             '## SonarCloud Badges',

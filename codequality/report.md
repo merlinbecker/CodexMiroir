@@ -7,8 +7,8 @@ title: "Code Quality Metrics"
 radar-beta
   axis s["Security"], r["Reliability"], m["Maintainability"]
   axis c["Coverage"], d["Code Duplication"], l["Lines of Code"]
-  curve current["Current"]{5, 5, 5, 0, 5, 3}
-  max 5
+  curve current["Current"]{1, 1, 1, 0, 1, 0.6}
+  max 1
   min 0
 ```
 ## Current Metrics
@@ -28,4 +28,4 @@ radar-beta
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=coverage)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
-Generated on: 2025-09-25T17:25:29.696Z
+Generated on: 2025-09-26T08:04:06.110Z
