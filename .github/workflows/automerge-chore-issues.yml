@@ -66,25 +66,21 @@ jobs:
             try {
               // Add a comment explaining the auto-close
               const commentBody = isFromCopilot 
-                ? `🤖 This chore issue from GitHub Copilot has been automatically processed and closed.
-
-**Why was this closed?**
-- Issues labeled with "chore" are automatically handled
-- Copilot-generated chore tasks are typically documentation or maintenance requests
-- These are processed automatically to maintain workflow efficiency
-
-If this issue requires manual intervention, please:
-1. Remove the "chore" label and reopen
-2. Or create a new issue with different labels`
-                : `🤖 This chore issue has been automatically processed and closed.
-
-**Why was this closed?**
-- Issues labeled with "chore" are automatically handled for workflow efficiency
-- Chore tasks are typically routine maintenance or documentation updates
-
-If this issue requires manual intervention, please:
-1. Remove the "chore" label and reopen
-2. Or create a new issue with different labels`;
+                ? "🤖 This chore issue from GitHub Copilot has been automatically processed and closed.\n\n" +
+                  "**Why was this closed?**\n" +
+                  "- Issues labeled with \"chore\" are automatically handled\n" +
+                  "- Copilot-generated chore tasks are typically documentation or maintenance requests\n" +
+                  "- These are processed automatically to maintain workflow efficiency\n\n" +
+                  "If this issue requires manual intervention, please:\n" +
+                  "1. Remove the \"chore\" label and reopen\n" +
+                  "2. Or create a new issue with different labels"
+                : "🤖 This chore issue has been automatically processed and closed.\n\n" +
+                  "**Why was this closed?**\n" +
+                  "- Issues labeled with \"chore\" are automatically handled for workflow efficiency\n" +
+                  "- Chore tasks are typically routine maintenance or documentation updates\n\n" +
+                  "If this issue requires manual intervention, please:\n" +
+                  "1. Remove the \"chore\" label and reopen\n" +
+                  "2. Or create a new issue with different labels";
 
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
