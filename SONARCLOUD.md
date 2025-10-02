@@ -51,3 +51,34 @@ The radar chart visualizes quality metrics on a 0-5 scale:
 - 2: Below Average (D rating or >20% coverage)
 - 1: Poor (E rating or <20% coverage)
 - 0: No data available
+
+### Comparison View
+
+The radar chart displays **two curves** when previous analysis data is available:
+- **Current** (blue curve): Latest metrics from the current analysis
+- **Previous** (red curve): Metrics from the previous analysis run
+
+This allows you to:
+- Track quality trends over time
+- See improvements or regressions at a glance
+- Compare code quality before and after changes
+
+Example radar chart with comparison:
+```mermaid
+---
+title: "Code Quality Metrics"
+---
+radar-beta
+  axis s["Security"], r["Reliability"], m["Maintainability"]
+  axis c["Coverage"], d["Code Duplication"], l["Lines of Code"]
+  curve current["Current"]{5, 5, 5, 0, 5, 3}
+  curve previous["Previous"]{4, 5, 4, 3, 5, 3}
+  max 5
+  min 0
+```
+
+In this example, you can see:
+- Security improved from 4 to 5 (better)
+- Maintainability improved from 4 to 5 (better)
+- Coverage decreased from 3 to 0 (needs attention)
+- Other metrics remained stable
