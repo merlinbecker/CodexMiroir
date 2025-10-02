@@ -408,6 +408,27 @@ document.addEventListener('alpine:init', () => {
             } catch (e) {
                 this.error = e.message;
             }
+        },
+
+        async deleteTask(taskId) {
+            try {
+                this.error = null;
+                
+                // Bestätigung vom Benutzer
+                if (!confirm('Möchten Sie diesen Task wirklich löschen?')) {
+                    return;
+                }
+                
+                const res = await fetch(this.apiUrl(`api/tasks/${this.userId}/${taskId}`), {
+                    method: 'DELETE'
+                });
+                if (!res.ok) throw new Error('Delete failed: HTTP ' + res.status);
+                
+                this.dialog.show = false;
+                await this.load();
+            } catch (e) {
+                this.error = e.message;
+            }
         }
     }));
 });
