@@ -177,6 +177,9 @@
 
                             <footer>
                                 <button type="button" class="secondary" @click="dialog.show = false">Abbrechen</button>
+                                <template x-if="dialog.mode === 'edit'">
+                                    <button type="button" style="background-color: #d32f2f; color: white;" @click="deleteTask(task.id)">🗑 Löschen</button>
+                                </template>
                                 <button type="submit">Speichern</button>
                             </footer>
                         </form>

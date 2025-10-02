@@ -5,6 +5,7 @@ import { app } from "@azure/functions";
 import "./assignToSlot.js";
 import "./autoFill.js";
 import "./createTask.js";
+import "./deleteTask.js";
 import "./getTask.js";
 import "./getTimeline.js";
 import "./prioritizeTask.js";
