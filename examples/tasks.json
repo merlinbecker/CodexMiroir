@@ -1,0 +1,24 @@
+{
+  "id": "task_123",
+  "type": "task",
+  "userId": "u_merlin",
+  "kind": "work",              // "work" | "personal" | "meeting"
+  "title": "CodexMiroir Sprint Block",
+  "description": "3,5h Fokusblock",
+  "notes": [{ "at": "2025-10-01T08:21:00Z", "text": "Edgecase Weekend" }],
+  "tags": ["codexmiroir"],
+  "project": { "id": "proj_codexmiroir", "name": "CodexMiroir" },
+  "contact": { "name": "Marina", "email": "marina@example.com" },
+  "external": { "devOpsUrl": null, "calendarEventId": null },
+  "deadline": null,
+  "fixed": false,
+  "status": "open",
+  "priority": 3,
+  "checklist": [],
+  "worklog": [],
+  "planned":   { "date": "2025-10-03", "slotIdx": 0 },  // optional
+  "performed": { "date": "2025-10-03", "slotIdx": 0 },  // optional
+  "completedAt": null,
+  "createdAt": "2025-10-01T13:00:00Z",
+  "updatedAt": "2025-10-01T13:00:00Z"
+}

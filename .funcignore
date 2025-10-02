@@ -1,0 +1,38 @@
+# Function App Ignore File
+
+# Git
+.git/
+.gitignore
+
+# Tests
+__tests__/
+test.js
+*.test.js
+coverage/
+
+# Documentation
+documentation/
+Plans/
+examples/
+MIGRATION_SUMMARY.md
+FUNCTION_APP_README.md
+SONARCLOUD.md
+AUTOMERGE.md
+*.md
+
+# Dev files
+.env
+.devcontainer/
+.vscode/
+.replit
+
+# Build artifacts
+node_modules/
+.DS_Store
+
+# Code quality
+codequality/
+sonar-project.properties
+
+# Database infrastructure (deploy separately)
+database/infra/

@@ -5,6 +5,8 @@ server/public
 vite.config.ts.*
 *.tar.gz
 
+local.settings.json
+
 # Test coverage
 coverage/
 *.lcov
@@ -15,3 +17,6 @@ coverage/
 
 # Jest
 jest.config.js
+
+
+.env
