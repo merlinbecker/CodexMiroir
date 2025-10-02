@@ -43,19 +43,22 @@ document.addEventListener('alpine:init', () => {
                 }
             }
             
-            // Calculate timeline from today to end of next week
+            // Calculate timeline for next 7 days (Rabbit R1 requirement)
             const today = new Date();
-            const nextWeekEnd = new Date(today);
-            const daysUntilSunday = 7 - today.getDay() + 7; // Days until next Sunday
-            nextWeekEnd.setDate(today.getDate() + daysUntilSunday);
+            const next7Days = new Date(today);
+            next7Days.setDate(today.getDate() + 7);
             
             this.dateFrom = today.toISOString().split('T')[0];
-            this.dateTo = nextWeekEnd.toISOString().split('T')[0];
+            this.dateTo = next7Days.toISOString().split('T')[0];
             
             // Theme initialisieren
             this.applyTheme();
             
+            // Auto-load timeline (Rabbit R1: always load next 7 days automatically)
             this.load();
+            
+            // Rabbit R1: Setup scroll listener for timeline navigation
+            this.setupRabbitR1Controls();
         },
         
         // Helper method to build API URL with function key
@@ -429,6 +432,95 @@ document.addEventListener('alpine:init', () => {
             } catch (e) {
                 this.error = e.message;
             }
+        },
+
+        // Rabbit R1 specific controls
+        setupRabbitR1Controls() {
+            // Scroll listener: scroll up = timeline down, scroll down = timeline up
+            let scrollTimeout;
+            window.addEventListener('wheel', (e) => {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    const timeline = document.querySelector('section[x-show="days.length"]');
+                    if (timeline && this.days.length > 0) {
+                        // Invert scroll: wheel up (negative) scrolls timeline down
+                        // wheel down (positive) scrolls timeline up
+                        const scrollAmount = -e.deltaY * 2;
+                        timeline.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+                    }
+                }, 10);
+            }, { passive: true });
+
+            // Side button long press detection
+            let longPressTimer;
+            const LONG_PRESS_DURATION = 800; // ms
+
+            // Listen for side button events (could be mapped to specific keys)
+            // Using 'r' key as a proxy for Rabbit R1 side button
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'r' || e.key === 'R') {
+                    if (!longPressTimer) {
+                        longPressTimer = setTimeout(() => {
+                            this.triggerVoiceTranscription();
+                        }, LONG_PRESS_DURATION);
+                    }
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'r' || e.key === 'R') {
+                    if (longPressTimer) {
+                        clearTimeout(longPressTimer);
+                        longPressTimer = null;
+                    }
+                }
+            });
+        },
+
+        triggerVoiceTranscription() {
+            // Send postMessage to prepare agent for voice transcription
+            const prompt = `Du bist ein Planner für Meetings und Tasks. Transkribiere die nächsten Sätze und finde heraus, welche Art von Task ich anlegen will. 
+
+Gib mir ein JSON-Objekt zurück in dieser Form (es muss nicht vollständig sein):
+{
+  "kind": "work" | "personal" | "meeting",
+  "title": "Kurzer Titel des Tasks",
+  "description": "Detaillierte Beschreibung",
+  "deadline": "YYYY-MM-DD" (optional),
+  "fixed": false,
+  "priority": 3,
+  "tags": ["tag1", "tag2"] (optional),
+  "project": { "id": "proj_id", "name": "Project Name" } (optional),
+  "contact": { "name": "Name", "email": "email@example.com" } (optional)
+}
+
+Beispiele:
+- "Meeting mit Marina am Freitag um 14 Uhr" → {"kind": "meeting", "title": "Meeting mit Marina", "fixed": true, "fixedDateTime": "2025-01-XX 14:00", "contact": {"name": "Marina"}}
+- "CodexMiroir Sprint fertigstellen bis Ende der Woche" → {"kind": "work", "title": "CodexMiroir Sprint fertigstellen", "deadline": "2025-01-XX", "project": {"name": "CodexMiroir"}}
+- "Einkaufen gehen" → {"kind": "personal", "title": "Einkaufen gehen"}
+
+Warte jetzt auf die gesprochene Eingabe...`;
+
+            // Send message to parent window or Rabbit R1 interface
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'VOICE_TRANSCRIPTION_REQUEST',
+                    prompt: prompt,
+                    userId: this.userId
+                }, '*');
+            }
+
+            // Also log to console for debugging
+            console.log('Rabbit R1: Voice transcription mode activated');
+            console.log('Prompt:', prompt);
+
+            // Show visual feedback
+            this.error = '🎤 Spracherkennung aktiviert - Sprechen Sie jetzt...';
+            setTimeout(() => {
+                if (this.error === '🎤 Spracherkennung aktiviert - Sprechen Sie jetzt...') {
+                    this.error = null;
+                }
+            }, 5000);
         }
     }));
 });

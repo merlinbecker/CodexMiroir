@@ -40,8 +40,17 @@
             </div>
             
             <div class="grid">
-                <button @click="load()">Timeline laden</button>
                 <button @click="createAndAutoAssign()" class="secondary">+ Neuer Task (automatisch zuweisen)</button>
+            </div>
+            
+            <!-- Rabbit R1 Info -->
+            <div style="margin-top: 1rem; padding: 0.5rem; background-color: rgba(100, 100, 255, 0.1); border-radius: 4px;">
+                <small>
+                    <strong>🐰 Rabbit R1 Steuerung:</strong><br>
+                    • Timeline lädt automatisch die nächsten 7 Tage<br>
+                    • Scroll-Rad: Hoch = Timeline runter, Runter = Timeline hoch<br>
+                    • Lange Taste drücken (R): Spracherkennung für neuen Task
+                </small>
             </div>
         </section>
 
