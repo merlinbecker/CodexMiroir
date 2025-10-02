@@ -112,7 +112,7 @@ az functionapp keys list \
 https://your-function-app.azurewebsites.net/?code=YOUR_MASTER_KEY
 ```
 
-Siehe auch: [SECURITY_SETUP.md](./SECURITY_SETUP.md) und [FUNCTION_APP_README.md](./FUNCTION_APP_README.md) für Details.
+Siehe auch: [SECURITY_SETUP.md](./documentation/SECURITY_SETUP.md) und [arc42.md](./documentation/arc42.md) für Details zur Architektur und Deployment.
 
 ## API-Routen und Funktionen im Detail
 
@@ -355,10 +355,10 @@ Für manuelle Tests siehe: [TESTING_GUIDE.md](./TESTING_GUIDE.md)
 
 ## Weitere Dokumentation
 
-- **[FUNCTION_APP_README.md](./FUNCTION_APP_README.md)** - Detaillierte Infos zur Function App Struktur
-- **[SECURITY_SETUP.md](./SECURITY_SETUP.md)** - Sicherheits-Setup und Master Key Management
-- **[QUICK_START.md](./QUICK_START.md)** - Schnellstart-Guide für Benutzer und Entwickler
-- **[TESTING_GUIDE.md](./TESTING_GUIDE.md)** - Anleitung für manuelle Tests
+- **[arc42.md](./documentation/arc42.md)** - Vollständige Architektur-Dokumentation (Betrieb, Deployment, API-Details)
+- **[SECURITY_SETUP.md](./documentation/SECURITY_SETUP.md)** - Sicherheits-Setup und Master Key Management
+- **[QUICK_START.md](./documentation/QUICK_START.md)** - Schnellstart-Guide für Benutzer und Entwickler
+- **[TESTING_GUIDE.md](./documentation/TESTING_GUIDE.md)** - Anleitung für manuelle Tests
 - **[documentation/](./documentation/)** - Erweiterte API-Dokumentation
 
 ## Technologie-Stack
