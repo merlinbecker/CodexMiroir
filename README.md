@@ -22,20 +22,24 @@ This project has been updated to use the Azure Functions v4 Node.js programming 
 ├── host.json                    # Function app configuration
 ├── package.json                 # Azure Function dependencies
 ├── index.js                     # Main entry point (Azure Functions v4)
-├── index.html                   # PWA entry point
 ├── manifest.json                # PWA manifest
 ├── sw.js                        # Service worker
-├── assets/                      # Built CSS and JS assets
-│   ├── index-B5Mxc1fT.css
-│   └── index-BRPh6qcI.js
+├── frontend/                    # Frontend source files
+│   ├── index.html              # PWA entry point
+│   ├── app.js                  # Main application logic
+│   ├── codex-api.js            # API client
+│   ├── token-manager.js        # Token management
+│   └── styles.css              # Application styles
 ├── codex/                       # API function implementation
-│   └── index.js                # Task management API with voice processing
+│   ├── index.js                # Main API router
+│   ├── markdownCrud.js         # CRUD operations
+│   ├── llmActions.js           # AI/voice processing
+│   └── helpers.js              # Utility functions
 ├── static/                      # Static file serving implementation
 │   └── index.js                # Static file server
-├── test.js                      # Test suite
+├── __tests__/                   # Jest test suite
 ├── documentation/               # Project documentation
-├── plans/                       # Implementation plans
-└── attached_assets/             # Project assets
+└── test.js                      # Legacy test runner (use npm test instead)
 ```
 
 ## Configuration Changes

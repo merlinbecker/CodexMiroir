@@ -649,13 +649,19 @@ CodexMiroir Qualität
 
 ## Veraltete/Redundante Komponenten
 
-**Obsolete Dateien identifiziert:**
-- `client/` - React Frontend Quellen (durch PWA ersetzt)
-- `server/` - Express Server (durch Azure Functions ersetzt) 
-- Diverse Config-Dateien für Next.js/React Stack
-- Migration-Scripts für PostgreSQL → Azure Blob
+**Bereinigte Dateien (Oktober 2024):** ✅
+- `client/` - React Frontend Quellen (durch PWA ersetzt) - Bereits entfernt
+- `server/` - Express Server (durch Azure Functions ersetzt) - Bereits entfernt
+- Diverse Config-Dateien für Next.js/React Stack - Bereits entfernt
+- Migration-Scripts für PostgreSQL → Azure Blob - Bereits entfernt
+- `results/` - Alte Frontend Refactoring Reports und Backups - Entfernt
+- `attached_assets/` - Temporäre Issue-Diskussions-Inhalte - Entfernt
+- `codequality/` - Generierte Code Quality Reports - Entfernt
+- `test-token-auth.js`, `integration-test.js` - Manuelle Test-Dateien (durch Jest __tests__/ ersetzt) - Entfernt
+- `frontend/test.html` - Test-Datei - Entfernt
+- Root `index.html` - Legacy-Build-Datei mit ungültigen Asset-Referenzen - Entfernt
 
-**Status**: 🔄 Cleanup geplant als Teil der Dokumentationsbereinigung
+**Status**: ✅ Code-Bereinigung abgeschlossen
 
 # Glossar
 
