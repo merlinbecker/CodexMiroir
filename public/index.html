@@ -22,12 +22,12 @@
             <div class="grid">
                 <label>
                     Benutzername
-                    <input type="text" x-model="userId" placeholder="z.B. u_merlin">
+                    <input type="text" x-model="userId" placeholder="z.B. u_merlin" @change="updateUserId()">
                 </label>
-                <label>
-                    Backend-URL
-                    <input type="text" x-model="backendUrl" placeholder="http://localhost:7071">
-                </label>
+                <div>
+                    <label>Function Key Status</label>
+                    <p x-text="functionKey ? '✓ Vorhanden' : '⚠ Nicht gefunden (optional für lokale Entwicklung)'" :style="functionKey ? 'color: green;' : 'color: orange;'"></p>
+                </div>
             </div>
             
             <!-- Modus-Schalter -->

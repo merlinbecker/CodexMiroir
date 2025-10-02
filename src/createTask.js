@@ -5,8 +5,8 @@ import { cosmos } from "./_cosmos.js";
 
 app.http("createTask", {
   methods: ["POST"],
-  route: "tasks/{userId}",
-  authLevel: "function",
+  route: "api/tasks/{userId}",
+  authLevel: "admin",
   handler: async (req, ctx) => {
   ctx.log("=== createTask START ===");
   try {

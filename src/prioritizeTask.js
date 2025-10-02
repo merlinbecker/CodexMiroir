@@ -5,8 +5,8 @@ import { cosmos } from "./_cosmos.js";
 
 app.http("prioritizeTask", {
   methods: ["POST"],
-  route: "timeline/{userId}/prioritize",
-  authLevel: "function",
+  route: "api/timeline/{userId}/prioritize",
+  authLevel: "admin",
   handler: async (req, ctx) => {
   ctx.log("=== prioritizeTask START ===");
   try {

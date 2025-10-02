@@ -5,8 +5,8 @@ import { cosmos } from "./_cosmos.js";
 
 app.http("getTimeline", {
   methods: ["GET"],
-  route: "timeline/{userId}",
-  authLevel: "function",
+  route: "api/timeline/{userId}",
+  authLevel: "admin",
   handler: async (req, ctx) => {
   ctx.log("=== getTimeline START ===");
   try {

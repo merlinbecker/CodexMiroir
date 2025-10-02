@@ -6,8 +6,8 @@ import { ensureDaysUpTo } from "./_ensureDays.js";
 
 app.http("autoFill", {
   methods: ["POST"],
-  route: "timeline/{userId}/autofill",
-  authLevel: "function",
+  route: "api/timeline/{userId}/autofill",
+  authLevel: "admin",
   handler: async (req, ctx) => {
   ctx.log("=== autoFill START ===");
   try {
