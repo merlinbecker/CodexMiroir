@@ -60,11 +60,14 @@ export function getContentType(filePath) {
 }
 
 /**
- * Generates a unique task ID
+ * Generates a unique task ID with UUID-like structure
  */
 export function generateTaskId() {
-  const timestamp = Date.now().toString(36);
-  const randomPart = Math.random().toString(36).substring(2, 15);
-  const moreParts = Math.random().toString(36).substring(2, 15);
-  return `task_${timestamp}-${randomPart}-${moreParts}`;
+  // UUID v4-ähnliche Struktur für maximale Eindeutigkeit
+  const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+  const s8 = () => s4() + s4();
+  const timestamp = Date.now().toString(16);
+  const uuid = `${s8()}-${s4()}-4${s4().substr(1)}-${s4()}-${s8()}${s4()}`;
+  
+  return `task_${timestamp}_${uuid}`;
 }

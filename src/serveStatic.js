@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 app.http("serveStatic", {
   methods: ["GET"],
   route: "{*path}",
-  authLevel: "anonymous",
+  authLevel: "admin",
   handler: async (req, ctx) => {
     try {
       // Normalize path and default to index.html

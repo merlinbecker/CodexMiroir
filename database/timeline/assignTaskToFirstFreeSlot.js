@@ -24,14 +24,21 @@ function assignTaskToFirstFreeSlot(userId, dateFrom, task) {
     for (var di=0; di<docs.length; di++){
       var day = docs[di], wknd = day.weekday >= 6; // Samstag=6, Sonntag=7
       // Arbeitsaufgaben werden an Wochenenden übersprungen, private an Werktagen
-      if ((task.kind==="work" && wknd) || (task.kind==="personal" && !wknd)) continue;
+      // AUSNAHME: Feste Termine (task.fixed === true) können überall hin
+      var violatesSchedule = (task.kind==="work" && wknd) || (task.kind==="personal" && !wknd);
+      if (violatesSchedule && !(task.fixed === true)) continue;
       for (var i=0; i<day.slots.length; i++){
         var s = day.slots[i];
         // Slot überspringen, wenn nur manuell belegbar oder gesperrt
         if (s.manualOnly || s.locked) continue;
         // Slot ist frei, wenn keine Zuweisung vorhanden ist
         if (!s.assignment || !s.assignment.taskId){
-          s.assignment = { taskId: task.id, kind: task.kind, source: "auto" };
+          s.assignment = { 
+            taskId: task.id, 
+            taskTitle: task.title || task.id,
+            kind: task.kind, 
+            source: "auto" 
+          };
           // Dokument aktualisieren und Ergebnis zurückgeben
           return coll.replaceDocument(day._self, day, function(e){
             if (e) throw e;

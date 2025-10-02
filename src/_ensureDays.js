@@ -99,6 +99,6 @@ function mkSlot(idx, label, locked, manualOnly) {
     endLocal: null,
     locked,
     manualOnly,
-    assignment: { taskId: null, kind: null, source: null }
+    assignment: { taskId: null, kind: null, source: null, taskTitle: null }
   };
 }
