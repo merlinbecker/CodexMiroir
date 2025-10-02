@@ -14,33 +14,34 @@ contributors. Siehe <https://arc42.org>.
 
 ## Aufgabenstellung
 
-CodexMiroir ist ein minimalistisches Task-Management-System, das nach dem **"Spiegelkodex"**-Prinzip funktioniert. Das System implementiert eine strikte **FIFO-Aufgabenverwaltung** mit dem Ziel, mentale Last zu reduzieren und Fokus zu erzwingen.
+CodexMiroir ist ein intelligentes Task-Management-System mit Timeline-basierter Aufgabenverwaltung. Das System implementiert eine **strukturierte Zeitslot-Verwaltung** mit automatischer und manueller Planung.
 
 ### Kernprinzipien:
-- **Kein klassisches To-Do-Board**: Zeigt immer nur den aktuellen Task prominent an
-- **Zwei getrennte Backlogs**: Beruflich (pro) und privat (priv) mit eigenen Zeitslots
-- **3,5-Stunden-Chunks**: Jede Aufgabe entspricht einem Zeitslot
-- **Sprachsteuerung**: KI-basierte Verarbeitung deutscher Kommandos
-- **Markdown-basiert**: Menschlich lesbare und versionskontrollierbare Datenhaltung
+- **Timeline-basierte Verwaltung**: Aufgaben werden in Zeitslots (Vormittag/Nachmittag/Abend) geplant
+- **Zwei Aufgabenarten**: Business und Personal mit unterschiedlichen Planungsregeln
+- **Zeitslots**: Tagesstruktur mit drei Slots (AM/PM/EV)
+- **Multi-User-Support**: Jeder Benutzer hat eigene Timeline und Tasks
+- **Cosmos DB**: Persistierung in Azure Cosmos DB mit Stored Procedures
 
 ### Funktionale Anforderungen:
-- Task-Management (Erstellen, Abschließen, Verschieben)
-- Sprachbasierte Kommandoverarbeitung mit OpenAI GPT
-- Automatische Task-Zerlegung für große Aufgaben
-- Kategoriebasierte Statistiken (Meeting vs. Programmierung, Haushalt vs. Projekt)
-- Offline-fähige PWA mit Service Worker
-- Token-basierte Benutzertrennung
+- Task-Management (CRUD-Operationen: Create, Read, Update, Delete)
+- Timeline-Verwaltung (Abrufen, Filtern nach Datum)
+- Automatische Task-Planung (AutoFill mit Regelwerk)
+- Manuelle Task-Zuweisung zu spezifischen Slots
+- Task-Priorisierung (Tausch mit höchstpriorisiertem Task)
+- Web-basierte Test-UI für Verwaltung
+- User-ID-basierte Datentrennung
 
 ## Qualitätsziele
 
 | Priorität | Qualitätsziel | Szenario |
 |-----------|---------------|----------|
-| 1 | **Einfachheit** | Minimale UI mit nur einem sichtbaren Task, keine Drag&Drop-Funktionen |
-| 2 | **Performance** | API-Response-Zeiten < 200ms für CRUD-Operationen |
-| 3 | **Verfügbarkeit** | Offline-Funktionalität durch PWA und Service Worker |
-| 4 | **Erweiterbarkeit** | Modulare Architektur für einfache Feature-Erweiterungen |
-| 5 | **Benutzerfreundlichkeit** | Deutsche Sprachkommandos für natürliche Interaktion |
-| 6 | **Datenschutz** | Token-basierte Benutzertrennung ohne zentrale Benutzerverwaltung |
+| 1 | **Einfachheit** | Klare API-Struktur, minimales Frontend für Task-Verwaltung |
+| 2 | **Performance** | API-Response-Zeiten < 500ms für CRUD-Operationen |
+| 3 | **Verfügbarkeit** | Azure Functions Skalierung, Cosmos DB SLA 99.99% |
+| 4 | **Erweiterbarkeit** | Modulare Architektur mit einzelnen Azure Functions |
+| 5 | **Sicherheit** | Master Key Authentication, User-ID basierte Datentrennung |
+| 6 | **Wartbarkeit** | ES Modules, klare Trennung der Verantwortlichkeiten |
 
 ## Stakeholder
 
@@ -54,11 +55,10 @@ CodexMiroir ist ein minimalistisches Task-Management-System, das nach dem **"Spi
 
 ## Technische Randbedingungen
 
-- **Plattform**: Azure Functions v4 mit Node.js 18+
-- **Datenspeicher**: Azure Blob Storage (Markdown-Dateien)
-- **KI-Integration**: OpenAI GPT für Sprachverarbeitung
-- **Frontend**: Progressive Web App (PWA) mit Service Worker
-- **Authentifizierung**: Token-basiert (keine zentrale Benutzerverwaltung)
+- **Plattform**: Azure Functions v4 mit Node.js 18+ (ES Modules)
+- **Datenspeicher**: Azure Cosmos DB (NoSQL, zwei Container: tasks und timeline)
+- **Frontend**: Statische Web-UI (Vanilla JavaScript mit Alpine.js)
+- **Authentifizierung**: Azure Functions Master Key (authLevel: admin) mit User-ID im Pfad
 
 ## Organisatorische Randbedingungen
 
@@ -69,10 +69,10 @@ CodexMiroir ist ein minimalistisches Task-Management-System, das nach dem **"Spi
 
 ## Konventionen
 
-- **Datumsformat**: Europäisch (dd.mm.yyyy HH:MM)
-- **Zeitslots**: ISO-ähnlich (YYYY-Www-DOW-AM/PM)
-- **Sprache**: Deutsche Benutzeroberfläche und Sprachkommandos
-- **Code**: Englische Kommentare, deutsche Fehlermeldungen
+- **Datumsformat**: ISO 8601 (YYYY-MM-DD) für API-Kommunikation
+- **Zeitslots**: AM (Vormittag), PM (Nachmittag), EV (Abend)
+- **Sprache**: Englische Codebase, deutsche Fehlermeldungen optional
+- **Code**: ES Modules, async/await Pattern
 
 # Kontextabgrenzung
 
@@ -82,24 +82,20 @@ CodexMiroir ist ein minimalistisches Task-Management-System, das nach dem **"Spi
 C4Context
     title Fachlicher Kontext - CodexMiroir
     
-    Person(user, "Einzelnutzer", "Verwaltet berufliche und private Tasks")
+    Person(user, "Benutzer", "Verwaltet Aufgaben über Web-Interface")
     
-    System(codexmiroir, "CodexMiroir", "FIFO Task-Management System")
+    System(codexmiroir, "CodexMiroir", "Timeline-basiertes Task-Management System")
     
-    System_Ext(openai, "OpenAI GPT", "Sprachverarbeitung und KI-Funktionen")
-    System_Ext(azure_storage, "Azure Blob Storage", "Markdown-Dateien Speicher")
+    System_Ext(azure_cosmos, "Azure Cosmos DB", "Task- und Timeline-Speicher")
     
-    Rel(user, codexmiroir, "Verwaltet Tasks", "HTTPS/PWA")
-    Rel(user, codexmiroir, "Sprachkommandos", "Voice/Text")
-    Rel(codexmiroir, openai, "Verarbeitet Commands", "REST API")
-    Rel(codexmiroir, azure_storage, "Liest/Schreibt Tasks", "Azure SDK")
+    Rel(user, codexmiroir, "Verwaltet Tasks", "HTTPS/Web-UI")
+    Rel(codexmiroir, azure_cosmos, "Liest/Schreibt Tasks & Timeline", "Cosmos SDK")
 ```
 
 **Externe fachliche Schnittstellen:**
 
-- **Nutzer → CodexMiroir**: Task-Management über Web-Interface oder Sprachkommandos
-- **CodexMiroir → OpenAI**: Verarbeitung natürlichsprachiger Kommandos
-- **CodexMiroir → Azure Storage**: Persistierung von Tasks als Markdown-Dateien
+- **Nutzer → CodexMiroir**: Task-Management über Web-Interface
+- **CodexMiroir → Azure Cosmos DB**: Persistierung von Tasks und Timeline-Daten
 
 ## Technischer Kontext
 
@@ -107,58 +103,65 @@ C4Context
 C4Context
     title Technischer Kontext - CodexMiroir
     
-    Person(user, "User Browser", "PWA Client")
+    Person(user, "User Browser", "Web Client")
     
     System_Boundary(azure, "Azure Functions App") {
-        Container(api, "API Functions", "Node.js", "Task Management API")
-        Container(static, "Static Server", "Node.js", "PWA Delivery")
+        Container(api, "API Functions", "Node.js", "Task & Timeline Management API")
+        Container(static, "Static Server", "Node.js", "Test-UI Delivery")
     }
     
-    System_Ext(blob, "Azure Blob Storage", "Container: codex-miroir")
-    System_Ext(openai_api, "OpenAI API", "GPT-3.5/4 Models")
+    System_Ext(cosmos, "Azure Cosmos DB", "Database: codexmiroir")
     
     Rel(user, static, "GET /", "HTTPS")
-    Rel(user, api, "POST /api/codex/{token}", "HTTPS/JSON")
-    Rel(api, blob, "CRUD Operations", "@azure/storage-blob")
-    Rel(api, openai_api, "Chat Completions", "axios/HTTPS")
+    Rel(user, api, "API Calls", "HTTPS/JSON + Master Key")
+    Rel(api, cosmos, "CRUD Operations", "@azure/cosmos SDK")
 ```
 
 **Technische Schnittstellen:**
 
 | Schnittstelle | Protokoll | Format | Beschreibung |
 |---------------|-----------|---------|--------------|
-| **PWA → API** | HTTPS | JSON | Task-Management-Operationen |
-| **API → Blob Storage** | Azure SDK | Markdown | Dateipersistierung |
-| **API → OpenAI** | HTTPS | JSON | Sprachverarbeitung |
+| **Web-UI → Static Server** | HTTPS | HTML/CSS/JS | Auslieferung der Test-UI |
+| **Web-UI → API Functions** | HTTPS | JSON | Task- und Timeline-Management |
+| **API → Cosmos DB** | Cosmos SDK | JSON | Datenpersistierung |
+
+**Sicherheitsmodell:**
+- Alle API-Endpoints (`/api/*`) benötigen Azure Functions Master Key (`authLevel: "admin"`)
+- Master Key wird als Query-Parameter übergeben: `?code=MASTER_KEY`
+- Frontend extrahiert Key automatisch aus URL und fügt ihn allen API-Aufrufen hinzu
+- User-ID im Pfad sorgt für Datentrennung: `/api/tasks/{userId}`
 
 # Lösungsstrategie
 
-Die Architektur folgt dem **Single-Function-Prinzip** mit modularer interner Struktur:
+Die Architektur folgt dem **Azure Functions v4 Programming Model** mit klarer Trennung einzelner HTTP-Funktionen:
 
 ## Strategische Entscheidungen
 
-1. **Azure Functions Only**: Komplette Migration von Express/React zu Azure Functions
-   - *Begründung*: Kosteneffizienz, einfache Deployment, serverless Skalierung
+1. **Azure Functions v4**: Serverless Microservices-Architektur
+   - *Begründung*: Kosteneffizienz, automatische Skalierung, einfaches Deployment
 
-2. **Markdown als Datenformat**: Strukturierte Dateien statt Datenbank
-   - *Begründung*: Menschlich lesbar, versionskontrollierbar, einfach zu migrieren
+2. **Cosmos DB als Datenbank**: NoSQL-Datenbank statt Blob Storage
+   - *Begründung*: Query-Fähigkeit, ACID-Transaktionen, Stored Procedures für komplexe Logik
 
-3. **Token-basierte Benutzertrennung**: Kein klassisches User-Management
-   - *Begründung*: Datenschutz, einfache Implementierung, keine Registrierung nötig
+3. **User-ID im Pfad**: RESTful API-Design mit User-ID als Pfad-Parameter
+   - *Begründung*: Klare Datentrennung, intuitive API-Struktur
 
-4. **Progressive Web App**: Static PWA statt React/Next.js
-   - *Begründung*: Offline-Fähigkeit, Performance, einfachere Wartung
+4. **ES Modules**: Moderne JavaScript-Module
+   - *Begründung*: Zukunftssicher, bessere IDE-Unterstützung, klare Imports
 
-5. **KI-Integration**: OpenAI für deutsche Sprachkommandos
-   - *Begründung*: Natürliche Bedienung, automatische Task-Zerlegung
+5. **Stored Procedures**: Cosmos DB Stored Procedures für Business-Logik
+   - *Begründung*: Atomare Operationen, konsistente Regelanwendung, Performance
+
+6. **Master Key Authentication**: Azure Functions eingebautes Auth-System
+   - *Begründung*: Keine zusätzliche Implementierung nötig, bewährte Sicherheit
 
 ## Technologie-Stack
 
 - **Runtime**: Node.js 18+ auf Azure Functions v4
-- **Storage**: Azure Blob Storage mit Markdown-Dateien
-- **AI**: OpenAI GPT-3.5/4 für Sprachverarbeitung
-- **Frontend**: Vanilla JS PWA mit AlpineJS
+- **Datenbank**: Azure Cosmos DB (NoSQL)
+- **Frontend**: Vanilla JavaScript mit Alpine.js
 - **Testing**: Jest mit Coverage-Reports
+- **Deployment**: Azure Functions Core Tools
 
 # Bausteinsicht
 
@@ -171,92 +174,130 @@ C4Container
     Person(user, "Nutzer", "Task-Manager")
     
     System_Boundary(functions, "Azure Functions App") {
-        Container(pwa, "PWA Frontend", "HTML/CSS/JS", "Static Progressive Web App")
-        Container(api, "API Container", "Node.js", "Task Management API")
-        Container(static_srv, "Static Server", "Node.js", "Serves PWA assets")
+        Container(web_ui, "Web UI", "HTML/CSS/JS", "Statische Test-Oberfläche")
+        Container(api, "API Functions", "Node.js", "Task & Timeline Management")
+        Container(static_srv, "Static Server", "Node.js", "Serviert Web-UI")
     }
     
-    ContainerDb(storage, "Blob Storage", "Azure Blob", "Markdown Task Files")
-    System_Ext(openai, "OpenAI API", "Language Processing")
+    ContainerDb(cosmos, "Cosmos DB", "NoSQL", "Tasks & Timeline")
     
-    Rel(user, pwa, "Uses", "Browser/PWA")
-    Rel(pwa, api, "API Calls", "HTTPS/JSON")
-    Rel(user, static_srv, "Loads App", "HTTPS")
-    Rel(api, storage, "R/W Tasks", "Azure SDK")
-    Rel(api, openai, "Process Voice", "REST API")
+    Rel(user, web_ui, "Nutzt", "Browser")
+    Rel(web_ui, api, "API Calls", "HTTPS/JSON")
+    Rel(user, static_srv, "Lädt App", "HTTPS")
+    Rel(api, cosmos, "R/W Daten", "Cosmos SDK")
 ```
 
 **Begründung:**
-Die Architektur trennt klar zwischen statischer PWA-Auslieferung und API-Funktionalität. Dies ermöglicht Offline-Fähigkeit der UI bei gleichzeitig dynamischer Server-Side-Verarbeitung.
+Die Architektur trennt klar zwischen statischer UI-Auslieferung und API-Funktionalität. Alle Komponenten laufen in einer einzigen Azure Functions App für einfaches Deployment.
 
 **Enthaltene Bausteine:**
 
-### API Container (Codex)
-- **Zweck**: Zentrale Geschäftslogik für Task-Management
-- **Verantwortung**: CRUD-Operationen, Sprachverarbeitung, Token-Authentifizierung
-- **Technologie**: Node.js mit modularer Struktur
+### API Functions Container
+- **Zweck**: RESTful API für Task- und Timeline-Management
+- **Verantwortung**: CRUD-Operationen, Validierung, Cosmos DB-Zugriff
+- **Technologie**: Node.js mit Azure Functions v4, ES Modules
 
-### PWA Frontend
-- **Zweck**: Benutzeroberfläche mit Offline-Support  
-- **Verantwortung**: Task-Anzeige, Voice-Interface, lokale Synchronisation
-- **Technologie**: Vanilla JS, Service Worker, AlpineJS
+### Web UI
+- **Zweck**: Benutzeroberfläche für Task-Verwaltung
+- **Verantwortung**: Timeline-Visualisierung, Task-Erstellung, API-Aufrufe
+- **Technologie**: Vanilla JavaScript, Alpine.js, PicoCSS
 
 ### Static Server
-- **Zweck**: Auslieferung der PWA-Assets
-- **Verantwortung**: SPA-Routing, Cache-Headers, Asset-Serving
-- **Technologie**: Node.js Azure Function
+- **Zweck**: Auslieferung der Web-UI
+- **Verantwortung**: Serving von HTML/CSS/JS Assets
+- **Technologie**: Azure Function mit File System Access
+
+### Cosmos DB
+- **Zweck**: Persistente Datenhaltung
+- **Verantwortung**: Tasks Container, Timeline Container, Stored Procedures
+- **Technologie**: Azure Cosmos DB (NoSQL)
 
 ## Ebene 2
 
-### Whitebox API Container (Codex)
+### Whitebox API Functions Container
 
 ```mermaid
 C4Component
-    title API Container - Interne Komponenten
+    title API Functions - Interne Komponenten
     
-    Container_Boundary(api, "API Container") {
-        Component(router, "Main Router", "index.js", "Request Orchestration")
-        Component(crud, "CRUD Module", "markdownCrud.js", "Task Operations")
-        Component(llm, "LLM Module", "llmActions.js", "Voice & AI Processing")
-        Component(helpers, "Helper Utils", "helpers.js", "Shared Utilities")
+    Container_Boundary(api, "API Functions") {
+        Component(functions_js, "functions.js", "Entry Point", "Registriert alle Functions")
+        Component(cosmos, "_cosmos.js", "DB Client", "Cosmos DB Connection")
+        Component(helpers, "_helpers.js", "Utilities", "Error Handling, Validation")
+        Component(ensure_days, "_ensureDays.js", "Day Management", "Erstellt Timeline Days")
+        
+        Component(create_task, "createTask.js", "HTTP Function", "POST /api/tasks/{userId}")
+        Component(get_task, "getTask.js", "HTTP Function", "GET /api/tasks/{userId}/{taskId}")
+        Component(update_task, "updateTask.js", "HTTP Function", "PUT /api/tasks/{userId}/{taskId}")
+        Component(delete_task, "deleteTask.js", "HTTP Function", "DELETE /api/tasks/{userId}/{taskId}")
+        
+        Component(get_timeline, "getTimeline.js", "HTTP Function", "GET /api/timeline/{userId}")
+        Component(assign_slot, "assignToSlot.js", "HTTP Function", "POST /api/timeline/{userId}/assign")
+        Component(autofill, "autoFill.js", "HTTP Function", "POST /api/timeline/{userId}/autofill")
+        Component(prioritize, "prioritizeTask.js", "HTTP Function", "POST /api/timeline/{userId}/prioritize")
+        
+        Component(serve_static, "serveStatic.js", "HTTP Function", "GET /{*path}")
     }
     
-    ContainerDb(storage, "Blob Storage", "Azure", "Task Files")
-    System_Ext(openai, "OpenAI API", "GPT Models")
+    ContainerDb(cosmos_db, "Cosmos DB", "NoSQL", "tasks & timeline")
     
-    Rel(router, crud, "Delegates CRUD", "Function Calls")
-    Rel(router, llm, "Delegates Voice/AI", "Function Calls")
-    Rel(crud, helpers, "Uses Utilities", "Function Calls")
-    Rel(llm, helpers, "Uses Utilities", "Function Calls")
-    Rel(crud, storage, "File Operations", "Azure SDK")
-    Rel(llm, openai, "AI Requests", "axios")
+    Rel(functions_js, create_task, "imports", "ES Module")
+    Rel(functions_js, get_timeline, "imports", "ES Module")
+    Rel(functions_js, serve_static, "imports", "ES Module")
+    
+    Rel(create_task, cosmos, "uses", "Function Call")
+    Rel(create_task, helpers, "uses", "Function Call")
+    Rel(get_timeline, cosmos, "uses", "Function Call")
+    Rel(autofill, ensure_days, "uses", "Function Call")
+    
+    Rel(cosmos, cosmos_db, "Queries", "Cosmos SDK")
 ```
 
 **Komponenten-Beschreibung:**
 
-### Main Router (index.js)
-- **Zweck**: HTTP-Request-Routing und Orchestrierung
-- **Schnittstellen**: HTTP Trigger, Token-Validation, Error Handling
-- **Leistungsmerkmale**: <200ms Response Time, Comprehensive Logging
-- **Ablageort**: `/codex/index.js`
+### Entry Point (functions.js)
+- **Zweck**: Zentrale Registration aller Azure Functions
+- **Schnittstellen**: Import aller Function-Module
+- **Ablageort**: `/src/functions.js`
 
-### CRUD Module (markdownCrud.js)  
-- **Zweck**: Task-Management-Operationen auf Markdown-Dateien
-- **Schnittstellen**: createTask, completeTask, pushToEnd, report, when
-- **Qualitätsmerkmale**: ACID-Properties durch Azure Blob Storage
-- **Ablageort**: `/codex/markdownCrud.js`
+### Cosmos DB Client (_cosmos.js)
+- **Zweck**: Gemeinsame Cosmos DB Connection-Verwaltung
+- **Schnittstellen**: Exported `cosmos()` Funktion für DB-Zugriff
+- **Leistungsmerkmale**: Connection Pooling, Error Handling
+- **Ablageort**: `/src/_cosmos.js`
 
-### LLM Module (llmActions.js)
-- **Zweck**: KI-basierte Sprachverarbeitung und Task-Analyse  
-- **Schnittstellen**: processCommand, decomposeTask, getCurrentTask
-- **Qualitätsmerkmale**: Fallback auf Pattern-Matching bei OpenAI-Ausfall
-- **Ablageort**: `/codex/llmActions.js`
-
-### Helper Utils (helpers.js)
-- **Zweck**: Gemeinsame Utility-Funktionen für das System
-- **Schnittstellen**: Token-Validation, Date-Utils, Storage-Helpers
+### Helper Utilities (_helpers.js)
+- **Zweck**: Gemeinsame Utility-Funktionen
+- **Schnittstellen**: `errorResponse()`, `validateParams()`, `getContentType()`, `generateTaskId()`
 - **Qualitätsmerkmale**: Stateless, Pure Functions
-- **Ablageort**: `/codex/helpers.js`
+- **Ablageort**: `/src/_helpers.js`
+
+### Day Management (_ensureDays.js)
+- **Zweck**: Stellt sicher, dass Timeline-Day-Dokumente existieren
+- **Schnittstellen**: `ensureDaysUpTo(userId, targetDate, ctx)`
+- **Ablageort**: `/src/_ensureDays.js`
+
+### Task CRUD Functions
+Alle mit `authLevel: "admin"` (Master Key erforderlich):
+
+- **createTask.js**: POST `/api/tasks/{userId}` - Erstellt neuen Task
+- **getTask.js**: GET `/api/tasks/{userId}/{taskId}` - Ruft Task ab
+- **updateTask.js**: PUT `/api/tasks/{userId}/{taskId}` - Aktualisiert Task
+- **deleteTask.js**: DELETE `/api/tasks/{userId}/{taskId}` - Löscht Task
+
+### Timeline Management Functions
+Alle mit `authLevel: "admin"` (Master Key erforderlich):
+
+- **getTimeline.js**: GET `/api/timeline/{userId}` - Ruft Timeline ab
+- **assignToSlot.js**: POST `/api/timeline/{userId}/assign` - Manuelle Slot-Zuweisung
+- **autoFill.js**: POST `/api/timeline/{userId}/autofill` - Automatische Planung
+- **prioritizeTask.js**: POST `/api/timeline/{userId}/prioritize` - Task-Priorisierung
+
+### Static Server (serveStatic.js)
+- **Zweck**: Auslieferung der Web-UI (`/public/`)
+- **Authentifizierung**: `authLevel: "anonymous"` (öffentlich zugänglich)
+- **Route**: `GET /{*path}` (Catch-All)
+- **Ablageort**: `/src/serveStatic.js`
 
 # Laufzeitsicht
 
@@ -264,77 +305,101 @@ C4Component
 
 ```mermaid
 sequenceDiagram
-    participant U as User (PWA)
-    participant A as API Router
-    participant V as LLM Module  
-    participant C as CRUD Module
-    participant H as Helpers
-    participant S as Blob Storage
-    participant O as OpenAI API
+    participant U as User (Web-UI)
+    participant A as createTask Function
+    participant H as Helpers Module
+    participant C as Cosmos DB Client
+    participant DB as Cosmos DB (tasks)
     
-    U->>A: POST /api/codex/{token}?action=processCommand
-    note over U,A: Body: {"text": "Erstelle Task Meeting", "list": "pro"}
+    U->>A: POST /api/tasks/{userId}?code=MASTER_KEY
+    note over U,A: Body: {"kind": "business", "title": "Meeting vorbereiten"}
     
-    A->>A: validateToken(token)
-    A->>V: processCommand(body, token)
+    A->>A: Extract userId from path
+    A->>H: validateParams(userId, kind)
+    H-->>A: Validation OK
     
-    alt OpenAI verfügbar
-        V->>O: Chat Completion Request
-        O-->>V: Parsed Intent: create_task
-    else OpenAI nicht verfügbar  
-        V->>V: Pattern Matching (Fallback)
-    end
+    A->>C: cosmos()
+    C-->>A: { tasks container }
     
-    V->>H: generateTaskId()
-    H-->>V: T-001234567
-    V->>H: getNextSlot(list, token)  
-    H->>S: Read current.md
-    S-->>H: Current task list
-    H-->>V: 2025-W39-Tue-AM
+    A->>A: Build task document
+    note over A: type: "task", userId, kind, title, status: "open"
     
-    V->>C: createTask(parsedData, token)
-    C->>H: getUserContainerPath(token, list)
-    H-->>C: users/{token}/codex-miroir/pro/
+    A->>DB: tasks.items.create(task)
+    DB-->>A: { resource with generated id }
     
-    C->>S: Write task file (markdown)
-    C->>S: Update current.md (append)
-    
-    C-->>V: Task created successfully
-    V-->>A: Voice response + task info
-    A-->>U: JSON response with confirmation
+    A-->>U: 201 Created + JSON response
+    note over A,U: { id, userId, kind, title, status, createdAt, ... }
 ```
 
-## Task Completion Scenario
+## Timeline Retrieval Scenario
 
 ```mermaid
 sequenceDiagram
-    participant U as User (PWA)
-    participant A as API Router
-    participant C as CRUD Module
-    participant H as Helpers
-    participant S as Blob Storage
+    participant U as User (Web-UI)
+    participant A as getTimeline Function
+    participant H as Helpers Module
+    participant C as Cosmos DB Client
+    participant TL as Cosmos DB (timeline)
+    participant T as Cosmos DB (tasks)
     
-    U->>A: POST /api/codex/{token}?action=completeTask
-    note over U,A: Body: {"list": "pro", "taskPathAbs": "/.../task.md", "closed_at_iso": "2025-..."}
+    U->>A: GET /api/timeline/{userId}?dateFrom=2025-10-02&dateTo=2025-10-09&code=KEY
     
-    A->>A: validateToken(token)
-    A->>C: completeTask(body, token)
+    A->>A: Extract userId, dateFrom, dateTo
+    A->>H: validateParams(userId)
+    H-->>A: Validation OK
     
-    C->>S: Read task file
-    S-->>C: Task markdown with frontmatter
+    A->>C: cosmos()
+    C-->>A: { timeline, tasks }
     
-    C->>C: Update task status = "abgeschlossen"
-    C->>S: Write updated task file
+    A->>TL: Query: SELECT * WHERE type='day' AND date BETWEEN ...
+    TL-->>A: Day documents with slots
     
-    C->>H: extractWeek(current.md, week)
-    C->>H: removeRowByRelLink(section, taskPath)
-    C->>S: Update current.md (remove task)
+    A->>A: Extract all taskIds from slots
     
-    C->>H: appendRow(archiveSection, taskRow)  
-    C->>S: Update archive.md (add completed task)
+    A->>T: Query: SELECT id, title WHERE id IN (taskIds)
+    T-->>A: Task details
     
-    C-->>A: Completion successful
-    A-->>U: JSON confirmation
+    A->>A: Enrich timeline with task titles
+    
+    A-->>U: 200 OK + Timeline JSON
+    note over A,U: { days: [{ date, slots: [{ assignment: { taskId, taskTitle } }] }] }
+```
+
+## AutoFill Scenario
+
+```mermaid
+sequenceDiagram
+    participant U as User (Web-UI)
+    participant A as autoFill Function
+    participant E as ensureDays Module
+    participant C as Cosmos DB Client
+    participant TL as Cosmos DB (timeline)
+    participant SP as Stored Procedure
+    
+    U->>A: POST /api/timeline/{userId}/autofill?code=KEY
+    note over U,A: Body: {"dateFrom": "2025-10-02", "task": {"id": "task_123", "kind": "business"}}
+    
+    A->>A: Extract userId, dateFrom, task
+    A->>A: Calculate searchUntilDate (+30 days)
+    
+    A->>E: ensureDaysUpTo(userId, searchUntilDate)
+    E->>TL: Check existing days
+    TL-->>E: Latest day found
+    E->>TL: Create missing day documents
+    E-->>A: Days created
+    
+    A->>C: cosmos()
+    C-->>A: { timeline }
+    
+    A->>SP: Execute assignTaskToFirstFreeSlot(userId, dateFrom, task)
+    note over SP: Stored Procedure Logic:<br/>- Find first free slot<br/>- Respect business/personal rules<br/>- Atomic assignment
+    
+    SP->>TL: Update day document with assignment
+    TL-->>SP: Success
+    
+    SP-->>A: { assignedSlot, date, slotIdx }
+    
+    A-->>U: 200 OK + Assignment result
 ```
 
 # Verteilungssicht
@@ -348,172 +413,292 @@ C4Deployment
     Deployment_Node(azure_region, "Azure West Europe") {
         Deployment_Node(rg, "Resource Group") {
             Deployment_Node(func_app, "Function App", "Azure Functions v4") {
-                Container(codex_fn, "codex", "Node.js Function", "API Endpoints")  
-                Container(static_fn, "static", "Node.js Function", "PWA Serving")
+                Container(api_fns, "API Functions", "Node.js 18+", "9 HTTP Endpoints")  
+                Container(static_fn, "serveStatic", "Node.js", "UI Delivery")
             }
-            Deployment_Node(storage_acc, "Storage Account", "Azure Blob Storage") {
-                ContainerDb(blob_container, "codex-miroir", "Container", "Markdown Files")
+            Deployment_Node(cosmos_acc, "Cosmos DB Account", "NoSQL") {
+                ContainerDb(tasks_container, "tasks", "Container", "Task Documents")
+                ContainerDb(timeline_container, "timeline", "Container", "Day Documents + Stored Procedures")
             }
         }
     }
     
     Deployment_Node(user_device, "User Device") {
-        Container(browser, "Browser", "PWA Runtime", "Cached App")
+        Container(browser, "Browser", "Web Client", "Test-UI")
     }
     
-    System_Ext(openai_cloud, "OpenAI Cloud", "GPT API")
-    
     Rel(browser, func_app, "HTTPS Requests", "Internet")
-    Rel(func_app, storage_acc, "Azure SDK", "Internal Network")
-    Rel(func_app, openai_cloud, "REST API", "Internet")
+    Rel(func_app, cosmos_acc, "Cosmos SDK", "Internal Network")
 ```
 
 **Begründung:**
-Single Azure Functions App hostet sowohl API als auch Frontend. Dies reduziert Komplexität, Kosten und Konfigurationsaufwand.
+Single Azure Functions App hostet alle API-Endpoints und die statische UI. Cosmos DB bietet zwei Container für Tasks und Timeline mit unterschiedlichen Datenstrukturen.
 
 **Qualitäts- und Leistungsmerkmale:**
-- **Verfügbarkeit**: 99.9% SLA durch Azure Functions
+- **Verfügbarkeit**: 99.95% SLA durch Azure Functions, 99.99% SLA durch Cosmos DB
 - **Skalierbarkeit**: Automatische Skalierung basierend auf Request-Load
-- **Latenz**: <200ms durch europäischen Azure-Standort
+- **Latenz**: <500ms durch europäischen Azure-Standort
 - **Kosten**: Pay-per-execution Model für niedrige Betriebskosten
 
 **Zuordnung von Bausteinen zu Infrastruktur:**
 
 | Baustein | Azure Service | Begründung |
 |----------|---------------|------------|
-| API Container | Azure Functions (Node.js) | Serverless, automatische Skalierung |
-| PWA Frontend | Azure Functions (Static) | Einfache Auslieferung, SPA-Routing |
-| Task Storage | Azure Blob Storage | Kostengünstig, hohe Verfügbarkeit |
-| Voice Processing | OpenAI API | Externe KI-Expertise |
+| API Functions | Azure Functions (Node.js 18+) | Serverless, automatische Skalierung, ES Modules Support |
+| Web UI | Azure Functions (Static File Serving) | Unified Deployment, kein separates Hosting nötig |
+| Task Storage | Cosmos DB Container (tasks) | JSON-Dokumente mit Query-Fähigkeit |
+| Timeline Storage | Cosmos DB Container (timeline) | Day-Dokumente mit Stored Procedures |
+
+## Deployment-Prozess
+
+### Lokale Entwicklung
+```bash
+# Dependencies installieren
+npm install
+
+# Cosmos DB Connection String in local.settings.json konfigurieren
+# Function App starten
+npm start
+
+# Browser öffnen: http://localhost:7071/
+```
+
+### Azure Deployment
+```bash
+# Function App deployen
+func azure functionapp publish <function-app-name>
+
+# Environment Variables in Azure Portal konfigurieren:
+# - COSMOS_CONNECTION_STRING
+# - COSMOS_DB=codexmiroir
+# - COSMOS_TIMELINE=timeline
+# - COSMOS_TASKS=tasks
+# - DAY_HORIZON=30
+
+# Stored Procedures deployen
+npm run deploy:sprocs
+
+# Master Key abrufen und URL teilen:
+# https://<app>.azurewebsites.net/?code=<master-key>
+```
 
 # Querschnittliche Konzepte
 
 ## Authentication & Authorization
 
-**Token-basierte Benutzertrennung:**
-- Jeder Nutzer erhält einen 8+ Zeichen Token
-- Token wird im URL-Pfad übertragen: `/api/codex/{token}`
-- Automatische Datenkapselung: `users/{token}/codex-miroir/`
-- Keine zentrale Benutzerverwaltung erforderlich
+**Azure Functions Master Key Authentication:**
+- Alle API-Endpoints (`/api/*`) benötigen `authLevel: "admin"`
+- Master Key wird als Query-Parameter übergeben: `?code=MASTER_KEY`
+- Frontend extrahiert Key automatisch aus URL und speichert ihn in einer Variable
+- Static Server (`serveStatic`) nutzt `authLevel: "anonymous"` für öffentlichen Zugriff
+- Key-Management: Master Key über Azure Portal abrufbar, Key-Rotation möglich
+
+**User-ID basierte Datentrennung:**
+- User-ID im URL-Pfad: `/api/tasks/{userId}`
+- Cosmos DB Queries filtern immer nach `userId`
+- Keine Cross-User-Zugriffe möglich
+- User-ID wird im Frontend im localStorage gespeichert
 
 ## Datenformat & Persistierung
 
-**Markdown-basierte Task-Speicherung:**
-```yaml
-# Task-Datei Struktur
----
-id: T-001234567
-list: pro|priv  
-title: "Task Beschreibung"
-status: geplant|aktiv|abgeschlossen
-created_at: dd.mm.yyyy HH:MM
-scheduled_slot: YYYY-Www-DOW-AM/PM
-duration_slots: 1
-deadline: dd.mm.yyyy HH:MM  
-project: "Projektname"
-category_pro: meeting|programmierung
-category_priv: haushalt|projekt
----
+**Cosmos DB JSON-Dokumente:**
 
-## Notiz
-Detaillierte Task-Beschreibung
-
-## Verlauf  
-- dd.mm.yyyy HH:MM → Status-Änderung
+Task-Dokument:
+```json
+{
+  "id": "task_<timestamp>_<uuid>",
+  "type": "task",
+  "userId": "u_merlin",
+  "kind": "business|personal",
+  "title": "Task Beschreibung",
+  "status": "open|in_progress|completed",
+  "tags": ["tag1", "tag2"],
+  "createdAt": "2025-10-02T10:30:00.000Z",
+  "updatedAt": "2025-10-02T10:30:00.000Z"
+}
 ```
 
-## Internationalisierung
-
-**Deutsche Lokalisierung:**
-- Datumsformat: Europäisch (dd.mm.yyyy)
-- Sprachkommandos: Deutsche Sprache
-- Fehlermeldungen: Deutsch
-- Wochentage: Deutsch in Zeitslots
+Day-Dokument (Timeline):
+```json
+{
+  "id": "2025-10-02",
+  "type": "day",
+  "userId": "u_merlin",
+  "date": "2025-10-02",
+  "weekday": 3,
+  "tz": "Europe/Berlin",
+  "slots": [
+    {
+      "idx": 0,
+      "label": "AM",
+      "locked": false,
+      "manualOnly": false,
+      "assignment": {
+        "taskId": "task_123",
+        "kind": "business",
+        "source": "auto",
+        "taskTitle": "Meeting vorbereiten"
+      }
+    }
+  ],
+  "meta": { "autoFillEnabled": true, "notes": [] }
+}
+```
 
 ## Error Handling & Logging
 
 **Mehrstufige Fehlerbehandlung:**
-1. **Input Validation**: Auf API-Ebene
-2. **Business Logic Errors**: Mit detaillierten Meldungen
-3. **System Errors**: Mit Fallback-Mechanismen
-4. **User-friendly Messages**: Deutsche Fehlermeldungen
+1. **Input Validation**: `validateParams()` prüft erforderliche Parameter
+2. **Business Logic Errors**: Try-Catch Blöcke in jeder Function
+3. **Standardized Error Response**: `errorResponse()` erzeugt einheitliche JSON-Fehler
+4. **Cosmos DB Errors**: Spezielle Behandlung von 404 (Not Found), 409 (Conflict)
+
+**Error Response Format:**
+```json
+{
+  "error": "Error message",
+  "errorType": "ErrorClassName",
+  "errorCode": 404
+}
+```
 
 **Logging-Konzept:**
-- Azure Functions integrierte Logs
-- Performance-Metriken (Response-Zeit)
-- Fehler-Tracking mit Stack-Traces
-- Request/Response Logging für Debugging
+- Azure Functions Context Logger (`ctx.log()`)
+- Performance-Metriken automatisch durch Azure erfasst
+- Debug-Logs mit `ctx.log.warn()` für Warnings
+- Error-Tracking mit Stack-Traces via `ctx.log.error()`
 
-## Offline-Fähigkeit
+## Stored Procedures
 
-**Progressive Web App Pattern:**
-- Service Worker für Asset-Caching
-- Local Storage für Token-Speicherung
-- Background Sync für pending API calls
-- Fallback UI bei Netzwerkfehlern
+**Cosmos DB Stored Procedures für atomare Operationen:**
+
+### assignTaskToFirstFreeSlot
+- **Zweck**: Findet ersten freien Slot und weist Task zu
+- **Logik**: 
+  - Iteriert durch Days ab `dateFrom`
+  - Prüft Slot-Verfügbarkeit (nicht locked, nicht belegt)
+  - Respektiert Business-Regeln (Mo-Fr für business)
+  - Atomare Update-Operation
+- **Return**: `{ success: true, date, slotIdx }`
+
+### assignTaskToSpecificSlot
+- **Zweck**: Weist Task einem spezifischen Slot zu
+- **Validierung**: Slot darf nicht locked oder belegt sein
+- **Return**: Aktualisiertes Day-Dokument
+
+## Day Management
+
+**Automatische Day-Dokument-Erstellung:**
+- `ensureDaysUpTo()` stellt sicher, dass Days bis Ziel-Datum existieren
+- Maximaler Vorlauf: 7 Tage ab heute (konfigurierbar)
+- Slots werden mit Default-Werten initialisiert
+- AM/PM Slots unlocked, EV (Abend) Slot manualOnly
+- Heutige Slots können automatisch locked werden (basierend auf aktueller Uhrzeit)
+
+## Frontend Integration
+
+**Relative Pfade & Key-Management:**
+- Frontend nutzt relative API-Pfade: `/api/tasks/{userId}`
+- Master Key wird aus URL extrahiert: `?code=KEY` oder `#code=KEY`
+- Key wird allen API-Aufrufen automatisch hinzugefügt
+- Username aus localStorage geladen oder bei erstem Besuch abgefragt
+- Keine Backend-URL-Konfiguration im Frontend erforderlich
 
 # Architekturentscheidungen
 
-## ADR-001: Azure Functions statt Express/React
+## ADR-001: Azure Functions v4 mit einzelnen HTTP-Funktionen
 
-**Status**: Entschieden (September 2025)
+**Status**: Implementiert (Oktober 2024)
 
-**Kontext**: Ursprünglich Express/React/PostgreSQL Stack, hohe Hosting-Kosten und Komplexität
+**Kontext**: Migration von monolithischer Struktur zu einzelnen Azure Functions
 
-**Entscheidung**: Migration zu Azure Functions-only Architektur
-
-**Begründung**:
-- ✅ Kosteneinsparung durch Serverless Pay-per-use
-- ✅ Einfacheres Deployment (Single Function App)
-- ✅ Automatische Skalierung
-- ✅ Integrierte Monitoring-Tools
-- ❌ Vendor Lock-in zu Microsoft Azure
-
-## ADR-002: Token-basierte Authentifizierung
-
-**Status**: Entschieden (September 2025)
-
-**Kontext**: Bedarf für Benutzertrennung ohne komplexe User-Management-Systeme
-
-**Entscheidung**: Secure Tokens im URL-Pfad statt API-Key Headers
+**Entscheidung**: Jeder API-Endpoint ist eine separate Azure Function
 
 **Begründung**:
-- ✅ Einfache Implementierung ohne Datenbank
-- ✅ Datenschutz durch lokale Token-Speicherung
-- ✅ Keine Registrierung erforderlich
-- ✅ Automatische Datenkapselung
-- ❌ Token-Verlust führt zu Datenverlust
+- ✅ Klare Verantwortlichkeiten (Single Responsibility Principle)
+- ✅ Einfacheres Testing einzelner Endpoints
+- ✅ Bessere Skalierung (Functions können unabhängig skalieren)
+- ✅ Einfachere Wartung und Erweiterung
+- ❌ Mehr Dateien (aber bessere Übersichtlichkeit)
 
-## ADR-003: Markdown-Dateien statt Datenbank
+## ADR-002: Cosmos DB statt Blob Storage
 
-**Status**: Entschieden (Phase 1)
+**Status**: Implementiert (Oktober 2024)
 
-**Kontext**: Einfache, wartbare Datenhaltung für Task-Management
+**Kontext**: Ursprünglich Markdown-Dateien in Blob Storage geplant
 
-**Entscheidung**: Azure Blob Storage mit Markdown-Dateien
-
-**Begründung**:
-- ✅ Menschlich lesbar und editierbar
-- ✅ Versionskontrolle möglich
-- ✅ Einfache Backup/Migration
-- ✅ Kostengünstig
-- ❌ Begrenzte Query-Möglichkeiten
-- ❌ Keine ACID-Transaktionen
-
-## ADR-004: OpenAI Integration für Sprachverarbeitung
-
-**Status**: Entschieden (Phase 2)
-
-**Kontext**: Deutsche Sprachkommandos für natürliche Bedienung
-
-**Entscheidung**: OpenAI GPT für NLP mit Pattern-Matching Fallback
+**Entscheidung**: Azure Cosmos DB mit JSON-Dokumenten
 
 **Begründung**:
-- ✅ Hohe Qualität bei deutscher Sprache
-- ✅ Flexible Intent-Erkennung
-- ✅ Fallback bei API-Ausfall
-- ❌ Externe Abhängigkeit
-- ❌ Kosten pro API-Call
+- ✅ Query-Fähigkeit (SQL-ähnliche Queries)
+- ✅ ACID-Transaktionen für konsistente Daten
+- ✅ Stored Procedures für komplexe Business-Logik
+- ✅ Bessere Performance für häufige Zugriffe
+- ✅ Einfachere Implementierung von AutoFill-Logik
+- ❌ Höhere Kosten als Blob Storage
+- ❌ Vendor Lock-in (aber Migration via JSON möglich)
+
+## ADR-003: User-ID im Pfad statt Header/ENV
+
+**Status**: Implementiert (Oktober 2024)
+
+**Kontext**: Multi-User-Support ohne komplexes Auth-System
+
+**Entscheidung**: User-ID als URL-Pfad-Parameter `/api/tasks/{userId}`
+
+**Begründung**:
+- ✅ RESTful API-Design
+- ✅ Klare Datentrennung
+- ✅ Intuitive API-Struktur
+- ✅ Einfach zu testen
+- ❌ User-ID sichtbar in URL (aber kein Security-Risk mit Master Key)
+
+## ADR-004: Master Key Authentication
+
+**Status**: Implementiert (Oktober 2024)
+
+**Kontext**: Bedarf für API-Sicherheit ohne komplexes OAuth2
+
+**Entscheidung**: Azure Functions eingebautes Master Key System
+
+**Begründung**:
+- ✅ Keine zusätzliche Implementierung nötig
+- ✅ Bewährtes System von Azure
+- ✅ Key-Rotation möglich
+- ✅ Einfache Integration im Frontend
+- ❌ Ein Key für alle User (aber akzeptabel für kleine Teams)
+- ❌ Key sichtbar in URL (HTTPS erforderlich)
+
+## ADR-005: Stored Procedures für AutoFill-Logik
+
+**Status**: Implementiert (Oktober 2024)
+
+**Kontext**: Komplexe Planungsregeln für automatische Task-Zuweisung
+
+**Entscheidung**: Cosmos DB Stored Procedures in JavaScript
+
+**Begründung**:
+- ✅ Atomare Operationen (keine Race Conditions)
+- ✅ Serverside Execution (weniger Netzwerk-Roundtrips)
+- ✅ Konsistente Regelanwendung
+- ✅ Performance-Vorteil
+- ❌ Schwieriger zu testen als Node.js Code
+- ❌ Separates Deployment nötig
+
+## ADR-006: ES Modules statt CommonJS
+
+**Status**: Implementiert (Oktober 2024)
+
+**Kontext**: Azure Functions v4 unterstützt ES Modules
+
+**Entscheidung**: `"type": "module"` in package.json
+
+**Begründung**:
+- ✅ Zukunftssicher (ES Modules sind Standard)
+- ✅ Bessere IDE-Unterstützung
+- ✅ Klare Import-Syntax
+- ✅ Tree-Shaking möglich
+- ❌ Manche npm-Pakete noch CommonJS-only
 
 # Qualitätsanforderungen
 
@@ -579,136 +764,366 @@ CodexMiroir Qualität
 
 ### Hohe Risiken
 
-**R1: OpenAI API Integration nicht implementiert** 🔴
-- **Beschreibung**: Sprachverarbeitung per OpenAI API ist in arc42 dokumentiert, aber nicht im aktuellen Code vorhanden
-- **Auswirkung**: Fehlende Voice-Kommando-Funktionalität trotz Dokumentation
-- **Mitigation**: Keine - Feature muss implementiert oder aus Dokumentation entfernt werden
-- **Status**: 🔴 KRITISCH - Diskrepanz zwischen Dokumentation und Implementierung
+**R1: Master Key Sicherheit** 🔴
+- **Beschreibung**: Ein einziger Master Key schützt alle API-Endpoints
+- **Auswirkung**: Kompromittierung des Keys ermöglicht vollen Zugriff
+- **Mitigation**: HTTPS erzwingen, Key-Rotation regelmäßig durchführen, Access-Logs überwachen
+- **Status**: 🔴 Akzeptiertes Risiko für kleine Teams, OAuth2 für größere Deployments empfohlen
 
-**R2: User-Verlust führt zu Datenverlust**  
-- **Beschreibung**: Nutzer-IDs sind nicht wiederherstellbar (URL-Parameter basiert)
-- **Auswirkung**: Komplettverlust aller Tasks bei Verlust der User-ID
-- **Mitigation**: Benutzer-Aufklärung über User-ID-Backup
+**R2: User-ID-Verlust führt zu Datenverlust**  
+- **Beschreibung**: User-IDs sind nur im Browser localStorage gespeichert
+- **Auswirkung**: Browser-Daten löschen → Zugriffsverlust auf alle Tasks
+- **Mitigation**: User-Aufklärung, Backup der User-ID empfehlen
 - **Status**: ⚠️ Aktuell nur durch User-Education mitigiert
 
 ### Mittlere Risiken
 
 **R3: Azure Vendor Lock-in**
-- **Beschreibung**: Komplette Abhängigkeit von Azure Functions und Azure Cosmos DB
-- **Auswirkung**: Migration zu anderen Cloud-Anbietern schwierig
-- **Mitigation**: Cosmos DB JSON-Format ermöglicht einfache Daten-Migration
+- **Beschreibung**: Komplette Abhängigkeit von Azure Functions und Cosmos DB
+- **Auswirkung**: Migration zu anderen Cloud-Anbietern aufwändig
+- **Mitigation**: Cosmos DB JSON-Format ermöglicht Daten-Export, API-Logik portierbar
 - **Status**: 🔶 Akzeptiertes Risiko für Kosteneinsparungen
 
-**R4: Skalierungsgrenze bei großen Task-Mengen**
-- **Beschreibung**: Cosmos DB Queries bei 1000+ Tasks ohne Indexoptimierung könnte langsam werden
-- **Auswirkung**: Performance-Degradation bei Power-Usern
-- **Mitigation**: Geplante Implementierung von Query-Optimierung und Indizes
+**R4: Cosmos DB Kosten bei Skalierung**
+- **Beschreibung**: Cosmos DB RU-basierte Abrechnung kann bei hoher Last teuer werden
+- **Auswirkung**: Unerwartete Kosten bei vielen Usern
+- **Mitigation**: Request Units monitoring, ggf. Provisioned Throughput nutzen
 - **Status**: 🔶 Monitoring erforderlich
 
-**R5: Fehlende PWA-Funktionalität** 🔴
-- **Beschreibung**: Service Worker und Offline-Funktionalität dokumentiert aber nicht implementiert
-- **Auswirkung**: Keine Offline-Fähigkeit, trotz Dokumentation als PWA
-- **Mitigation**: Keine - Feature muss implementiert oder aus Dokumentation entfernt werden
-- **Status**: 🔴 KRITISCH - Diskrepanz zwischen Dokumentation und Implementierung
+**R5: Keine automatische Day-Erstellung über 7 Tage**
+- **Beschreibung**: Days werden nur maximal 7 Tage im Voraus erstellt
+- **Auswirkung**: Langfristige Planung (>1 Woche) erfordert manuelle Day-Erstellung
+- **Mitigation**: DAY_HORIZON Umgebungsvariable erhöhen möglich
+- **Status**: 🔶 Design-Entscheidung, kann bei Bedarf angepasst werden
 
 ## Technische Schulden
 
 ### Code-Qualität
 
-**TD1: Architektur-Dokumentation veraltet** 🔴
-- **Problem**: arc42 beschreibt alte Architektur (Markdown/Blob Storage, /codex/-Module)
-- **Ist-Zustand**: Cosmos DB mit /src/-Modulen implementiert
-- **Auswirkung**: Neue Entwickler werden durch veraltete Dokumentation fehlgeleitet
-- **Priorität**: HOCH
-- **Status**: 🔴 Dokumentation muss aktualisiert werden
+**TD1: Tests testen nicht den tatsächlichen Source Code** 🔴
+- **Problem**: Alle 99 Tests in `__tests__/` testen duplizierte Mock-Implementierungen
+- **Ist-Zustand**: 0% Coverage für /src/ Code trotz passing tests
+- **Auswirkung**: Keine echte Testabdeckung, Regressions werden nicht erkannt
+- **Priorität**: KRITISCH
+- **Status**: 🔴 Tests müssen refaktoriert werden um echten Code zu testen
 
-**TD2: Fehlende Eingabevalidierung** ⚠️
-- **Problem**: Grundlegende Validation vorhanden, aber nicht vollständig
+**TD2: Fehlende Eingabevalidierung für komplexe Felder** ⚠️
+- **Problem**: Grundlegende Validation vorhanden, aber nicht für alle Felder
+- **Beispiel**: Task-Tags, Datumsformat-Prüfung
 - **Auswirkung**: Mögliche Runtime-Errors bei malformed Requests
 - **Priorität**: Mittel
 - **Status**: ⚠️ Teilweise implementiert, Erweiterung geplant
 
 ### Architektur
 
-**TD3: LLM/Voice-Modul nicht implementiert** 🔴
-- **Problem**: llmActions.js existiert nicht, OpenAI-Integration fehlt komplett
-- **Dokumentiert**: Voice Commands, Pattern-Matching Fallback, Task-Zerlegung
-- **Auswirkung**: Kernfunktionalität aus Dokumentation nicht verfügbar
-- **Priorität**: HOCH (wenn Feature gewünscht) oder Dokumentation bereinigen
-- **Status**: 🔴 Feature fehlt oder Dokumentation entfernen
+**TD3: Stored Procedures Deployment nicht automatisiert** ⚠️
+- **Problem**: Stored Procedures müssen manuell deployed werden (`npm run deploy:sprocs`)
+- **Auswirkung**: Nach Cosmos DB Reset oder in neuen Environments vergessen Devs ggf. Deployment
+- **Priorität**: Mittel
+- **Vorschlag**: Integration in CI/CD Pipeline oder Startup-Check
+- **Status**: ⚠️ Manueller Prozess dokumentiert
 
-**TD4: Stored Procedures nicht deployed** ⚠️
-- **Problem**: Stored Procedures in /database/ vorhanden aber Deployment-Status unklar
-- **Auswirkung**: AutoFill und Slot-Assignment Logik möglicherweise nicht funktional
-- **Priorität**: Hoch
-- **Status**: ⚠️ Deployment-Status muss verifiziert werden
+**TD4: Keine Rate Limiting** 🔶
+- **Problem**: Keine Request-Rate-Limitierung implementiert
+- **Auswirkung**: Potenzielle DoS-Anfälligkeit, hohe Cosmos DB Kosten
+- **Priorität**: Mittel
+- **Status**: 🔶 Azure Functions bietet eingebautes Throttling, aber keine User-spezifische Limits
 
 ### Testing & Monitoring
 
-**TD5: Tests testen Mock-Implementierungen statt Source Code** 🔴
-- **Problem**: Alle 99 Tests testen duplizierte Logik in __tests__/, nicht /src/
-- **Coverage**: 0% für gesamten src/-Code trotz 99 passing tests
-- **Auswirkung**: Keine echte Testabdeckung, Regressions werden nicht erkannt
-- **Priorität**: KRITISCH
-- **Status**: 🔴 Tests müssen refaktoriert werden um echten Code zu testen
+**TD5: Fehlendes Application Monitoring** 🔶
+- **Problem**: Keine Business-Metriken (Task-Erstellungsrate, AutoFill-Erfolgsquote, etc.)
+- **Auswirkung**: Keine Insights über Nutzerverhalten und System-Performance
+- **Status**: 🔶 Azure Application Insights vorhanden, Custom Metrics fehlen
 
-**TD6: Fehlendes Application Monitoring** 🔶
-- **Problem**: Keine Business-Metriken (Task-Erstellungsrate, etc.)
-- **Auswirkung**: Keine Insights über Nutzerverhalten
-- **Status**: 🔶 Azure Insights vorhanden, Custom Metrics fehlen
+**TD6: Keine End-to-End Tests** ⚠️
+- **Problem**: Nur Unit-Tests vorhanden, keine Integration/E2E Tests
+- **Auswirkung**: API-Endpunkte und Cosmos DB Integration nicht automatisch getestet
+- **Priorität**: Mittel
+- **Status**: ⚠️ Manuelle Tests dokumentiert in TESTING_GUIDE.md
 
-**TD7: codequality/ Directory noch vorhanden** ⚠️
-- **Problem**: codequality/report.md existiert noch, aber als "Entfernt" dokumentiert
-- **Auswirkung**: Inkonsistenz zwischen Dokumentation und Repository
-- **Priorität**: Niedrig (Dokumentationsfehler)
-- **Status**: ⚠️ Verzeichnis löschen oder Dokumentation korrigieren
+### Dokumentation
+
+**TD7: Mehrere README-Dateien mit Überschneidungen** ⚠️
+- **Problem**: README.md, FUNCTION_APP_README.md, QUICK_START.md enthalten teilweise redundante Informationen
+- **Auswirkung**: Inkonsistenzen möglich, Wartungsaufwand
+- **Priorität**: Niedrig
+- **Status**: ⚠️ Konsolidierung in arc42.md geplant (diese Aufgabe)
 
 ## Veraltete/Redundante Komponenten
 
 **Bereinigte Dateien (Oktober 2024):** ✅
-- `client/` - React Frontend Quellen (durch PWA ersetzt) - Bereits entfernt
-- `server/` - Express Server (durch Azure Functions ersetzt) - Bereits entfernt
-- Diverse Config-Dateien für Next.js/React Stack - Bereits entfernt
-- Migration-Scripts für PostgreSQL → Azure Blob - Bereits entfernt
-- `results/` - Alte Frontend Refactoring Reports und Backups - Entfernt
-- `attached_assets/` - Temporäre Issue-Diskussions-Inhalte - Entfernt
-- `test-token-auth.js`, `integration-test.js` - Manuelle Test-Dateien (durch Jest __tests__/ ersetzt) - Entfernt
-- `frontend/test.html` - Test-Datei - Entfernt
-- Root `index.html` - Legacy-Build-Datei mit ungültigen Asset-Referenzen - Entfernt
+- `client/` - React Frontend Quellen - Entfernt
+- `server/` - Express Server - Entfernt
+- `/codex/` - Alte API-Struktur - Entfernt
+- `/frontend/` - Alte Frontend-Struktur - Entfernt
+- `/static/` - Altes Static Files Verzeichnis - Entfernt
+- `manifest.json`, `sw.js` - PWA Dateien (nie implementiert) - Entfernt
+- Migration-Scripts für PostgreSQL - Entfernt
+- `results/` - Alte Refactoring Reports - Entfernt
+- `attached_assets/` - Temporäre Issue-Dateien - Entfernt
 
 **Noch vorhandene Dateien (sollten bereinigt werden):** ⚠️
-- `codequality/` - Generierte Code Quality Reports - Dokumentiert als entfernt, aber noch vorhanden
+- `codequality/report.md` - Generierte Code Quality Reports - Sollte entfernt oder .gitignored werden
 
-**Inkonsistenzen in Dokumentation:**
-- arc42 dokumentiert `/codex/` Module (index.js, markdownCrud.js, llmActions.js, helpers.js)
-- Tatsächlich existiert `/src/` mit anderen Modulen (_cosmos.js, createTask.js, getTask.js, etc.)
-- arc42 dokumentiert "Azure Blob Storage (Markdown-Dateien)" als Datenspeicher
-- Tatsächlich wird Azure Cosmos DB verwendet
-- arc42 dokumentiert PWA mit Service Worker als implementiert
-- Tatsächlich fehlen sw.js und manifest.json komplett
-- arc42 dokumentiert OpenAI Integration mit Fallback
-- Tatsächlich ist keine OpenAI Integration im Code vorhanden
+**Status**: 🟢 Codebase aufgeräumt, aktuelle Architektur klar implementiert
 
-**Status**: 🔴 Code-Bereinigung teilweise, aber KRITISCHE Dokumentations-Inkonsistenzen
+# Betrieb und Deployment
+
+## Voraussetzungen
+
+### Für lokale Entwicklung:
+- **Node.js** 18+ (LTS empfohlen)
+- **Azure Functions Core Tools v4** (`npm install -g azure-functions-core-tools@4`)
+- **Azure Cosmos DB Account** oder lokaler Cosmos DB Emulator
+- **Git** zum Klonen des Repository
+
+### Für Azure-Deployment:
+- Azure Account mit aktiver Subscription
+- Azure Function App (erstellt in Azure Portal)
+- Azure Cosmos DB Account mit zwei Containern (tasks, timeline)
+- Azure CLI (optional, für Deployment-Automatisierung)
+
+## Lokale Entwicklung einrichten
+
+### 1. Repository klonen und Dependencies installieren
+```bash
+git clone https://github.com/merlinbecker/CodexMiroir.git
+cd CodexMiroir
+npm install
+```
+
+### 2. Cosmos DB konfigurieren
+
+Erstelle `local.settings.json` im Root-Verzeichnis:
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "COSMOS_CONNECTION_STRING": "AccountEndpoint=https://<account>.documents.azure.com:443/;AccountKey=<key>;",
+    "COSMOS_DB": "codexmiroir",
+    "COSMOS_TIMELINE": "timeline",
+    "COSMOS_TASKS": "tasks",
+    "DAY_HORIZON": "7"
+  }
+}
+```
+
+**Wichtig**: Connection String mit echten Cosmos DB Credentials befüllen!
+
+### 3. Cosmos DB Container erstellen
+
+In Azure Portal oder via Azure CLI:
+- Container: `tasks` mit Partition Key: `/userId`
+- Container: `timeline` mit Partition Key: `/userId`
+
+### 4. Stored Procedures deployen
+
+```bash
+npm run deploy:sprocs
+```
+
+Dieser Befehl deployed:
+- `assignTaskToFirstFreeSlot` (AutoFill-Logik)
+- `assignTaskToSpecificSlot` (Manuelle Zuweisung)
+
+### 5. Function App starten
+
+```bash
+npm start
+# oder
+func start
+```
+
+Browser öffnen: `http://localhost:7071/`
+
+**Hinweis**: Bei lokaler Entwicklung wird der Master Key ignoriert. Username wird beim ersten Öffnen abgefragt.
+
+## Azure Deployment
+
+### 1. Function App erstellen
+
+Via Azure Portal oder CLI:
+```bash
+az functionapp create \
+  --name <your-function-app-name> \
+  --resource-group <your-resource-group> \
+  --consumption-plan-location westeurope \
+  --runtime node \
+  --runtime-version 18 \
+  --functions-version 4 \
+  --storage-account <your-storage-account>
+```
+
+### 2. Environment Variables konfigurieren
+
+In Azure Portal unter "Configuration" → "Application settings":
+```
+COSMOS_CONNECTION_STRING = <your-cosmos-connection-string>
+COSMOS_DB = codexmiroir
+COSMOS_TIMELINE = timeline
+COSMOS_TASKS = tasks
+DAY_HORIZON = 7
+```
+
+### 3. Function App deployen
+
+```bash
+func azure functionapp publish <your-function-app-name>
+```
+
+### 4. Stored Procedures deployen
+
+Nach erstem Deployment:
+```bash
+npm run deploy:sprocs
+```
+
+### 5. Master Key abrufen und URL teilen
+
+```bash
+az functionapp keys list \
+  --name <your-function-app-name> \
+  --resource-group <your-resource-group>
+```
+
+App-URL mit Master Key:
+```
+https://<your-app>.azurewebsites.net/?code=<MASTER_KEY>
+```
+
+## Sicherheits-Setup
+
+### Master Key Management
+
+**Master Key Schutz:**
+- Master Key niemals in Git committen
+- HTTPS erzwingen (in Azure automatisch)
+- Key-Rotation bei Kompromittierung:
+  ```bash
+  az functionapp keys set \
+    --name <app-name> \
+    --resource-group <rg> \
+    --key-type masterKey \
+    --key-name master \
+    --key-value <new-key>
+  ```
+
+**Frontend Key-Extraktion:**
+- Frontend extrahiert Key aus URL: `?code=KEY` oder `#code=KEY`
+- Key wird in JavaScript-Variable gespeichert (nicht localStorage für Sicherheit)
+- Key wird allen API-Aufrufen automatisch hinzugefügt
+
+**User-ID Management:**
+- Username wird beim ersten Besuch abgefragt
+- Gespeichert in `localStorage.getItem('codexmiroir_userId')`
+- User kann Username über UI ändern
+
+### Request Flow mit Security
+
+```
+1. User öffnet: https://app.azurewebsites.net/?code=MASTER_KEY
+
+2. Frontend (serveStatic, anonymous):
+   - Lädt index.html, app.js, styles.css
+   - JavaScript extrahiert Master Key aus URL
+   - JavaScript lädt Username aus localStorage
+
+3. API Call (z.B. getTimeline, admin):
+   GET /api/timeline/u_merlin?code=MASTER_KEY
+   - Azure Functions validiert Master Key
+   - ✅ Key korrekt → Request wird verarbeitet
+   - ❌ Key fehlt/falsch → 401 Unauthorized
+
+4. Cosmos DB Query:
+   - userId-Filter in Query: WHERE c.userId = 'u_merlin'
+   - Keine Cross-User-Zugriffe möglich
+```
+
+## API-Endpoints Übersicht
+
+Alle API-Endpoints außer `serveStatic` benötigen Master Key (`?code=KEY`):
+
+### Task Management
+- `POST /api/tasks/{userId}` - Task erstellen
+- `GET /api/tasks/{userId}/{taskId}` - Task abrufen
+- `PUT /api/tasks/{userId}/{taskId}` - Task aktualisieren
+- `DELETE /api/tasks/{userId}/{taskId}` - Task löschen
+
+### Timeline Management
+- `GET /api/timeline/{userId}?dateFrom=...&dateTo=...` - Timeline abrufen
+- `POST /api/timeline/{userId}/assign` - Task manuell zuweisen
+- `POST /api/timeline/{userId}/autofill` - Task automatisch einplanen
+- `POST /api/timeline/{userId}/prioritize` - Task priorisieren
+
+### Frontend
+- `GET /{*path}` - Web-UI (öffentlich)
+
+## Troubleshooting
+
+### "COSMOS_CONNECTION_STRING environment variable is required"
+→ Connection String in `local.settings.json` oder Azure App Settings setzen
+
+### "No free slot found" bei AutoFill
+→ Regeln in Stored Procedures prüfen (Business nur Mo-Fr, etc.)
+
+### "Slot is locked" bei Assign
+→ EV (Abend) Slots sind standardmäßig manualOnly
+
+### Timer Function Warnung in lokaler Entwicklung
+→ Normal ohne Storage Emulator, HTTP-Endpoints funktionieren trotzdem
+
+### Keine Timeline-Daten gefunden
+→ `ensureDaysUpTo()` wird automatisch aufgerufen, ggf. Days manuell erstellen
+
+## Migration von alten Versionen
+
+Die aktuelle Architektur (Oktober 2024) hat folgende Breaking Changes:
+
+### Von Blob Storage zu Cosmos DB
+- **Alt**: Markdown-Dateien in Azure Blob Storage
+- **Neu**: JSON-Dokumente in Cosmos DB
+- **Migration**: Daten müssen manuell in Cosmos DB importiert werden
+
+### Von /codex/ zu /src/
+- **Alt**: Modulare Struktur in `/codex/` Verzeichnis
+- **Neu**: Einzelne Functions in `/src/` Verzeichnis
+- **Breaking**: API-Pfade geändert von `/api/codex/{token}` zu `/api/tasks/{userId}`
+
+### Von ENV USER_ID zu Pfad-Parameter
+- **Alt**: `process.env.USER_ID`
+- **Neu**: `req.params.userId` im Pfad
+- **Breaking**: Multi-User-Support statt Single-User
+
+### Von Cosmos Endpoint+Key zu Connection String
+- **Alt**: `COSMOS_ENDPOINT` und `COSMOS_KEY` separat
+- **Neu**: `COSMOS_CONNECTION_STRING` kombiniert
+- **Migration**: Connection String aus Azure Portal kopieren
+
+**Status**: 🟢 Codebase aufgeräumt, aktuelle Architektur klar implementiert
 
 # Glossar
 
 | Begriff | Definition |
 |---------|------------|
-| **Spiegelkodex** | Philosophie der strikten FIFO-Task-Verwaltung ohne Reorder-Möglichkeiten |
-| **FIFO** | First In, First Out - Tasks werden strikt in der Reihenfolge abgearbeitet, wie sie erstellt wurden |
-| **Zeitslot** | 3,5-Stunden-Block für Task-Bearbeitung (AM: 08:00-11:30, PM: 13:00-16:30) |
-| **Token** | 8+ Zeichen String zur Benutzeridentifikation und Datentrennung |
-| **PWA** | Progressive Web App - Web-Anwendung mit App-ähnlichen Eigenschaften |
-| **Slot-ID** | Eindeutige Zeitslot-Kennzeichnung im Format YYYY-Www-DOW-AM/PM |
-| **Task-Zerlegung** | Automatische Aufteilung großer Tasks in 3,5h-Chunks durch KI |
-| **Frontmatter** | YAML-Metadaten am Anfang von Markdown-Dateien |
-| **current.md** | Markdown-Datei mit aktuell geplanten Tasks einer Liste |
-| **archive.md** | Markdown-Datei mit abgeschlossenen Tasks einer Liste |
-| **Pattern-Matching** | Fallback-Mechanismus für Sprachverarbeitung ohne OpenAI |
-| **Clean Code** | Programmierphilosophie für lesbaren, wartbaren Code |
+| **Timeline** | Zeitbasierte Ansicht mit Day-Dokumenten und Slots für Task-Planung |
+| **Day Document** | Cosmos DB Dokument das einen Tag repräsentiert mit Slots und Meta-Informationen |
+| **Zeitslot** | Teil eines Tages für Task-Bearbeitung (AM: Vormittag, PM: Nachmittag, EV: Abend) |
+| **User-ID** | Eindeutige Benutzer-Kennung für Datentrennung (z.B. "u_merlin") |
+| **Master Key** | Azure Functions Admin-Key für API-Authentifizierung |
+| **Slot Assignment** | Zuweisung eines Tasks zu einem spezifischen Zeitslot |
+| **AutoFill** | Automatische Task-Planung durch Stored Procedure |
+| **Stored Procedure** | Serverside JavaScript-Funktion in Cosmos DB für atomare Operationen |
+| **Task Kind** | Aufgabentyp: "business" (beruflich) oder "personal" (privat) |
+| **Locked Slot** | Zeitslot der nicht für automatische Planung verfügbar ist |
+| **Manual Only** | Slot kann nur manuell, nicht durch AutoFill belegt werden |
+| **Day Horizon** | Anzahl Tage in die Zukunft für die Days automatisch erstellt werden |
+| **ES Modules** | ECMAScript Module-System (import/export statt require) |
 | **Azure Functions v4** | Neueste Version des Azure Serverless-Frameworks |
-| **Blob Container** | Azure Storage Container für Dateien (hier: Markdown Tasks) |
-| **Service Worker** | Browser-Technologie für Offline-Fähigkeit und Caching |
+| **Cosmos DB** | Azure NoSQL-Datenbank mit JSON-Dokumenten und SQL-ähnlichen Queries |
+| **Request Units (RU)** | Cosmos DB Performance-Maßeinheit für Abrechnung |
+| **authLevel** | Azure Functions Authentifizierungs-Level (admin, anonymous, function) |
 | **C4 Model** | Context, Containers, Components, Code - Architektur-Diagramm-Standard |
 | **arc42** | Standard-Template für Software-Architektur-Dokumentation |
