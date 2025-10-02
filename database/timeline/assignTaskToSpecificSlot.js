@@ -23,13 +23,20 @@ function assignTaskToSpecificSlot(userId, date, slotIdx, task) {
 
     if (s.manualOnly && !manual) throw new Error("Slot manualOnly");
     if (s.locked && !manual) throw new Error("Slot locked");
-    if (violates && !(manual && task.fixed === true)) throw new Error("Day rule violation");
+    if (violates && !(manual && task.fixed === true)) {
+      throw new Error("Day rule violation: kind=" + task.kind + ", weekend=" + wknd + ", manual=" + manual + ", fixed=" + task.fixed);
+    }
 
     // Schieben, wenn belegt
     if (s.assignment && s.assignment.taskId) shiftFollowing(day, slotIdx);
 
     // Belegen
-    s.assignment = { taskId: task.id, kind: task.kind || "work", source: manual ? "manual" : "auto" };
+    s.assignment = { 
+      taskId: task.id, 
+      taskTitle: task.title || task.id,
+      kind: task.kind || "work", 
+      source: manual ? "manual" : "auto" 
+    };
     coll.replaceDocument(day._self, day, function(e){ if (e) throw e; res.setBody({ ok:true }); });
   });
 
@@ -50,8 +57,9 @@ function assignTaskToSpecificSlot(userId, date, slotIdx, task) {
         for (var j=0; j<next.slots.length; j++){
           var ns = next.slots[j], wk = next.weekday>=6;
           if (ns.manualOnly || ns.locked) continue;
-          if (wk && carry.kind==="work") continue;
-          if (!wk && carry.kind==="personal") continue;
+          // Prüfe Schedule-Verletzung, aber erlaube es für feste Termine
+          var violatesCarrySchedule = (wk && carry.kind==="work") || (!wk && carry.kind==="personal");
+          if (violatesCarrySchedule && !(carry.fixed === true)) continue;
           if (!ns.assignment || !ns.assignment.taskId){
             ns.assignment = carry;
             return coll.replaceDocument(next._self, next, function(e){ if (e) throw e; });

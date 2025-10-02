@@ -27,8 +27,12 @@ app.http("assignToSlot", {
     // Stelle sicher, dass Days bis zu diesem Datum existieren
     await ensureDaysUpTo(userId, date, ctx);
 
+    // Verwende Task-Daten direkt aus dem Request (bei frisch erstellten Tasks)
     // Kennzeichne Quelle für SP-Regelprüfung
     task._source = source === "auto" ? "auto" : "manual";
+
+    // Debug: Log wichtige Werte
+    ctx.log(`DEBUG: Task ${task.id}, kind: ${task.kind}, fixed: ${task.fixed}, source: ${task._source}, date: ${date}`);
 
     const { timeline } = cosmos();
     const sproc = timeline.scripts.storedProcedure("assignTaskToSpecificSlot");

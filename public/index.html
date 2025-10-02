@@ -32,11 +32,13 @@
             
             <!-- Modus-Schalter -->
             <div class="mode-toggle" style="margin: 1rem 0;">
-                <label style="display: flex; align-items: center; gap: 0.5rem;">
-                    <input type="checkbox" x-model="isBusinessMode" @change="toggleMode()" style="transform: scale(1.5);">
-                    <span x-text="isBusinessMode ? 'Geschäftlich' : 'Privat'" style="font-weight: bold; font-size: 1.1rem;"></span>
-                    <small x-text="isBusinessMode ? '(Nur Werktage, Geschäftstermine)' : '(Alle Tage, Private Termine)'"></small>
-                </label>
+                <button @click="toggleMode()" 
+                        :class="isBusinessMode ? 'secondary' : 'outline'"
+                        style="width: 100%; padding: 1rem; font-size: 1.1rem; font-weight: bold;">
+                    <span x-text="isBusinessMode ? '💼 Geschäftlich' : '🏠 Privat'"></span>
+                    <br>
+                    <small x-text="isBusinessMode ? '(Nur Werktage, Geschäftstermine)' : '(Alle Tage, Private Termine)'" style="font-weight: normal; opacity: 0.8;"></small>
+                </button>
             </div>
             
             <div class="grid">
@@ -88,7 +90,7 @@
                                     <template x-if="slot.assignment.taskId">
                                         <div>
                                             <p>
-                                                <strong x-text="slot.assignment.taskId"></strong> 
+                                                <strong x-text="slot.assignment.taskTitle || slot.assignment.taskId"></strong> 
                                                 (<span x-text="kind(slot.assignment.kind)"></span>)
                                             </p>
                                             <template x-if="!isCurrent(day.date, slot.label)">
@@ -189,7 +191,10 @@
                                 <template x-if="dialog.mode === 'edit'">
                                     <button type="button" style="background-color: #d32f2f; color: white;" @click="deleteTask(task.id)">🗑 Löschen</button>
                                 </template>
-                                <button type="submit">Speichern</button>
+                                <button type="submit" :disabled="saving">
+                                    <span x-show="!saving">Speichern</span>
+                                    <span x-show="saving">Speichere...</span>
+                                </button>
                             </footer>
                         </form>
                     </article>

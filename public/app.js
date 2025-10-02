@@ -32,10 +32,11 @@ document.addEventListener('alpine:init', () => {
         days: [],
         allDays: [], // Speichert alle Tage vom Server
         error: null,
+        saving: false, // Verhindert doppelte Save-Aufrufe
         isBusinessMode: true, // Standard: Geschäftlich
         dialog: { show: false, mode: 'create', date: '', slot: null },
         task: {
-            id: '',
+            // Keine ID - wird erst beim Speichern vom Backend generiert
             kind: 'business',
             title: '',
             description: '',
@@ -66,6 +67,12 @@ document.addEventListener('alpine:init', () => {
                     this.error = 'Benutzername erforderlich';
                     return;
                 }
+            }
+            
+            // Load business mode preference from localStorage
+            const savedMode = localStorage.getItem('codexmiroir_businessMode');
+            if (savedMode !== null) {
+                this.isBusinessMode = savedMode === 'true';
             }
             
             // Calculate timeline for next 7 days (Rabbit R1 requirement)
@@ -102,7 +109,7 @@ document.addEventListener('alpine:init', () => {
         
         emptyTask() {
             return {
-                id: '', // Backend wird UUID generieren
+                // Keine ID - wird vom Backend automatisch generiert
                 kind: this.isBusinessMode ? 'business' : 'personal',
                 title: '',
                 description: '',
@@ -146,6 +153,10 @@ document.addEventListener('alpine:init', () => {
         },
 
         toggleMode() {
+            // Toggle the mode
+            this.isBusinessMode = !this.isBusinessMode;
+            // Save preference to localStorage
+            localStorage.setItem('codexmiroir_businessMode', this.isBusinessMode.toString());
             this.applyTheme();
             this.filterDays();
         },
@@ -167,34 +178,55 @@ document.addEventListener('alpine:init', () => {
                 return;
             }
 
-            this.days = this.allDays.filter(day => {
+            this.days = this.allDays.map(day => {
                 const date = new Date(day.date + 'T00:00:00');
                 const dayOfWeek = date.getDay(); // 0 = Sonntag, 6 = Samstag
+                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+                const isWeekday = !isWeekend;
                 
-                if (this.isBusinessMode) {
-                    // Geschäftlich: Nur Werktage (Mo-Fr)
-                    if (dayOfWeek === 0 || dayOfWeek === 6) return false;
-                } else {
-                    // Privat: Nur Wochenende (Sa-So)
-                    if (dayOfWeek !== 0 && dayOfWeek !== 6) return false;
-                }
-                
-                // Tasks filtern
-                day.slots.forEach(slot => {
-                    if (slot.assignment && slot.assignment.taskId) {
-                        const taskKind = slot.assignment.kind;
-                        if (this.isBusinessMode && taskKind === 'personal') {
-                            // Geschäftsmodus: Private Tasks ausblenden
-                            slot.assignment = { taskId: null, kind: null, title: null };
-                        } else if (!this.isBusinessMode && taskKind === 'business') {
-                            // Privat-Modus: Geschäftliche Tasks ausblenden
-                            slot.assignment = { taskId: null, kind: null, title: null };
+                // Check if day has any tasks that should be shown in current mode
+                let hasRelevantTasks = false;
+                const filteredSlots = day.slots.map(slot => {
+                    // Create a deep copy to avoid modifying original data
+                    const slotCopy = JSON.parse(JSON.stringify(slot));
+                    
+                    if (slotCopy.assignment && slotCopy.assignment.taskId) {
+                        const taskKind = slotCopy.assignment.kind;
+                        const isBusinessTask = (taskKind === 'business' || taskKind === 'work');
+                        const isPersonalTask = (taskKind === 'personal');
+                        
+                        // Show task if it matches current mode
+                        const shouldShowTask = (this.isBusinessMode && isBusinessTask) || 
+                                             (!this.isBusinessMode && isPersonalTask);
+                        
+                        if (shouldShowTask) {
+                            hasRelevantTasks = true;
+                            return slotCopy; // Keep the slot as is
+                        } else {
+                            // Hide the task but keep the slot structure
+                            slotCopy.assignment = { taskId: null, kind: null, source: null, taskTitle: null };
+                            return slotCopy;
                         }
                     }
+                    return slotCopy; // Empty slot or no assignment
                 });
                 
-                return true;
-            });
+                // Show day if:
+                // 1. It matches the mode's default schedule (business=weekdays, personal=weekends)
+                // 2. OR it has relevant tasks (fixed appointments)
+                const shouldShowDay = (this.isBusinessMode && isWeekday) || 
+                                    (!this.isBusinessMode && isWeekend) || 
+                                    hasRelevantTasks;
+                
+                if (shouldShowDay) {
+                    return {
+                        ...day,
+                        slots: filteredSlots
+                    };
+                }
+                
+                return null;
+            }).filter(day => day !== null);
         },
 
         async edit(taskId) {
@@ -242,6 +274,12 @@ document.addEventListener('alpine:init', () => {
             try {
                 this.error = null;
                 
+                // Verhindere mehrfache gleichzeitige Aufrufe
+                if (this.saving) {
+                    return;
+                }
+                this.saving = true;
+                
                 // Build payload with simplified fields
                 const payload = {
                     kind: this.task.kind,
@@ -260,7 +298,8 @@ document.addEventListener('alpine:init', () => {
                 // Add fixedDateTime if fixed is true
                 if (this.task.fixed && this.task.fixedDate && this.task.fixedTime) {
                     const specificTime = TIME_SLOT_MAP[this.task.fixedTime] || TIME_SLOT_MAP.AM;
-                    payload.fixedDateTime = `${this.task.fixedDate}T${specificTime}`;
+                    // Verwende lokale Zeitzone für feste Termine
+                    payload.fixedDateTime = `${this.task.fixedDate}T${specificTime}+02:00`;
                 }
                 
                 if (this.dialog.mode === 'edit') {
@@ -276,14 +315,38 @@ document.addEventListener('alpine:init', () => {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    if (!res1.ok) throw new Error('Create failed: HTTP ' + res1.status);
+                    if (!res1.ok) {
+                        const errorText = await res1.text();
+                        throw new Error(`Create failed: HTTP ${res1.status} - ${errorText}`);
+                    }
                     
                     // Hole die Task-ID aus der Antwort
                     const createdTask = await res1.json();
                     const taskId = createdTask.id;
                     
-                    if (this.dialog.date && this.dialog.slot !== null) {
-                        // Manuelle Zuweisung zu einem spezifischen Slot
+                    if (this.task.fixed && this.task.fixedDate && this.task.fixedTime) {
+                        // Feste Termine: Zuweisung zu dem spezifischen Datum und Slot
+                        const slotMap = { 'AM': 0, 'PM': 1, 'EV': 2 };
+                        const targetSlotIdx = slotMap[this.task.fixedTime] || 0;
+                        
+                        const res2 = await fetch(this.apiUrl(`api/timeline/${this.userId}/assign`), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                date: this.task.fixedDate,
+                                slotIdx: targetSlotIdx,
+                                task: {
+                                    id: taskId,
+                                    kind: this.task.kind,
+                                    title: this.task.title,
+                                    fixed: true
+                                },
+                                source: 'manual'
+                            })
+                        });
+                        if (!res2.ok) throw new Error('Fixed assign failed: HTTP ' + res2.status);
+                    } else if (this.dialog.date && this.dialog.slot !== null) {
+                        // Manuelle Zuweisung zu einem spezifischen Slot (nicht-feste Termine)
                         const res2 = await fetch(this.apiUrl(`api/timeline/${this.userId}/assign`), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -322,6 +385,8 @@ document.addEventListener('alpine:init', () => {
                 await this.load();
             } catch (e) {
                 this.error = e.message;
+            } finally {
+                this.saving = false;
             }
         },
 

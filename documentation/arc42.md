@@ -579,73 +579,89 @@ CodexMiroir Qualität
 
 ### Hohe Risiken
 
-**R1: OpenAI API Abhängigkeit**
-- **Beschreibung**: Sprachverarbeitung hängt von externer OpenAI API ab
-- **Auswirkung**: Funktionsverlust bei API-Ausfall oder Kostensteigerung
-- **Mitigation**: Pattern-Matching Fallback implementiert
-- **Status**: ✅ Mitigiert durch Fallback-Mechanismus
+**R1: OpenAI API Integration nicht implementiert** 🔴
+- **Beschreibung**: Sprachverarbeitung per OpenAI API ist in arc42 dokumentiert, aber nicht im aktuellen Code vorhanden
+- **Auswirkung**: Fehlende Voice-Kommando-Funktionalität trotz Dokumentation
+- **Mitigation**: Keine - Feature muss implementiert oder aus Dokumentation entfernt werden
+- **Status**: 🔴 KRITISCH - Diskrepanz zwischen Dokumentation und Implementierung
 
-**R2: Token-Verlust führt zu Datenverlust**  
-- **Beschreibung**: Nutzer-Token sind nicht wiederherstellbar
-- **Auswirkung**: Komplettverlust aller Tasks bei Token-Verlust
-- **Mitigation**: Benutzer-Aufklärung über Token-Backup
+**R2: User-Verlust führt zu Datenverlust**  
+- **Beschreibung**: Nutzer-IDs sind nicht wiederherstellbar (URL-Parameter basiert)
+- **Auswirkung**: Komplettverlust aller Tasks bei Verlust der User-ID
+- **Mitigation**: Benutzer-Aufklärung über User-ID-Backup
 - **Status**: ⚠️ Aktuell nur durch User-Education mitigiert
 
 ### Mittlere Risiken
 
 **R3: Azure Vendor Lock-in**
-- **Beschreibung**: Komplette Abhängigkeit von Azure Functions
+- **Beschreibung**: Komplette Abhängigkeit von Azure Functions und Azure Cosmos DB
 - **Auswirkung**: Migration zu anderen Cloud-Anbietern schwierig
-- **Mitigation**: Markdown-Format ermöglicht einfache Daten-Migration
+- **Mitigation**: Cosmos DB JSON-Format ermöglicht einfache Daten-Migration
 - **Status**: 🔶 Akzeptiertes Risiko für Kosteneinsparungen
 
 **R4: Skalierungsgrenze bei großen Task-Mengen**
-- **Beschreibung**: Markdown-Parsing bei 1000+ Tasks könnte langsam werden
+- **Beschreibung**: Cosmos DB Queries bei 1000+ Tasks ohne Indexoptimierung könnte langsam werden
 - **Auswirkung**: Performance-Degradation bei Power-Usern
-- **Mitigation**: Geplante Implementierung von Caching-Mechanismen
+- **Mitigation**: Geplante Implementierung von Query-Optimierung und Indizes
 - **Status**: 🔶 Monitoring erforderlich
+
+**R5: Fehlende PWA-Funktionalität** 🔴
+- **Beschreibung**: Service Worker und Offline-Funktionalität dokumentiert aber nicht implementiert
+- **Auswirkung**: Keine Offline-Fähigkeit, trotz Dokumentation als PWA
+- **Mitigation**: Keine - Feature muss implementiert oder aus Dokumentation entfernt werden
+- **Status**: 🔴 KRITISCH - Diskrepanz zwischen Dokumentation und Implementierung
 
 ## Technische Schulden
 
 ### Code-Qualität
 
-**TD1: Monolithische index.js wurde refaktoriert** ✅
-- **Problem**: 712 Zeilen in einer Datei
-- **Lösung**: Aufgeteilt in 4 Module (helpers.js, markdownCrud.js, llmActions.js, index.js)
-- **Status**: ✅ Abgeschlossen (75% Reduktion der Hauptdatei)
+**TD1: Architektur-Dokumentation veraltet** 🔴
+- **Problem**: arc42 beschreibt alte Architektur (Markdown/Blob Storage, /codex/-Module)
+- **Ist-Zustand**: Cosmos DB mit /src/-Modulen implementiert
+- **Auswirkung**: Neue Entwickler werden durch veraltete Dokumentation fehlgeleitet
+- **Priorität**: HOCH
+- **Status**: 🔴 Dokumentation muss aktualisiert werden
 
 **TD2: Fehlende Eingabevalidierung** ⚠️
-- **Problem**: Unvollständige Validation von Request-Payloads
+- **Problem**: Grundlegende Validation vorhanden, aber nicht vollständig
 - **Auswirkung**: Mögliche Runtime-Errors bei malformed Requests
 - **Priorität**: Mittel
 - **Status**: ⚠️ Teilweise implementiert, Erweiterung geplant
 
 ### Architektur
 
-**TD3: Keine Transaktionale Konsistenz** 🔶
-- **Problem**: Markdown-Updates sind nicht atomar
-- **Auswirkung**: Inkonsistente Zustände bei Fehlern möglich
-- **Alternativ**: Wechsel zu Azure Cosmos DB
-- **Status**: 🔶 Akzeptiert für Einfachheit
+**TD3: LLM/Voice-Modul nicht implementiert** 🔴
+- **Problem**: llmActions.js existiert nicht, OpenAI-Integration fehlt komplett
+- **Dokumentiert**: Voice Commands, Pattern-Matching Fallback, Task-Zerlegung
+- **Auswirkung**: Kernfunktionalität aus Dokumentation nicht verfügbar
+- **Priorität**: HOCH (wenn Feature gewünscht) oder Dokumentation bereinigen
+- **Status**: 🔴 Feature fehlt oder Dokumentation entfernen
 
-**TD4: Begrenzte Fehlerbehandlung in LLM-Modul** ⚠️
-- **Problem**: OpenAI API Errors werden nicht differenziert behandelt
-- **Auswirkung**: Unspezifische Fehlermeldungen für Nutzer
-- **Priorität**: Niedrig
-- **Status**: ⚠️ Verbesserung geplant
+**TD4: Stored Procedures nicht deployed** ⚠️
+- **Problem**: Stored Procedures in /database/ vorhanden aber Deployment-Status unklar
+- **Auswirkung**: AutoFill und Slot-Assignment Logik möglicherweise nicht funktional
+- **Priorität**: Hoch
+- **Status**: ⚠️ Deployment-Status muss verifiziert werden
 
 ### Testing & Monitoring
 
-**TD5: Unvollständige Testabdeckung** ⚠️
-- **Problem**: Aktuell nur Integration-Tests, keine Unit-Tests
-- **Auswirkung**: Regressions-Risiko bei Änderungen
-- **Ziel**: >80% Test-Coverage
-- **Status**: ⚠️ Jest Framework vorhanden, Tests müssen erweitert werden
+**TD5: Tests testen Mock-Implementierungen statt Source Code** 🔴
+- **Problem**: Alle 99 Tests testen duplizierte Logik in __tests__/, nicht /src/
+- **Coverage**: 0% für gesamten src/-Code trotz 99 passing tests
+- **Auswirkung**: Keine echte Testabdeckung, Regressions werden nicht erkannt
+- **Priorität**: KRITISCH
+- **Status**: 🔴 Tests müssen refaktoriert werden um echten Code zu testen
 
 **TD6: Fehlendes Application Monitoring** 🔶
 - **Problem**: Keine Business-Metriken (Task-Erstellungsrate, etc.)
 - **Auswirkung**: Keine Insights über Nutzerverhalten
 - **Status**: 🔶 Azure Insights vorhanden, Custom Metrics fehlen
+
+**TD7: codequality/ Directory noch vorhanden** ⚠️
+- **Problem**: codequality/report.md existiert noch, aber als "Entfernt" dokumentiert
+- **Auswirkung**: Inkonsistenz zwischen Dokumentation und Repository
+- **Priorität**: Niedrig (Dokumentationsfehler)
+- **Status**: ⚠️ Verzeichnis löschen oder Dokumentation korrigieren
 
 ## Veraltete/Redundante Komponenten
 
@@ -656,12 +672,24 @@ CodexMiroir Qualität
 - Migration-Scripts für PostgreSQL → Azure Blob - Bereits entfernt
 - `results/` - Alte Frontend Refactoring Reports und Backups - Entfernt
 - `attached_assets/` - Temporäre Issue-Diskussions-Inhalte - Entfernt
-- `codequality/` - Generierte Code Quality Reports - Entfernt
 - `test-token-auth.js`, `integration-test.js` - Manuelle Test-Dateien (durch Jest __tests__/ ersetzt) - Entfernt
 - `frontend/test.html` - Test-Datei - Entfernt
 - Root `index.html` - Legacy-Build-Datei mit ungültigen Asset-Referenzen - Entfernt
 
-**Status**: ✅ Code-Bereinigung abgeschlossen
+**Noch vorhandene Dateien (sollten bereinigt werden):** ⚠️
+- `codequality/` - Generierte Code Quality Reports - Dokumentiert als entfernt, aber noch vorhanden
+
+**Inkonsistenzen in Dokumentation:**
+- arc42 dokumentiert `/codex/` Module (index.js, markdownCrud.js, llmActions.js, helpers.js)
+- Tatsächlich existiert `/src/` mit anderen Modulen (_cosmos.js, createTask.js, getTask.js, etc.)
+- arc42 dokumentiert "Azure Blob Storage (Markdown-Dateien)" als Datenspeicher
+- Tatsächlich wird Azure Cosmos DB verwendet
+- arc42 dokumentiert PWA mit Service Worker als implementiert
+- Tatsächlich fehlen sw.js und manifest.json komplett
+- arc42 dokumentiert OpenAI Integration mit Fallback
+- Tatsächlich ist keine OpenAI Integration im Code vorhanden
+
+**Status**: 🔴 Code-Bereinigung teilweise, aber KRITISCHE Dokumentations-Inkonsistenzen
 
 # Glossar
 

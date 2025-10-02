@@ -33,6 +33,7 @@ app.http("autoFill", {
     // Stelle sicher, dass Days für den Suchbereich existieren
     await ensureDaysUpTo(userId, searchUntilStr, ctx);
 
+    // Verwende Task-Daten direkt aus dem Request
     task._source = "auto";
 
     const { timeline } = cosmos();
