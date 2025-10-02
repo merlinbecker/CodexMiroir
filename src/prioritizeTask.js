@@ -112,11 +112,11 @@ app.http("prioritizeTask", {
       } 
     };
   } catch (e) {
-    ctx.log.error("=== prioritizeTask ERROR ===");
-    ctx.log.error("Error type:", e.constructor.name);
-    ctx.log.error("Error message:", e.message);
-    ctx.log.error("Error code:", e.code);
-    ctx.log.error("Error stack:", e.stack);
+    ctx.log("=== prioritizeTask ERROR ===");
+    ctx.log("Error type:", e.constructor.name);
+    ctx.log("Error message:", e.message);
+    ctx.log("Error code:", e.code);
+    ctx.log("Error stack:", e.stack);
     return { 
       status: 500, 
       jsonBody: { 

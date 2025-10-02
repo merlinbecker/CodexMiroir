@@ -5,7 +5,9 @@ document.addEventListener('alpine:init', () => {
         userId: 'u_merlin',
         backendUrl: 'http://localhost:7071',
         days: [],
+        allDays: [], // Speichert alle Tage vom Server
         error: null,
+        isBusinessMode: true, // Standard: Geschäftlich
         dialog: { show: false, mode: 'create', date: '', slot: null },
         task: {
             id: '',
@@ -28,13 +30,16 @@ document.addEventListener('alpine:init', () => {
             this.dateFrom = today.toISOString().split('T')[0];
             this.dateTo = nextWeekEnd.toISOString().split('T')[0];
             
+            // Theme initialisieren
+            this.applyTheme();
+            
             this.load();
         },
         
         emptyTask() {
             return {
-                id: 'task_' + Date.now(),
-                kind: 'business',
+                id: '', // Backend wird UUID generieren
+                kind: this.isBusinessMode ? 'business' : 'personal',
                 title: '',
                 description: '',
                 deadline: '',
@@ -54,7 +59,8 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch(`${this.backendUrl}/timeline/${this.userId}?dateFrom=${this.dateFrom}&dateTo=${this.dateTo}`);
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
-                this.days = data.days || [];
+                this.allDays = data.days || [];
+                this.filterDays();
             } catch (e) {
                 this.error = e.message;
             }
@@ -63,6 +69,68 @@ document.addEventListener('alpine:init', () => {
         create(date, slotIdx) {
             this.task = this.emptyTask();
             this.dialog = { show: true, mode: 'create', date, slot: slotIdx };
+        },
+
+        createNewTask() {
+            this.task = this.emptyTask();
+            this.dialog = { show: true, mode: 'create', date: '', slot: null };
+        },
+
+        createAndAutoAssign() {
+            this.task = this.emptyTask();
+            this.dialog = { show: true, mode: 'create-auto', date: '', slot: null };
+        },
+
+        toggleMode() {
+            this.applyTheme();
+            this.filterDays();
+        },
+
+        applyTheme() {
+            const html = document.documentElement;
+            if (this.isBusinessMode) {
+                // Dark Theme für Geschäftlich
+                html.setAttribute('data-theme', 'dark');
+            } else {
+                // Light Theme für Privat
+                html.removeAttribute('data-theme');
+            }
+        },
+
+        filterDays() {
+            if (!this.allDays) {
+                this.days = [];
+                return;
+            }
+
+            this.days = this.allDays.filter(day => {
+                const date = new Date(day.date + 'T00:00:00');
+                const dayOfWeek = date.getDay(); // 0 = Sonntag, 6 = Samstag
+                
+                if (this.isBusinessMode) {
+                    // Geschäftlich: Nur Werktage (Mo-Fr)
+                    if (dayOfWeek === 0 || dayOfWeek === 6) return false;
+                } else {
+                    // Privat: Nur Wochenende (Sa-So)
+                    if (dayOfWeek !== 0 && dayOfWeek !== 6) return false;
+                }
+                
+                // Tasks filtern
+                day.slots.forEach(slot => {
+                    if (slot.assignment && slot.assignment.taskId) {
+                        const taskKind = slot.assignment.kind;
+                        if (this.isBusinessMode && taskKind === 'personal') {
+                            // Geschäftsmodus: Private Tasks ausblenden
+                            slot.assignment = { taskId: null, kind: null, title: null };
+                        } else if (!this.isBusinessMode && taskKind === 'business') {
+                            // Privat-Modus: Geschäftliche Tasks ausblenden
+                            slot.assignment = { taskId: null, kind: null, title: null };
+                        }
+                    }
+                });
+                
+                return true;
+            });
         },
 
         async edit(taskId) {
@@ -78,7 +146,16 @@ document.addEventListener('alpine:init', () => {
                 if (data.fixed && data.fixedDateTime) {
                     const dt = new Date(data.fixedDateTime);
                     fixedDate = dt.toISOString().split('T')[0];
-                    fixedTime = dt.toTimeString().slice(0, 5);
+                    
+                    // Map time to time slot labels
+                    const hour = dt.getHours();
+                    if (hour >= 6 && hour < 12) {
+                        fixedTime = 'AM'; // Morgens
+                    } else if (hour >= 12 && hour < 18) {
+                        fixedTime = 'PM'; // Mittags
+                    } else {
+                        fixedTime = 'EV'; // Abends
+                    }
                 }
                 
                 this.task = {
@@ -103,7 +180,6 @@ document.addEventListener('alpine:init', () => {
                 
                 // Build payload with simplified fields
                 const payload = {
-                    id: this.task.id,
                     kind: this.task.kind,
                     title: this.task.title,
                     description: this.task.description,
@@ -112,9 +188,21 @@ document.addEventListener('alpine:init', () => {
                     priority: 3
                 };
                 
+                // Nur bei Edit die ID mitschicken
+                if (this.dialog.mode === 'edit') {
+                    payload.id = this.task.id;
+                }
+                
                 // Add fixedDateTime if fixed is true
                 if (this.task.fixed && this.task.fixedDate && this.task.fixedTime) {
-                    payload.fixedDateTime = `${this.task.fixedDate}T${this.task.fixedTime}:00`;
+                    // Map time slot labels to specific times
+                    const timeMap = {
+                        'AM': '09:00:00',  // Morgens: 9:00
+                        'PM': '14:00:00',  // Mittags: 14:00
+                        'EV': '19:00:00'   // Abends: 19:00
+                    };
+                    const specificTime = timeMap[this.task.fixedTime] || '09:00:00';
+                    payload.fixedDateTime = `${this.task.fixedDate}T${specificTime}`;
                 }
                 
                 if (this.dialog.mode === 'edit') {
@@ -132,7 +220,12 @@ document.addEventListener('alpine:init', () => {
                     });
                     if (!res1.ok) throw new Error('Create failed: HTTP ' + res1.status);
                     
+                    // Hole die Task-ID aus der Antwort
+                    const createdTask = await res1.json();
+                    const taskId = createdTask.id;
+                    
                     if (this.dialog.date && this.dialog.slot !== null) {
+                        // Manuelle Zuweisung zu einem spezifischen Slot
                         const res2 = await fetch(`${this.backendUrl}/timeline/${this.userId}/assign`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -140,7 +233,7 @@ document.addEventListener('alpine:init', () => {
                                 date: this.dialog.date,
                                 slotIdx: this.dialog.slot,
                                 task: {
-                                    id: this.task.id,
+                                    id: taskId,
                                     kind: this.task.kind,
                                     title: this.task.title
                                 },
@@ -148,6 +241,22 @@ document.addEventListener('alpine:init', () => {
                             })
                         });
                         if (!res2.ok) throw new Error('Assign failed: HTTP ' + res2.status);
+                    } else if (this.dialog.mode === 'create-auto') {
+                        // Automatische Zuweisung zum ersten freien Slot
+                        const today = new Date().toISOString().split('T')[0];
+                        const res2 = await fetch(`${this.backendUrl}/timeline/${this.userId}/autofill`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                dateFrom: today,
+                                task: {
+                                    id: taskId,
+                                    kind: this.task.kind,
+                                    title: this.task.title
+                                }
+                            })
+                        });
+                        if (!res2.ok) throw new Error('AutoAssign failed: HTTP ' + res2.status);
                     }
                 }
                 
@@ -198,6 +307,71 @@ document.addEventListener('alpine:init', () => {
 
         kind(k) {
             return { business: 'Geschäftlich', personal: 'Privat', work: 'Geschäftlich' }[k] || k;
+        },
+
+        isCurrent(date, slotLabel) {
+            const now = new Date();
+            const today = now.toISOString().split('T')[0];
+            
+            // Prüfe ob es heute ist
+            if (date !== today) return false;
+            
+            const currentHour = now.getHours();
+            
+            // Bestimme welcher Slot gerade aktuell ist basierend auf der Uhrzeit
+            if (slotLabel === 'AM' && currentHour >= 6 && currentHour < 12) return true;
+            if (slotLabel === 'PM' && currentHour >= 12 && currentHour < 18) return true;
+            if (slotLabel === 'EV' && (currentHour >= 18 || currentHour < 6)) return true;
+            
+            return false;
+        },
+
+        isPast(date, slotLabel) {
+            const now = new Date();
+            const today = now.toISOString().split('T')[0];
+            const currentHour = now.getHours();
+            
+            // Wenn es ein vergangenes Datum ist
+            if (date < today) return true;
+            
+            // Wenn es heute ist, prüfe den Slot
+            if (date === today) {
+                if (slotLabel === 'AM' && currentHour >= 12) return true;  // Morgens ist vorbei ab 12:00
+                if (slotLabel === 'PM' && currentHour >= 18) return true;  // Mittags ist vorbei ab 18:00
+                // Abends (EV) ist nie "vergangen" am selben Tag
+            }
+            
+            return false;
+        },
+
+        async moveDown(taskId) {
+            try {
+                this.error = null;
+                
+                // Zuerst die Task-Daten abrufen
+                const taskRes = await fetch(`${this.backendUrl}/tasks/${this.userId}/${taskId}`);
+                if (!taskRes.ok) throw new Error('Task fetch failed: HTTP ' + taskRes.status);
+                const taskData = await taskRes.json();
+                
+                // Dann autofill für den nächsten freien Slot ab heute
+                const today = new Date().toISOString().split('T')[0];
+                const res = await fetch(`${this.backendUrl}/timeline/${this.userId}/autofill`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        dateFrom: today,
+                        task: {
+                            id: taskData.id,
+                            kind: taskData.kind,
+                            title: taskData.title
+                        }
+                    })
+                });
+                if (!res.ok) throw new Error('Move down failed: HTTP ' + res.status);
+                await this.load();
+            } catch (e) {
+                this.error = e.message;
+            }
         }
     }));
 });

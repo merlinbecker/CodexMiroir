@@ -50,7 +50,7 @@ app.http("serveStatic", {
         throw e;
       }
     } catch (e) {
-      ctx.log.error("serveStatic error:", e);
+      ctx.log("serveStatic error:", e);
       return { status: 500, body: "Internal Server Error" };
     }
   }
