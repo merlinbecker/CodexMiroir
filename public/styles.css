@@ -1,0 +1,30 @@
+/* CodexMiroir Timeline Styles */
+
+.day {
+    border: 1px solid #ccc;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 0.5rem;
+}
+
+.slot {
+    padding: 0.5rem;
+    margin: 0.5rem 0;
+    border-left: 3px solid var(--primary);
+    background: var(--card-background-color);
+}
+
+.slot.empty {
+    opacity: 0.5;
+    border-left-color: #ccc;
+}
+
+.slot.locked {
+    border-left-color: #d9534f;
+}
+
+.btn-sm {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    margin: 0.25rem;
+}
