@@ -10,30 +10,54 @@ Die neue Function App ist komplett neu strukturiert basierend auf dem Azure Func
 /src/
   functions.js         # Main entry point (imports all functions)
   _cosmos.js           # Gemeinsamer Cosmos DB Client
-  assignToSlot.js      # POST /timeline/{userId}/assign
-  autoFill.js          # POST /timeline/{userId}/autofill
-  getTimeline.js       # GET /timeline/{userId}
-  ensureDaysTimer.js   # Timer Function (täglich 04:00 UTC)
-  serveStatic.js       # Serviert die Test-UI
+  assignToSlot.js      # POST /api/timeline/{userId}/assign (authLevel: admin)
+  autoFill.js          # POST /api/timeline/{userId}/autofill (authLevel: admin)
+  getTimeline.js       # GET /api/timeline/{userId} (authLevel: admin)
+  createTask.js        # POST /api/tasks/{userId} (authLevel: admin)
+  getTask.js           # GET /api/tasks/{userId}/{taskId} (authLevel: admin)
+  updateTask.js        # PUT /api/tasks/{userId}/{taskId} (authLevel: admin)
+  prioritizeTask.js    # POST /api/timeline/{userId}/prioritize (authLevel: admin)
+  serveStatic.js       # Serviert die Test-UI (authLevel: anonymous)
 /public/
-  index.html           # Minimalistische Test-UI
+  index.html           # Test-UI mit Benutzerverwaltung
+  app.js               # Frontend-Logik mit Key-Extraktion
+  styles.css           # Styles
 ```
+
+## Sicherheit ⚠️
+
+**Alle API-Endpoints sind jetzt mit `authLevel: "admin"` gesichert!**
+
+Das bedeutet:
+- Alle API-Aufrufe benötigen einen Master Function Key
+- Der Key wird als Query Parameter übergeben: `?code=YOUR_KEY`
+- Das Frontend extrahiert den Key automatisch aus der URL
+- Die statische Auslieferung (`/`) bleibt anonym zugänglich
+
+**Siehe [SECURITY_SETUP.md](./SECURITY_SETUP.md) für Details zur Konfiguration!**
 
 ## Wichtige Änderungen
 
-### 1. User ID im Pfad
-Die User ID wird jetzt über den URL-Pfad übergeben, nicht mehr als ENV-Variable:
-- `POST /timeline/{userId}/assign`
-- `POST /timeline/{userId}/autofill`
-- `GET /timeline/{userId}`
+### 1. Sicherheit (NEU)
+Alle API-Functions benötigen jetzt einen Master Key:
+- `authLevel: "admin"` für alle API-Endpoints
+- Frontend extrahiert Key automatisch aus URL (`?code=...` oder `#code=...`)
+- Username wird im localStorage gespeichert und bei Bedarf abgefragt
+- Siehe [SECURITY_SETUP.md](./SECURITY_SETUP.md) für Details
 
-### 2. Cosmos DB Connection String
+### 2. User ID im Pfad
+Die User ID wird jetzt über den URL-Pfad übergeben, nicht mehr als ENV-Variable:
+- `POST /api/timeline/{userId}/assign`
+- `POST /api/timeline/{userId}/autofill`
+- `GET /api/timeline/{userId}`
+
+### 3. Cosmos DB Connection String
 Die Cosmos DB wird jetzt über einen Connection String initialisiert:
 ```javascript
 const client = new CosmosClient(process.env.COSMOS_CONNECTION_STRING);
 ```
 
-### 3. ES Modules
+### 4. ES Modules
 Die App nutzt jetzt ES Modules (`type: "module"` in package.json)
 
 ## Konfiguration
@@ -87,19 +111,30 @@ In der Function App unter "Configuration" folgende Environment Variables setzen:
 
 4. **Test-UI öffnen:**
    Browser öffnen: http://localhost:7071
+   
+   **Hinweis**: Bei lokaler Entwicklung wird der Function Key ignoriert. In Produktion muss die URL mit `?code=YOUR_MASTER_KEY` aufgerufen werden.
+
+5. **Username eingeben:**
+   Beim ersten Öffnen wirst du nach deinem Username gefragt (z.B. `u_merlin`). Dieser wird im localStorage gespeichert.
 
 ## Test-UI Features
 
-Die minimalistische Test-UI ermöglicht:
+Die Test-UI ermöglicht:
 
-- **Timeline anzeigen**: Lade die Timeline für einen User in einem Datumsbereich
-- **Tasks manuell zuweisen**: Klicke auf "Task zuweisen" bei einem freien Slot
-- **AutoFill testen**: Nutze das AutoFill-Formular am Ende der Seite
-- **Konfigurierbar**: User ID und API Base URL sind anpassbar
+- **Automatische Benutzerverwaltung**: Username wird beim ersten Besuch abgefragt und gespeichert
+- **Function Key Support**: Extrahiert automatisch den Key aus der URL (`?code=...`)
+- **Timeline anzeigen**: Lade die Timeline für einen User mit Datums-Filter
+- **Tasks erstellen**: Erstelle neue Business- oder Personal-Tasks
+- **Tasks automatisch zuweisen**: AutoFill findet den nächsten freien Slot
+- **Tasks priorisieren**: Tausche Tasks in der Timeline
+- **Business/Privat-Modus**: Filtere zwischen Geschäfts- und Privat-Tasks
+- **Relative Pfade**: Keine Backend-URL-Konfiguration nötig
 
 ## API Endpoints
 
-### GET /timeline/{userId}
+**Alle Endpoints benötigen einen Master Function Key (`?code=...`) außer serveStatic!**
+
+### GET /api/timeline/{userId}
 Timeline für einen User abrufen.
 
 Query Parameter:

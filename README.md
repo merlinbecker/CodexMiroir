@@ -2,11 +2,20 @@
 
 Azure Function-only PWA implementation of the CodexMiroir task management system.
 
+## 🔒 Security Update
+
+**All API endpoints are now secured with Master Key authentication!**
+
+- Functions require `authLevel: "admin"` 
+- Access the app with: `https://your-app.azurewebsites.net/?code=YOUR_MASTER_KEY`
+- Username is stored in localStorage for convenience
+- See [SECURITY_SETUP.md](./SECURITY_SETUP.md) for deployment details
+
 ## Architecture Overview
 
 Single Azure Function app serving:
-1. **API endpoints** at `/api/codex` - Task management API with voice integration
-2. **Frontend PWA** at `/` (root) - Static PWA with offline functionality
+1. **API endpoints** at `/api/*` - Task management API secured with master key
+2. **Frontend PWA** at `/` (root) - Static PWA accessible without authentication
 
 ### Azure Functions v4 Compatibility
 This project has been updated to use the Azure Functions v4 Node.js programming model:
@@ -49,14 +58,16 @@ This project has been updated to use the Azure Functions v4 Node.js programming 
 - Configured empty route prefix to allow root-level routing
 
 ### 2. Function Routes
-- **API Function**: `/api/codex/{secure_token}` - Handles all API requests with token-based authentication
-- **Static Function**: `{*path}` - Serves frontend assets and handles SPA routing
+- **API Functions**: `/api/*` - All API endpoints secured with master key (`authLevel: "admin"`)
+  - `/api/timeline/{userId}` - Timeline operations
+  - `/api/tasks/{userId}` - Task CRUD operations
+- **Static Function**: `{*path}` - Serves frontend assets (anonymous access)
 
-### 3. Static File Serving
-- Serves `index.html` for root `/` and SPA routes
-- Serves static assets (CSS, JS, images) with proper MIME types
-- Implements cache headers (static assets cached, HTML not cached)
-- Falls back to `index.html` for client-side routing
+### 3. Authentication
+- Master key required for all API calls
+- Frontend extracts key from URL: `?code=YOUR_KEY` or `#code=YOUR_KEY`
+- Username stored in localStorage, prompted if missing
+- See [SECURITY_SETUP.md](./SECURITY_SETUP.md) for details
 
 ## Deployment
 
@@ -68,38 +79,62 @@ This project has been updated to use the Azure Functions v4 Node.js programming 
 ### Azure Function Deployment
 ```bash
 # Deploy from root directory
-func azure functionapp publish codex-miroir-fn
+func azure functionapp publish your-function-app-name
 
-# Configure environment variables
+# Configure environment variables (Cosmos DB settings)
 az functionapp config appsettings set \
-  --name codex-miroir-fn \
-  --resource-group myResourceGroup \
+  --name your-function-app-name \
+  --resource-group your-resource-group \
   --settings \
-    "AZURE_BLOB_CONN=your-storage-connection-string" \
-    "OPENAI_API_KEY=your-openai-key" \
-    "AZUREWEBJOBSDISABLEHOMEPAGE=true"
+    "COSMOS_CONNECTION_STRING=your-cosmos-connection-string" \
+    "COSMOS_DB=codexmiroir" \
+    "COSMOS_TIMELINE=timeline" \
+    "COSMOS_TASKS=tasks" \
+    "USERS_CSV=u_merlin" \
+    "DAY_HORIZON=30"
+
+# Get the master key for accessing the API
+az functionapp keys list \
+  --name your-function-app-name \
+  --resource-group your-resource-group
 ```
+
+**Important**: After deployment, share the URL with the master key:
+```
+https://your-function-app.azurewebsites.net/?code=YOUR_MASTER_KEY
+```
+
+See [SECURITY_SETUP.md](./SECURITY_SETUP.md) for detailed deployment guide.
 
 ## Testing
 
 Run the comprehensive test suite:
 ```bash
-node test.js
+npm test
 ```
 
-Tests include:
-- Voice command processing validation
-- Task management API functionality  
-- Static file serving logic
-- PWA offline capabilities
+For manual testing, see [TESTING_GUIDE.md](./TESTING_GUIDE.md)
 
-All tests should pass ✅
+Tests include:
+- Task data validation
+- Date utilities
+- Voice command processing
+- Table management logic
 
 ## Frontend Access
 
-Once deployed, the frontend will be available at:
-- **Frontend**: `https://your-function-app.azurewebsites.net/`
-- **API**: `https://your-function-app.azurewebsites.net/api/codex?action=...`
+Once deployed, access the app with your master key:
+- **Frontend**: `https://your-function-app.azurewebsites.net/?code=YOUR_MASTER_KEY`
+- Username will be requested on first visit and stored in localStorage
+
+For local development:
+```bash
+npm install
+npm start
+```
+Then open: `http://localhost:7071/`
+
+See [FUNCTION_APP_README.md](./FUNCTION_APP_README.md) for detailed local development guide.
 
 ## Benefits
 

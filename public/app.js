@@ -2,8 +2,8 @@
 
 document.addEventListener('alpine:init', () => {
     Alpine.data('app', () => ({
-        userId: 'u_merlin',
-        backendUrl: 'http://localhost:7071',
+        userId: '',
+        functionKey: '',
         days: [],
         allDays: [], // Speichert alle Tage vom Server
         error: null,
@@ -21,6 +21,28 @@ document.addEventListener('alpine:init', () => {
         },
 
         init() {
+            // Extract function key from URL (query parameter or fragment)
+            const urlParams = new URLSearchParams(window.location.search);
+            this.functionKey = urlParams.get('code') || '';
+            
+            // If not in query, check fragment
+            if (!this.functionKey && window.location.hash) {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                this.functionKey = hashParams.get('code') || '';
+            }
+            
+            // Load userId from localStorage or prompt
+            this.userId = localStorage.getItem('codexmiroir_userId');
+            if (!this.userId) {
+                this.userId = prompt('Bitte geben Sie Ihren Benutzernamen ein (z.B. u_merlin):');
+                if (this.userId) {
+                    localStorage.setItem('codexmiroir_userId', this.userId);
+                } else {
+                    this.error = 'Benutzername erforderlich';
+                    return;
+                }
+            }
+            
             // Calculate timeline from today to end of next week
             const today = new Date();
             const nextWeekEnd = new Date(today);
@@ -34,6 +56,20 @@ document.addEventListener('alpine:init', () => {
             this.applyTheme();
             
             this.load();
+        },
+        
+        // Helper method to build API URL with function key
+        apiUrl(path) {
+            if (this.functionKey) {
+                return `/${path}${path.includes('?') ? '&' : '?'}code=${encodeURIComponent(this.functionKey)}`;
+            }
+            return `/${path}`;
+        },
+        
+        updateUserId() {
+            if (this.userId) {
+                localStorage.setItem('codexmiroir_userId', this.userId);
+            }
         },
         
         emptyTask() {
@@ -56,7 +92,7 @@ document.addEventListener('alpine:init', () => {
                     this.error = 'Bitte Benutzername eingeben';
                     return;
                 }
-                const res = await fetch(`${this.backendUrl}/timeline/${this.userId}?dateFrom=${this.dateFrom}&dateTo=${this.dateTo}`);
+                const res = await fetch(this.apiUrl(`api/timeline/${this.userId}?dateFrom=${this.dateFrom}&dateTo=${this.dateTo}`));
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
                 this.allDays = data.days || [];
@@ -136,7 +172,7 @@ document.addEventListener('alpine:init', () => {
         async edit(taskId) {
             try {
                 this.error = null;
-                const res = await fetch(`${this.backendUrl}/tasks/${this.userId}/${taskId}`);
+                const res = await fetch(this.apiUrl(`api/tasks/${this.userId}/${taskId}`));
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
                 
@@ -206,14 +242,14 @@ document.addEventListener('alpine:init', () => {
                 }
                 
                 if (this.dialog.mode === 'edit') {
-                    const res = await fetch(`${this.backendUrl}/tasks/${this.userId}/${this.task.id}`, {
+                    const res = await fetch(this.apiUrl(`api/tasks/${this.userId}/${this.task.id}`), {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
                     if (!res.ok) throw new Error('Update failed: HTTP ' + res.status);
                 } else {
-                    const res1 = await fetch(`${this.backendUrl}/tasks/${this.userId}`, {
+                    const res1 = await fetch(this.apiUrl(`api/tasks/${this.userId}`), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -226,7 +262,7 @@ document.addEventListener('alpine:init', () => {
                     
                     if (this.dialog.date && this.dialog.slot !== null) {
                         // Manuelle Zuweisung zu einem spezifischen Slot
-                        const res2 = await fetch(`${this.backendUrl}/timeline/${this.userId}/assign`, {
+                        const res2 = await fetch(this.apiUrl(`api/timeline/${this.userId}/assign`), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -244,7 +280,7 @@ document.addEventListener('alpine:init', () => {
                     } else if (this.dialog.mode === 'create-auto') {
                         // Automatische Zuweisung zum ersten freien Slot
                         const today = new Date().toISOString().split('T')[0];
-                        const res2 = await fetch(`${this.backendUrl}/timeline/${this.userId}/autofill`, {
+                        const res2 = await fetch(this.apiUrl(`api/timeline/${this.userId}/autofill`), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
@@ -270,7 +306,7 @@ document.addEventListener('alpine:init', () => {
         async prio(taskId) {
             try {
                 this.error = null;
-                const res = await fetch(`${this.backendUrl}/timeline/${this.userId}/prioritize`, {
+                const res = await fetch(this.apiUrl(`api/timeline/${this.userId}/prioritize`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ taskId })
@@ -349,13 +385,13 @@ document.addEventListener('alpine:init', () => {
                 this.error = null;
                 
                 // Zuerst die Task-Daten abrufen
-                const taskRes = await fetch(`${this.backendUrl}/tasks/${this.userId}/${taskId}`);
+                const taskRes = await fetch(this.apiUrl(`api/tasks/${this.userId}/${taskId}`));
                 if (!taskRes.ok) throw new Error('Task fetch failed: HTTP ' + taskRes.status);
                 const taskData = await taskRes.json();
                 
                 // Dann autofill für den nächsten freien Slot ab heute
                 const today = new Date().toISOString().split('T')[0];
-                const res = await fetch(`${this.backendUrl}/timeline/${this.userId}/autofill`, {
+                const res = await fetch(this.apiUrl(`api/timeline/${this.userId}/autofill`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 

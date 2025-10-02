@@ -5,8 +5,8 @@ import { cosmos } from "./_cosmos.js";
 
 app.http("updateTask", {
   methods: ["PUT", "PATCH"],
-  route: "tasks/{userId}/{taskId}",
-  authLevel: "function",
+  route: "api/tasks/{userId}/{taskId}",
+  authLevel: "admin",
   handler: async (req, ctx) => {
   ctx.log("=== updateTask START ===");
   try {

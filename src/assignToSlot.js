@@ -6,8 +6,8 @@ import { ensureDaysUpTo } from "./_ensureDays.js";
 
 app.http("assignToSlot", {
   methods: ["POST"],
-  route: "timeline/{userId}/assign",
-  authLevel: "function",
+  route: "api/timeline/{userId}/assign",
+  authLevel: "admin",
   handler: async (req, ctx) => {
   ctx.log("=== assignToSlot START ===");
   try {
