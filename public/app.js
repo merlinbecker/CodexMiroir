@@ -1,5 +1,30 @@
 /* CodexMiroir Timeline App */
 
+// Constants
+const TIME_SLOT_MAP = {
+    AM: '09:00:00',  // Morgens: 9:00
+    PM: '14:00:00',  // Mittags: 14:00
+    EV: '19:00:00'   // Abends: 19:00
+};
+
+const SLOT_LABELS = {
+    AM: 'Morgens',
+    PM: 'Mittags',
+    EV: 'Abends'
+};
+
+const TASK_KINDS = {
+    business: 'Geschäftlich',
+    personal: 'Privat',
+    work: 'Geschäftlich'
+};
+
+const SLOT_HOURS = {
+    AM: { start: 6, end: 12 },
+    PM: { start: 12, end: 18 },
+    EV: { start: 18, end: 24 }
+};
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('app', () => ({
         userId: '',
@@ -186,14 +211,14 @@ document.addEventListener('alpine:init', () => {
                     const dt = new Date(data.fixedDateTime);
                     fixedDate = dt.toISOString().split('T')[0];
                     
-                    // Map time to time slot labels
+                    // Map time to time slot labels based on hour ranges
                     const hour = dt.getHours();
-                    if (hour >= 6 && hour < 12) {
-                        fixedTime = 'AM'; // Morgens
-                    } else if (hour >= 12 && hour < 18) {
-                        fixedTime = 'PM'; // Mittags
+                    if (hour >= SLOT_HOURS.AM.start && hour < SLOT_HOURS.AM.end) {
+                        fixedTime = 'AM';
+                    } else if (hour >= SLOT_HOURS.PM.start && hour < SLOT_HOURS.PM.end) {
+                        fixedTime = 'PM';
                     } else {
-                        fixedTime = 'EV'; // Abends
+                        fixedTime = 'EV';
                     }
                 }
                 
@@ -234,13 +259,7 @@ document.addEventListener('alpine:init', () => {
                 
                 // Add fixedDateTime if fixed is true
                 if (this.task.fixed && this.task.fixedDate && this.task.fixedTime) {
-                    // Map time slot labels to specific times
-                    const timeMap = {
-                        'AM': '09:00:00',  // Morgens: 9:00
-                        'PM': '14:00:00',  // Mittags: 14:00
-                        'EV': '19:00:00'   // Abends: 19:00
-                    };
-                    const specificTime = timeMap[this.task.fixedTime] || '09:00:00';
+                    const specificTime = TIME_SLOT_MAP[this.task.fixedTime] || TIME_SLOT_MAP.AM;
                     payload.fixedDateTime = `${this.task.fixedDate}T${specificTime}`;
                 }
                 
@@ -341,43 +360,48 @@ document.addEventListener('alpine:init', () => {
         },
 
         label(l) {
-            return { AM: 'Morgens', PM: 'Mittags', EV: 'Abends' }[l] || l;
+            return SLOT_LABELS[l] || l;
         },
 
         kind(k) {
-            return { business: 'Geschäftlich', personal: 'Privat', work: 'Geschäftlich' }[k] || k;
+            return TASK_KINDS[k] || k;
         },
 
         isCurrent(date, slotLabel) {
             const now = new Date();
             const today = now.toISOString().split('T')[0];
             
-            // Prüfe ob es heute ist
             if (date !== today) return false;
             
             const currentHour = now.getHours();
+            const slotHours = SLOT_HOURS[slotLabel];
             
-            // Bestimme welcher Slot gerade aktuell ist basierend auf der Uhrzeit
-            if (slotLabel === 'AM' && currentHour >= 6 && currentHour < 12) return true;
-            if (slotLabel === 'PM' && currentHour >= 12 && currentHour < 18) return true;
-            if (slotLabel === 'EV' && (currentHour >= 18 || currentHour < 6)) return true;
+            if (!slotHours) return false;
             
-            return false;
+            // Special case for EV slot which wraps around midnight
+            if (slotLabel === 'EV') {
+                return currentHour >= slotHours.start || currentHour < 6;
+            }
+            
+            return currentHour >= slotHours.start && currentHour < slotHours.end;
         },
 
         isPast(date, slotLabel) {
             const now = new Date();
             const today = now.toISOString().split('T')[0];
-            const currentHour = now.getHours();
             
-            // Wenn es ein vergangenes Datum ist
             if (date < today) return true;
             
-            // Wenn es heute ist, prüfe den Slot
             if (date === today) {
-                if (slotLabel === 'AM' && currentHour >= 12) return true;  // Morgens ist vorbei ab 12:00
-                if (slotLabel === 'PM' && currentHour >= 18) return true;  // Mittags ist vorbei ab 18:00
-                // Abends (EV) ist nie "vergangen" am selben Tag
+                const currentHour = now.getHours();
+                const slotHours = SLOT_HOURS[slotLabel];
+                
+                if (!slotHours) return false;
+                
+                // AM ist vorbei ab 12:00, PM ist vorbei ab 18:00
+                if (slotLabel === 'AM' && currentHour >= slotHours.end) return true;
+                if (slotLabel === 'PM' && currentHour >= slotHours.end) return true;
+                // EV ist nie "vergangen" am selben Tag
             }
             
             return false;
