@@ -52,11 +52,11 @@ app.http("updateTask", {
     ctx.log("Task updated successfully:", resource.id);
     return { status: 200, jsonBody: resource };
   } catch (e) {
-    ctx.log.error("=== updateTask ERROR ===");
-    ctx.log.error("Error type:", e.constructor.name);
-    ctx.log.error("Error message:", e.message);
-    ctx.log.error("Error code:", e.code);
-    ctx.log.error("Error stack:", e.stack);
+    ctx.log("=== updateTask ERROR ===");
+    ctx.log("Error type:", e.constructor.name);
+    ctx.log("Error message:", e.message);
+    ctx.log("Error code:", e.code);
+    ctx.log("Error stack:", e.stack);
     return { 
       status: e.code === 404 ? 404 : 500, 
       jsonBody: { 
