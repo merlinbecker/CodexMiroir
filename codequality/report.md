@@ -8,6 +8,7 @@ radar-beta
   axis s["Security"], r["Reliability"], m["Maintainability"]
   axis c["Coverage"], d["Code Duplication"], l["Lines of Code"]
   curve current["Current"]{5, 5, 5, 0, 5, 3}
+  curve previous["Previous"]{4, 5, 4, 3, 5, 3}
   max 5
   min 0
 ```

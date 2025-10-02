@@ -166,10 +166,20 @@ jobs:
             return 5;
           }
           
-          // Get metric value from measures array
+          // Get metric value from measures array (for current metrics)
           function getMetricValue(measures, metric) {
             const measure = measures.find(m => m.metric === metric);
             return measure ? measure.value : 'No data';
+          }
+          
+          // Get metric value from history array (for previous metrics)
+          function getHistoryValue(measures, metric) {
+            const measure = measures.find(m => m.metric === metric);
+            if (!measure || !measure.history || measure.history.length === 0) {
+              return 'No data';
+            }
+            // Get the first (oldest) value from history for this specific date range
+            return measure.history[0].value;
           }
           
           // Current metrics
@@ -183,18 +193,22 @@ jobs:
             linesOfCode: transformLOC(getMetricValue(currentMeasures, 'ncloc'))
           };
           
-          // Previous metrics
+          // Previous metrics - using history API format
           let previous = { security: 0, reliability: 0, maintainability: 0, coverage: 0, duplicateCode: 0, linesOfCode: 0 };
           if (previousData.measures && previousData.measures.length > 0) {
+            console.log('✅ Processing previous metrics from history API');
             const prevMeasures = previousData.measures;
             previous = {
-              security: transformRating(getMetricValue(prevMeasures, 'security_rating')),
-              reliability: transformRating(getMetricValue(prevMeasures, 'reliability_rating')),
-              maintainability: transformRating(getMetricValue(prevMeasures, 'sqale_rating')),
-              coverage: transformPercentage(getMetricValue(prevMeasures, 'coverage')),
-              duplicateCode: 5 - transformPercentage(getMetricValue(prevMeasures, 'duplicated_lines_density')),
-              linesOfCode: transformLOC(getMetricValue(prevMeasures, 'ncloc'))
+              security: transformRating(getHistoryValue(prevMeasures, 'security_rating')),
+              reliability: transformRating(getHistoryValue(prevMeasures, 'reliability_rating')),
+              maintainability: transformRating(getHistoryValue(prevMeasures, 'sqale_rating')),
+              coverage: transformPercentage(getHistoryValue(prevMeasures, 'coverage')),
+              duplicateCode: 5 - transformPercentage(getHistoryValue(prevMeasures, 'duplicated_lines_density')),
+              linesOfCode: transformLOC(getHistoryValue(prevMeasures, 'ncloc'))
             };
+            console.log('📊 Previous metrics:', previous);
+          } else {
+            console.log('⚠️ No previous metrics available - showing only current curve');
           }
           
           // Generate report content
