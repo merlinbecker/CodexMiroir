@@ -57,3 +57,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "func start --port 5000"
+
+[[workflows.workflow]]
+name = "Start Azure Functions (Node)"
+author = 41061209
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node --experimental-modules src/functions.js"
