@@ -56,7 +56,7 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "func start --port 5000"
+args = "npx func start --port 5000"
 
 [[workflows.workflow]]
 name = "Start Azure Functions (Node)"
