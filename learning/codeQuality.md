@@ -249,3 +249,42 @@ Mermaid ist eine JavaScript-basierte Diagramm-Bibliothek die direkt in Markdown 
 
 **Was bedeuten die Ratings?**
 SonarCloud bewertet Code nach Industry-Standards: A (excellent) bis E (poor). Diese werden in Zahlen transformiert für die Visualisierung.
+
+## Updates und Verbesserungen
+
+### Oktober 2025 - Workflow-Optimierung
+
+**Probleme behoben:**
+1. **Git Push Fehler**: Der ursprüngliche Code verwendete `git push || true`, was Fehler ignorierte. Bei Pull Requests konnte der Report nicht committed werden, weil die Permissions fehlten.
+   - **Lösung**: Intelligente Branch-Erkennung implementiert - bei PRs wird auf den Head Branch gepusht, bei direkten Pushes auf den aktuellen Branch.
+
+2. **Previous Metrics Detection**: Die Branch-Logik für History-Vergleiche war nicht optimal.
+   - **Lösung**: Bei PRs wird nun gegen den Base Branch (main) verglichen, um aussagekräftigere Vergleichsdaten zu erhalten.
+
+3. **Verbose Code**: Zu viel Debug-Output und redundante Kommentare machten den Code schwer wartbar.
+   - **Lösung**: Bereinigte Kommentare und strukturiertere Logging-Ausgaben mit Emojis für bessere Lesbarkeit.
+
+**Verbesserungen:**
+- Bessere Fehlerbehandlung mit klaren Status-Meldungen (✅, ⚠️, 🔍)
+- Klare Trennung zwischen Current und Previous Metrics Verarbeitung
+- Helper-Funktionen für Emoji-Generation reduzieren Code-Duplikation
+- Explizite Kommentare erklären den Kontext für zukünftige Entwickler
+
+**Code-Beispiel - Verbesserter Git Push:**
+```yaml
+# Push to the appropriate branch
+if [ "${{ github.event_name }}" = "pull_request" ]; then
+  # For PRs, push to the head branch
+  git push origin HEAD:${{ github.head_ref }}
+else
+  # For direct pushes to main
+  git push
+fi
+```
+
+**Erwartetes Verhalten (bestätigt):**
+✅ Radar Chart zeigt Current Curve immer
+✅ Previous Curve wird angezeigt wenn History verfügbar ist
+✅ Report wird automatisch committed und gepusht
+✅ Bei PRs erfolgt Commit auf den PR Branch
+✅ Bei Main-Pushes wird direkt auf Main committed
