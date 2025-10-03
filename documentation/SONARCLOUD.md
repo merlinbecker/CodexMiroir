@@ -28,10 +28,14 @@ The quality analysis workflow:
 1. Checks if PR has "chore" label (skips if present)
 2. Builds the application with `npm run build`
 3. Runs SonarCloud analysis
-4. Fetches current and previous metrics
-5. Generates radar chart with quality metrics
-6. Updates the quality report
+4. Fetches current and previous metrics from SonarCloud API
+5. Generates radar chart with quality metrics comparison
+6. Commits and pushes the quality report to the branch
 7. Comments on PRs with analysis results
+
+**Note**: The workflow automatically detects the context:
+- For Pull Requests: Compares current metrics against the base branch (main) and commits to the PR branch
+- For direct pushes to main: Compares against the previous main analysis and commits directly
 
 ## Metrics Tracked
 
