@@ -29,7 +29,7 @@ PORT = "5000"
 integrations = ["javascript_mem_db:1.0.0", "javascript_openai:1.0.0", "javascript_database:1.0.0"]
 
 [workflows]
-runButton = "Project"
+runButton = "Start Azure Functions"
 
 [[workflows.workflow]]
 name = "Project"
@@ -48,3 +48,12 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Start Azure Functions"
+author = 41061209
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "func start --port 5000"
