@@ -66,3 +66,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node --experimental-modules src/functions.js"
+
+[[workflows.workflow]]
+name = "Deploy Stored Procedures"
+author = 41061209
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run deploy:sprocs"
