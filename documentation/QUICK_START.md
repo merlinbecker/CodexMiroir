@@ -224,11 +224,10 @@ npm test
 
 | Resource | Link |
 |----------|------|
+| **Architecture & Deployment** | [arc42.md](./arc42.md) |
 | **Security Setup** | [SECURITY_SETUP.md](./SECURITY_SETUP.md) |
 | **Testing Guide** | [TESTING_GUIDE.md](./TESTING_GUIDE.md) |
-| **Architecture** | [ARCHITECTURE_DIAGRAM.md](./ARCHITECTURE_DIAGRAM.md) |
 | **Implementation Details** | [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md) |
-| **Development Guide** | [FUNCTION_APP_README.md](./FUNCTION_APP_README.md) |
 
 ---
 
@@ -264,7 +263,7 @@ A: Yes! All API calls require the master key, and HTTPS is enforced in productio
 
 1. Check the [TESTING_GUIDE.md](./TESTING_GUIDE.md) for common issues
 2. Review the [SECURITY_SETUP.md](./SECURITY_SETUP.md) for deployment help
-3. See [ARCHITECTURE_DIAGRAM.md](./ARCHITECTURE_DIAGRAM.md) for how it works
+3. See [arc42.md](./arc42.md) for architecture and how it works
 4. Contact your system administrator
 
 ---
