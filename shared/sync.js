@@ -1,5 +1,5 @@
 // shared/sync.js
-import { uploadTextBlob, deleteBlob, list as listBlobs } from "./storage.js";
+import { putTextBlob, deleteBlob, list as listBlobs } from "./storage.js";
 
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
@@ -59,7 +59,7 @@ async function fullSync(ref = BRANCH, clean = false) {
   for (const f of files) {
     const text = await fetchFileAtRef(f.repoPath, ref);
     if (!text) continue;
-    await uploadTextBlob(toBlobPath(f.repoPath), text, "text/markdown");
+    await putTextBlob(toBlobPath(f.repoPath), text, "text/markdown");
     changed++;
   }
   let removed = 0;
@@ -98,7 +98,7 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH) {
       skipped++;
       continue;
     }
-    await uploadTextBlob(toBlobPath(p), text, "text/markdown");
+    await putTextBlob(toBlobPath(p), text, "text/markdown");
     changed++;
   }
   return { scope: "tasks", mode: "diff", changed, deleted, skipped, ref };
