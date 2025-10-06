@@ -7,6 +7,8 @@ const REPO = process.env.GITHUB_REPO;
 const BRANCH = process.env.GITHUB_DEFAULT_BRANCH || process.env.GITHUB_BRANCH || "main";
 const TOKEN = process.env.GITHUB_TOKEN;
 const BASE = (process.env.GITHUB_BASE_PATH || "codex-miroir").replace(/\/+$/, "");
+const VIA_PR = (process.env.CREATE_VIA_PR || "false").toLowerCase() === "true";
+const PR_PREFIX = process.env.GITHUB_PR_BRANCH_PREFIX || "codex/tasks";
 
 const COMMITTER = {
   name: process.env.GITHUB_COMMITTER_NAME || "Codex Miroir Bot",
@@ -15,6 +17,14 @@ const COMMITTER = {
 
 function b64(s) {
   return Buffer.from(s, "utf8").toString("base64");
+}
+
+function isDate(s) {
+  return /^\d{2}\.\d{2}\.\d{4}$/.test(s || "");
+}
+
+function slotOk(z) {
+  return ["morgens", "nachmittags", "abends"].includes((z || "").toLowerCase());
 }
 
 async function gh(url, method = "GET", body) {
@@ -36,7 +46,31 @@ async function gh(url, method = "GET", body) {
   return r.json();
 }
 
-// Parse existing Markdown and update fields
+async function ensureBranch(base, feature) {
+  const baseRef = await gh(`/repos/${OWNER}/${REPO}/git/ref/heads/${base}`);
+  const sha = baseRef.object.sha;
+  
+  try {
+    await gh(`/repos/${OWNER}/${REPO}/git/refs`, "POST", { 
+      ref: `refs/heads/${feature}`, 
+      sha 
+    });
+  } catch (e) {
+    // Branch might already exist
+  }
+  
+  return feature;
+}
+
+async function openPr(fromBranch, toBranch, title, body) {
+  return gh(`/repos/${OWNER}/${REPO}/pulls`, "POST", { 
+    title, 
+    head: fromBranch, 
+    base: toBranch, 
+    body 
+  });
+}
+
 function updateMarkdown(existingMd, updates) {
   const lines = existingMd.split('\n');
   const yamlStart = lines.indexOf('---');
@@ -72,7 +106,7 @@ function updateMarkdown(existingMd, updates) {
     if (updates.fixedSlot === null) {
       // Remove fixedSlot
       if (fixedSlotIndex !== -1) {
-        newYaml.splice(fixedSlotIndex, 3); // Remove fixedSlot and its sub-fields
+        newYaml.splice(fixedSlotIndex, 3);
       }
       newYaml.push('fixedSlot: null');
     } else {
@@ -100,6 +134,37 @@ app.http("updateTask", {
     try {
       const id = request.params.id;
       const updates = await request.json();
+      
+      // Validierung
+      if (updates.kategorie && !["geschäftlich", "privat"].includes(updates.kategorie)) {
+        return {
+          status: 400,
+          jsonBody: { ok: false, error: "kategorie muss 'geschäftlich' oder 'privat' sein" }
+        };
+      }
+      
+      if (updates.deadline && !isDate(updates.deadline)) {
+        return {
+          status: 400,
+          jsonBody: { ok: false, error: "deadline muss dd.mm.yyyy sein" }
+        };
+      }
+      
+      if (updates.fixedSlot) {
+        if (!isDate(updates.fixedSlot.datum)) {
+          return {
+            status: 400,
+            jsonBody: { ok: false, error: "fixedSlot.datum muss dd.mm.yyyy sein" }
+          };
+        }
+        if (!slotOk(updates.fixedSlot.zeit)) {
+          return {
+            status: 400,
+            jsonBody: { ok: false, error: "fixedSlot.zeit muss morgens|nachmittags|abends sein" }
+          };
+        }
+      }
+      
       const path = `${BASE}/tasks/${id}.md`;
       
       // Get current file from GitHub
@@ -109,27 +174,54 @@ app.http("updateTask", {
       // Update markdown
       const newMd = updateMarkdown(currentMd, updates);
       
-      // Commit back to GitHub
       const message = `[codex] update task ${id}`;
-      const result = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}`, "PUT", {
-        message,
-        content: b64(newMd),
-        sha: fileData.sha,
-        branch: BRANCH,
-        committer: COMMITTER
-      });
+      let result;
+      
+      if (VIA_PR) {
+        // Feature-Branch für Update erstellen
+        const feat = `${PR_PREFIX}/${id}-update`;
+        await ensureBranch(BRANCH, feat);
+        
+        result = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}`, "PUT", {
+          message,
+          content: b64(newMd),
+          sha: fileData.sha,
+          branch: feat,
+          committer: COMMITTER
+        });
+        
+        const pr = await openPr(feat, BRANCH, message, `Automatisch aktualisiert.\n\n${path}`);
+        result.prUrl = pr.html_url;
+        result.prNumber = pr.number;
+      } else {
+        // Direkter Commit
+        result = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}`, "PUT", {
+          message,
+          content: b64(newMd),
+          sha: fileData.sha,
+          branch: BRANCH,
+          committer: COMMITTER
+        });
+      }
       
       // Update cache
       await putTextBlob(`raw/tasks/${id}.md`, newMd, "text/markdown");
       
+      const response = {
+        ok: true,
+        id,
+        commitSha: result.commit.sha,
+        htmlUrl: result.content.html_url
+      };
+      
+      if (VIA_PR && result.prUrl) {
+        response.prUrl = result.prUrl;
+        response.prNumber = result.prNumber;
+      }
+      
       return {
         status: 200,
-        jsonBody: {
-          ok: true,
-          id,
-          commitSha: result.commit.sha,
-          htmlUrl: result.content.html_url
-        }
+        jsonBody: response
       };
       
     } catch (e) {
