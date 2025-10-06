@@ -1,6 +1,6 @@
-const { app } = require("@azure/functions");
-const crypto = require("crypto");
-const { applyDiff } = require("../shared/sync");
+import { app } from "@azure/functions";
+import crypto from "crypto";
+import { applyDiff } from "../shared/sync.js";
 
 const BASE = (process.env.GITHUB_BASE_PATH || "codex-miroir").replace(/\/+$/, "");
 const SECRET = process.env.GITHUB_WEBHOOK_SECRET;

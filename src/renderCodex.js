@@ -1,6 +1,6 @@
-const { app } = require('@azure/functions');
-const { list, getTextBlob } = require("../shared/storage");
-const { parseTask, sortKey } = require("../shared/parsing");
+import { app } from '@azure/functions';
+import { list, getTextBlob } from "../shared/storage.js";
+import { parseTask, sortKey } from "../shared/parsing.js";
 
 function htmlEscape(s) {
   return (s || "").replace(/[&<>"']/g, c => ({

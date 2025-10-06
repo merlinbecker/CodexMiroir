@@ -1,6 +1,6 @@
 
-const { app } = require("@azure/functions");
-const { fullSync, applyDiff } = require("../shared/sync");
+import { app } from "@azure/functions";
+import { fullSync, applyDiff } from "../shared/sync.js";
 
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
