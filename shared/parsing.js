@@ -24,4 +24,4 @@ function sortKey(dateStr, slot) {
   return `${iso}#${s}`;
 }
 
-module.exports = { parseTask, sortKey, slotOrder };
+export { parseTask, sortKey, slotOrder };

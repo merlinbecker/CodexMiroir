@@ -58,4 +58,4 @@ async function list(prefix) {
   return out;
 }
 
-module.exports = { putTextBlob, putBufferBlob, getTextBlob, deleteBlob, list };
+export { putTextBlob, putBufferBlob, getTextBlob, deleteBlob, list };
