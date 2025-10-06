@@ -1,206 +1,383 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CodexMiroir Timeline</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-    <link rel="stylesheet" href="styles.css">
-    <script src="app.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
-</head>
-<body x-data="app" x-init="init()">
-    <main class="container">
-        <header>
-            <h1>CodexMiroir Timeline</h1>
-            <p>Task-Management & Timeline-Verwaltung</p>
-        </header>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Codex Miroir</title>
 
-        <!-- Konfiguration -->
-        <section>
-            <h2>Konfiguration</h2>
-            <div class="grid">
-                <label>
-                    Benutzername
-                    <input type="text" x-model="userId" placeholder="z.B. u_merlin" @change="updateUserId()">
-                </label>
-                <div>
-                    <label>Function Key Status</label>
-                    <p x-text="functionKey ? '✓ Vorhanden' : '⚠ Nicht gefunden (optional für lokale Entwicklung)'" :style="functionKey ? 'color: green;' : 'color: orange;'"></p>
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+        />
+        <link rel="stylesheet" href="styles.css" />
+        <script src="app.js"></script>
+        <script
+            defer
+            src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"
+        ></script>
+    </head>
+
+    <body x-data="app" x-init="init()">
+        <main class="container">
+            <header>
+                <h1>CodexmMiroir</h1>
+            </header>
+
+            <!-- Konfiguration -->
+            <section>
+                <h2>Konfiguration</h2>
+                <div class="grid">
+                    <label>
+                        Benutzername
+                        <input
+                            type="text"
+                            x-model="userId"
+                            placeholder="z.B. u_merlin"
+                            @change="updateUserId()"
+                        />
+                    </label>
+                    <div>
+                        <label>Function Key Status</label>
+                        <p
+                            x-text="functionKey ? '✓ Vorhanden' : '⚠ Nicht gefunden (optional für lokale Entwicklung)'"
+                            :style="functionKey ? 'color: green;' : 'color: orange;'"
+                        ></p>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- Modus-Schalter -->
-            <div class="mode-toggle" style="margin: 1rem 0;">
-                <button @click="toggleMode()" 
+
+                <!-- Modus-Schalter -->
+                <div class="mode-toggle" style="margin: 1rem 0">
+                    <button
+                        @click="toggleMode()"
                         :class="isBusinessMode ? 'secondary' : 'outline'"
-                        style="width: 100%; padding: 1rem; font-size: 1.1rem; font-weight: bold;">
-                    <span x-text="isBusinessMode ? '💼 Geschäftlich' : '🏠 Privat'"></span>
-                    <br>
-                    <small x-text="isBusinessMode ? '(Nur Werktage, Geschäftstermine)' : '(Alle Tage, Private Termine)'" style="font-weight: normal; opacity: 0.8;"></small>
-                </button>
-            </div>
-            
-            <div class="grid">
-                <button @click="createAndAutoAssign()" class="secondary">+ Neuer Task (automatisch zuweisen)</button>
-            </div>
-            
-            <!-- Rabbit R1 Info -->
-            <div style="margin-top: 1rem; padding: 0.5rem; background-color: rgba(100, 100, 255, 0.1); border-radius: 4px;">
-                <small>
-                    <strong>🐰 Rabbit R1 Steuerung:</strong><br>
-                    • Timeline lädt automatisch die nächsten 7 Tage<br>
-                    • Scroll-Rad: Hoch = Timeline runter, Runter = Timeline hoch<br>
-                    • Lange Taste drücken (R): Spracherkennung für neuen Task
-                </small>
-            </div>
-        </section>
+                        style="
+                            width: 100%;
+                            padding: 1rem;
+                            font-size: 1.1rem;
+                            font-weight: bold;
+                        "
+                    >
+                        <span
+                            x-text="isBusinessMode ? '💼 Geschäftlich' : '🏠 Privat'"
+                        ></span>
+                        <br />
+                        <small
+                            x-text="isBusinessMode ? '(Nur Werktage, Geschäftstermine)' : '(Alle Tage, Private Termine)'"
+                            style="font-weight: normal; opacity: 0.8"
+                        ></small>
+                    </button>
+                </div>
 
-        <!-- Fehler-Anzeige -->
-        <div x-show="error" role="alert" x-text="error" style="color: red; padding: 1rem; margin: 1rem 0;"></div>
+                <div class="grid">
+                    <button @click="createAndAutoAssign()" class="secondary">
+                        + Neuer Task (automatisch zuweisen)
+                    </button>
+                </div>
 
-        <!-- Timeline -->
-        <section x-show="days.length">
-            <h2>Timeline</h2>
-            <template x-for="day in days" :key="day.date">
-                <article class="day">
-                    <header>
-                        <strong x-text="format(day.date)"></strong>
-                        <small x-text="'KW ' + week(day.date)"></small>
-                    </header>
-                    
-                    <template x-for="slot in day.slots" :key="slot.idx">
-                        <div class="slot" :class="{
+                <!-- Rabbit R1 Info -->
+                <div
+                    style="
+                        margin-top: 1rem;
+                        padding: 0.5rem;
+                        background-color: rgba(100, 100, 255, 0.1);
+                        border-radius: 4px;
+                    "
+                >
+                    <small>
+                        <strong>🐰 Rabbit R1 Steuerung:</strong><br />
+                        • Timeline lädt automatisch die nächsten 7 Tage<br />
+                        • Scroll-Rad: Hoch = Timeline runter, Runter = Timeline
+                        hoch<br />
+                        • Lange Taste drücken (R): Spracherkennung für neuen
+                        Task
+                    </small>
+                </div>
+            </section>
+
+            <!-- Fehler-Anzeige -->
+            <div
+                x-show="error"
+                role="alert"
+                x-text="error"
+                style="color: red; padding: 1rem; margin: 1rem 0"
+            ></div>
+
+            <!-- Timeline -->
+            <section x-show="days.length">
+                <h2>Timeline</h2>
+                <template x-for="day in days" :key="day.date">
+                    <article class="day">
+                        <header>
+                            <strong x-text="format(day.date)"></strong>
+                            <small x-text="'KW ' + week(day.date)"></small>
+                        </header>
+
+                        <template x-for="slot in day.slots" :key="slot.idx">
+                            <div
+                                class="slot"
+                                :class="{
                             empty: !slot.assignment.taskId, 
                             locked: slot.locked, 
                             current: isCurrent(day.date, slot.label),
                             past: isPast(day.date, slot.label)
-                        }">
-                            <div class="grid">
-                                <div>
-                                    <strong x-text="label(slot.label)"></strong>
-                                    <template x-if="isCurrent(day.date, slot.label)">
-                                        <small style="color: green; font-weight: bold;">● AKTUELL</small>
-                                    </template>
-                                    <template x-if="isPast(day.date, slot.label) && !isCurrent(day.date, slot.label)">
-                                        <small style="color: gray; font-weight: bold;">● VERGANGEN</small>
-                                    </template>
-                                </div>
-                                <div>
-                                    <template x-if="slot.assignment.taskId">
-                                        <div>
-                                            <p>
-                                                <strong x-text="slot.assignment.taskTitle || slot.assignment.taskId"></strong> 
-                                                (<span x-text="kind(slot.assignment.kind)"></span>)
-                                            </p>
-                                            <template x-if="!isCurrent(day.date, slot.label)">
-                                                <template x-if="isPast(day.date, slot.label)">
-                                                    <!-- Vergangene Tasks: nur nach unten -->
-                                                    <button class="btn-sm secondary" @click="moveDown(slot.assignment.taskId)">⬇ Nach unten</button>
+                        }"
+                            >
+                                <div class="grid">
+                                    <div>
+                                        <strong
+                                            x-text="label(slot.label)"
+                                        ></strong>
+                                        <template
+                                            x-if="isCurrent(day.date, slot.label)"
+                                        >
+                                            <small
+                                                style="
+                                                    color: green;
+                                                    font-weight: bold;
+                                                "
+                                                >● AKTUELL</small
+                                            >
+                                        </template>
+                                        <template
+                                            x-if="isPast(day.date, slot.label) && !isCurrent(day.date, slot.label)"
+                                        >
+                                            <small
+                                                style="
+                                                    color: gray;
+                                                    font-weight: bold;
+                                                "
+                                                >● VERGANGEN</small
+                                            >
+                                        </template>
+                                    </div>
+                                    <div>
+                                        <template x-if="slot.assignment.taskId">
+                                            <div>
+                                                <p>
+                                                    <strong
+                                                        x-text="slot.assignment.taskTitle || slot.assignment.taskId"
+                                                    ></strong>
+                                                    (<span
+                                                        x-text="kind(slot.assignment.kind)"
+                                                    ></span
+                                                    >)
+                                                </p>
+                                                <template
+                                                    x-if="!isCurrent(day.date, slot.label)"
+                                                >
+                                                    <template
+                                                        x-if="isPast(day.date, slot.label)"
+                                                    >
+                                                        <!-- Vergangene Tasks: nur nach unten -->
+                                                        <button
+                                                            class="btn-sm secondary"
+                                                            @click="moveDown(slot.assignment.taskId)"
+                                                        >
+                                                            ⬇ Nach unten
+                                                        </button>
+                                                    </template>
+                                                    <template
+                                                        x-if="!isPast(day.date, slot.label)"
+                                                    >
+                                                        <!-- Zukünftige Tasks: nach oben und unten -->
+                                                        <button
+                                                            class="btn-sm secondary"
+                                                            @click="prio(slot.assignment.taskId)"
+                                                        >
+                                                            ⬆ Priorisieren
+                                                        </button>
+                                                        <button
+                                                            class="btn-sm secondary"
+                                                            @click="moveDown(slot.assignment.taskId)"
+                                                        >
+                                                            ⬇ Nach unten
+                                                        </button>
+                                                    </template>
                                                 </template>
-                                                <template x-if="!isPast(day.date, slot.label)">
-                                                    <!-- Zukünftige Tasks: nach oben und unten -->
-                                                    <button class="btn-sm secondary" @click="prio(slot.assignment.taskId)">⬆ Priorisieren</button>
-                                                    <button class="btn-sm secondary" @click="moveDown(slot.assignment.taskId)">⬇ Nach unten</button>
-                                                </template>
-                                            </template>
-                                            <button class="btn-sm contrast" @click="edit(slot.assignment.taskId)">✏ Bearbeiten</button>
-                                        </div>
-                                    </template>
-                                    <template x-if="!slot.assignment.taskId && !slot.locked">
-                                        <button class="btn-sm" @click="createNewTask()">+ Neuer Task</button>
-                                    </template>
+                                                <button
+                                                    class="btn-sm contrast"
+                                                    @click="edit(slot.assignment.taskId)"
+                                                >
+                                                    ✏ Bearbeiten
+                                                </button>
+                                            </div>
+                                        </template>
+                                        <template
+                                            x-if="!slot.assignment.taskId && !slot.locked"
+                                        >
+                                            <button
+                                                class="btn-sm"
+                                                @click="createNewTask()"
+                                            >
+                                                + Neuer Task
+                                            </button>
+                                        </template>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </template>
-                </article>
-            </template>
-        </section>
-
-        <!-- Task Dialog -->
-        <template x-if="dialog.show">
-            <div class="modal-backdrop" @click="dialog.show = false">
-                <dialog open @click.stop>
-                    <article>
-                        <header>
-                            <button aria-label="Close" @click="dialog.show = false"></button>
-                            <h3 x-text="dialog.mode === 'edit' ? 'Task bearbeiten' : (dialog.mode === 'create-auto' ? 'Neuer Task (wird automatisch zugewiesen)' : 'Task erstellen')"></h3>
-                        </header>
-                        <form @submit.prevent="save">
-                            <label>
-                                Titel
-                                <input type="text" x-model="task.title" placeholder="Titel" required>
-                            </label>
-
-                            <label>
-                                Beschreibung
-                                <textarea x-model="task.description" placeholder="Beschreibung" rows="3"></textarea>
-                            </label>
-
-                            <label>
-                                Typ
-                                <select x-model="task.kind" required>
-                                    <template x-if="isBusinessMode">
-                                        <optgroup label="Geschäftlich (empfohlen)">
-                                            <option value="business" selected>Geschäftlich</option>
-                                        </optgroup>
-                                    </template>
-                                    <template x-if="!isBusinessMode">
-                                        <optgroup label="Privat (empfohlen)">
-                                            <option value="personal" selected>Privat</option>
-                                        </optgroup>
-                                    </template>
-                                    <optgroup label="Andere">
-                                        <option value="business" x-show="!isBusinessMode">Geschäftlich</option>
-                                        <option value="personal" x-show="isBusinessMode">Privat</option>
-                                    </optgroup>
-                                </select>
-                            </label>
-
-                            <label>
-                                Deadline
-                                <input type="date" x-model="task.deadline">
-                            </label>
-
-                            <label>
-                                <input type="checkbox" x-model="task.fixed">
-                                Fester Termin
-                            </label>
-
-                            <template x-if="task.fixed">
-                                <div class="grid">
-                                    <label>
-                                        Datum
-                                        <input type="date" x-model="task.fixedDate">
-                                    </label>
-                                    <label>
-                                        Tageszeit
-                                        <select x-model="task.fixedTime" required>
-                                            <option value="">Bitte wählen</option>
-                                            <option value="AM">Morgens</option>
-                                            <option value="PM">Mittags</option>
-                                            <option value="EV">Abends</option>
-                                        </select>
-                                    </label>
-                                </div>
-                            </template>
-
-                            <footer>
-                                <button type="button" class="secondary" @click="dialog.show = false">Abbrechen</button>
-                                <template x-if="dialog.mode === 'edit'">
-                                    <button type="button" style="background-color: #d32f2f; color: white;" @click="deleteTask(task.id)">🗑 Löschen</button>
-                                </template>
-                                <button type="submit" :disabled="saving">
-                                    <span x-show="!saving">Speichern</span>
-                                    <span x-show="saving">Speichere...</span>
-                                </button>
-                            </footer>
-                        </form>
+                        </template>
                     </article>
-                </dialog>
-            </div>
-        </template>
-    </main>
-</body>
+                </template>
+            </section>
+
+            <!-- Task Dialog -->
+            <template x-if="dialog.show">
+                <div class="modal-backdrop" @click="dialog.show = false">
+                    <dialog open @click.stop>
+                        <article>
+                            <header>
+                                <button
+                                    aria-label="Close"
+                                    @click="dialog.show = false"
+                                ></button>
+                                <h3
+                                    x-text="dialog.mode === 'edit' ? 'Task bearbeiten' : (dialog.mode === 'create-auto' ? 'Neuer Task (wird automatisch zugewiesen)' : 'Task erstellen')"
+                                ></h3>
+                            </header>
+                            <form @submit.prevent="save">
+                                <label>
+                                    Titel
+                                    <input
+                                        type="text"
+                                        x-model="task.title"
+                                        placeholder="Titel"
+                                        required
+                                    />
+                                </label>
+
+                                <label>
+                                    Beschreibung
+                                    <textarea
+                                        x-model="task.description"
+                                        placeholder="Beschreibung"
+                                        rows="3"
+                                    ></textarea>
+                                </label>
+
+                                <label>
+                                    Typ
+                                    <select x-model="task.kind" required>
+                                        <template x-if="isBusinessMode">
+                                            <optgroup
+                                                label="Geschäftlich (empfohlen)"
+                                            >
+                                                <option
+                                                    value="business"
+                                                    selected
+                                                >
+                                                    Geschäftlich
+                                                </option>
+                                            </optgroup>
+                                        </template>
+                                        <template x-if="!isBusinessMode">
+                                            <optgroup
+                                                label="Privat (empfohlen)"
+                                            >
+                                                <option
+                                                    value="personal"
+                                                    selected
+                                                >
+                                                    Privat
+                                                </option>
+                                            </optgroup>
+                                        </template>
+                                        <optgroup label="Andere">
+                                            <option
+                                                value="business"
+                                                x-show="!isBusinessMode"
+                                            >
+                                                Geschäftlich
+                                            </option>
+                                            <option
+                                                value="personal"
+                                                x-show="isBusinessMode"
+                                            >
+                                                Privat
+                                            </option>
+                                        </optgroup>
+                                    </select>
+                                </label>
+
+                                <label>
+                                    Deadline
+                                    <input
+                                        type="date"
+                                        x-model="task.deadline"
+                                    />
+                                </label>
+
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        x-model="task.fixed"
+                                    />
+                                    Fester Termin
+                                </label>
+
+                                <template x-if="task.fixed">
+                                    <div class="grid">
+                                        <label>
+                                            Datum
+                                            <input
+                                                type="date"
+                                                x-model="task.fixedDate"
+                                            />
+                                        </label>
+                                        <label>
+                                            Tageszeit
+                                            <select
+                                                x-model="task.fixedTime"
+                                                required
+                                            >
+                                                <option value="">
+                                                    Bitte wählen
+                                                </option>
+                                                <option value="AM">
+                                                    Morgens
+                                                </option>
+                                                <option value="PM">
+                                                    Mittags
+                                                </option>
+                                                <option value="EV">
+                                                    Abends
+                                                </option>
+                                            </select>
+                                        </label>
+                                    </div>
+                                </template>
+
+                                <footer>
+                                    <button
+                                        type="button"
+                                        class="secondary"
+                                        @click="dialog.show = false"
+                                    >
+                                        Abbrechen
+                                    </button>
+                                    <template x-if="dialog.mode === 'edit'">
+                                        <button
+                                            type="button"
+                                            style="
+                                                background-color: #d32f2f;
+                                                color: white;
+                                            "
+                                            @click="deleteTask(task.id)"
+                                        >
+                                            🗑 Löschen
+                                        </button>
+                                    </template>
+                                    <button type="submit" :disabled="saving">
+                                        <span x-show="!saving">Speichern</span>
+                                        <span x-show="saving"
+                                            >Speichere...</span
+                                        >
+                                    </button>
+                                </footer>
+                            </form>
+                        </article>
+                    </dialog>
+                </div>
+            </template>
+        </main>
+    </body>
 </html>
