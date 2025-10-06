@@ -18,6 +18,13 @@ app.http("serveStatic", {
       // Normalize path
       let requestPath = req.params.path || "";
       ctx.log('[serveStatic] Raw path:', requestPath);
+      
+      // Skip API routes - let them be handled by their specific functions
+      if (requestPath.startsWith('codex') || requestPath.startsWith('sync') || requestPath.startsWith('github')) {
+        ctx.log('[serveStatic] Skipping API route:', requestPath);
+        return { status: 404, body: "Not Found - Use API endpoint" };
+      }
+      
       if (!requestPath || requestPath === "/") {
         requestPath = "index.html";
       }
