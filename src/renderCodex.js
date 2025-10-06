@@ -56,7 +56,8 @@ function isWeekend(date) {
 }
 
 function extractTaskNumber(filename) {
-  const match = filename.match(/(\d{4})\.md$/);
+  // Match pattern: 0000-something.md or just 0000.md
+  const match = filename.match(/(\d{4})/);
   return match ? parseInt(match[1], 10) : 9999;
 }
 
@@ -317,8 +318,8 @@ function buildHtmlFromTimeline(data) {
 body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:20px;background:#fafafa}
 h1{font-size:22px;margin:0 0 8px;color:#333}
 .meta{color:#666;font-size:13px;margin-bottom:20px}
-.week{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-top:16px}
-.day{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:12px}
+.timeline{display:flex;flex-direction:column;gap:16px;margin-top:16px;max-width:900px}
+.day{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:16px}
 .day-header{font-weight:600;font-size:14px;margin-bottom:10px;color:#444}
 .slot{margin:8px 0;padding:8px;border-left:3px solid #ddd;background:#f9f9f9}
 .slot.morgens{border-left-color:#4CAF50}
@@ -333,7 +334,7 @@ h1{font-size:22px;margin:0 0 8px;color:#333}
 </style>
 <h1>Codex Miroir – Wochenansicht</h1>
 <div class="meta">Woche ab ${htmlEscape(data.weekStart)} | Stand: ${htmlEscape(data.generatedAt)}</div>
-<div class="week">`;
+<div class="timeline">`;
 
   for (const day of timeline) {
     const dayName = dayNames[day.dayOfWeek];
