@@ -1,0 +1,27 @@
+const matter = require("gray-matter");
+
+function parseTask(mdText) {
+  const fm = matter(mdText);
+  const d = fm.data || {};
+  return {
+    typ: d.typ,
+    kategorie: d.kategorie,
+    status: d.status,
+    tags: d.tags || [],
+    deadline: d.deadline || null,
+    fixedSlot: d.fixedSlot || null,
+    body: fm.content.trim(),
+  };
+}
+
+const slotOrder = { morgens: 1, nachmittags: 2, abends: 3 };
+
+function sortKey(dateStr, slot) {
+  // dateStr expected dd.mm.yyyy; convert to yyyy-mm-dd for lexicographic sort
+  const [dd, mm, yyyy] = (dateStr || "31.12.2999").split(".");
+  const iso = `${yyyy}-${mm}-${dd}`;
+  const s = slotOrder[slot] || 9;
+  return `${iso}#${s}`;
+}
+
+module.exports = { parseTask, sortKey, slotOrder };
