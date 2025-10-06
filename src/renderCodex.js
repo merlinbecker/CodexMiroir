@@ -241,12 +241,13 @@ async function loadOrBuildTimeline(headSha) {
     tasks.push({ file: name, ...t });
   }
 
-  // Erstelle Timeline-Skeleton für aktuelle Woche (ab heute)
+  // Erstelle Timeline-Skeleton für 7 Tage ab heute
   const now = new Date();
   now.setHours(0, 0, 0, 0); // Normalisiere auf Tagesbeginn
+  const weekStart = new Date(now); // Speichere Start für Meta-Info
   
   // Beginne mit heute und zeige 7 Tage voraus
-  const timeline = createWeekSkeleton(now);
+  const timeline = createWeekSkeleton(weekStart);
   
   // Platziere Tasks
   placeFixedTasks(timeline, tasks);
