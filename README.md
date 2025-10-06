@@ -21,16 +21,16 @@
 #### Für lokale Entwicklung:
 - **Node.js** 18+ (LTS empfohlen)
 - **Azure Functions Core Tools v4** (`npm install -g azure-functions-core-tools@4`)
-- **Azure Cosmos DB**:
-  - Entweder ein Azure Cosmos DB Account
-  - Oder lokaler Cosmos DB Emulator
+- **Azure Blob Storage** (oder lokaler Azurite Emulator)
 - **Git** (zum Klonen des Repository)
+- **GitHub Token** mit Repo-Zugriff
 
 #### Für Azure-Deployment:
 - Azure Account mit aktiver Subscription
 - Azure Function App (erstellt in Azure Portal)
-- Azure Cosmos DB Account
-- Azure CLI (optional, für Deployment-Automatisierung)
+- Azure Blob Storage Account
+- GitHub Repository mit Tasks
+- Azure CLI (optional, für Deployment-Automatisierung)matisierung)
 
 ### Lokale Entwicklung einrichten
 
@@ -45,41 +45,39 @@
    npm install
    ```
 
-3. **Cosmos DB konfigurieren**
+3. **Environment Variables konfigurieren**
    
-   Erstelle die Datei `local.settings.json` im Root-Verzeichnis:
+   Die Datei `local.settings.json` ist bereits vorhanden und vorkonfiguriert:
    ```json
    {
      "IsEncrypted": false,
      "Values": {
        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
        "FUNCTIONS_WORKER_RUNTIME": "node",
-       "COSMOS_CONNECTION_STRING": "AccountEndpoint=https://<your-account>.documents.azure.com:443/;AccountKey=<your-key>;",
-       "COSMOS_DB": "codexmiroir",
-       "COSMOS_TIMELINE": "timeline",
-       "COSMOS_TASKS": "tasks",
-       "USERS_CSV": "u_merlin",
-       "DAY_HORIZON": "30"
+       "GITHUB_OWNER": "merlinbecker",
+       "GITHUB_REPO": "thoughts-vault",
+       "GITHUB_BRANCH": "master",
+       "GITHUB_BASE_PATH": "codexMiroir",
+       "GITHUB_TOKEN": "your-github-token",
+       "AZURE_BLOB_CONN": "your-blob-connection-string",
+       "AZURE_BLOB_CONTAINER": "codex-cache"
      }
    }
    ```
+   
+   **Wichtig**: GitHub Token und Blob Connection String mit echten Credentials befüllen!
 
-4. **Stored Procedures deployen** (einmalig erforderlich)
-   ```bash
-   npm run deploy:sprocs
-   ```
-
-5. **Function App starten**
+4. **Function App starten**
    ```bash
    npm start
    ```
 
 6. **Browser öffnen**
    ```
-   http://localhost:7071/
+   http://localhost:5000/
    ```
    
-   **Hinweis**: Bei lokaler Entwicklung wird der Function Key ignoriert. Du wirst beim ersten Öffnen nach einem Username gefragt (z.B. `u_merlin`).
+   **Hinweis**: Die UI wird statisch ausgeliefert. Für API-Zugriff benötigen Sie einen Function Key.
 
 ### Azure Deployment
 

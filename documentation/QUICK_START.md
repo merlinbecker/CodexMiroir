@@ -72,21 +72,23 @@ If you need to change your username:
    npm install
    ```
 
-3. **Configure local settings**
+3. **Environment Variables konfigurieren**
 
-   Create `local.settings.json`:
+   Die Datei `local.settings.json` ist bereits vorhanden. Überprüfe die Settings:
    ```json
    {
      "IsEncrypted": false,
      "Values": {
        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
        "FUNCTIONS_WORKER_RUNTIME": "node",
-       "COSMOS_CONNECTION_STRING": "your-cosmos-connection-string",
-       "COSMOS_DB": "codexmiroir",
-       "COSMOS_TIMELINE": "timeline",
-       "COSMOS_TASKS": "tasks",
-       "USERS_CSV": "u_merlin",
-       "DAY_HORIZON": "30"
+       "GITHUB_OWNER": "merlinbecker",
+       "GITHUB_REPO": "thoughts-vault",
+       "GITHUB_BRANCH": "master",
+       "GITHUB_BASE_PATH": "codexMiroir",
+       "GITHUB_TOKEN": "your-github-token",
+       "GITHUB_WEBHOOK_SECRET": "your-webhook-secret",
+       "AZURE_BLOB_CONN": "your-blob-connection-string",
+       "AZURE_BLOB_CONTAINER": "codex-cache"
      }
    }
    ```
@@ -98,30 +100,31 @@ If you need to change your username:
 
 5. **Open in browser**
    ```
-   http://localhost:7071/
+   http://localhost:5000/
    ```
 
-   Note: Function key is not required locally
+   **Hinweis**: Die statische UI wird ohne Authentifizierung ausgeliefert. API-Endpoints benötigen einen Function Key.
 
-### Deploying to Azure
+### Azure Deployment
 
 1. **Deploy the function app**
    ```bash
    func azure functionapp publish your-function-app-name
    ```
 
-2. **Configure settings in Azure**
+2. **Environment Variables in Azure konfigurieren**
    ```bash
    az functionapp config appsettings set \
      --name your-function-app-name \
      --resource-group your-resource-group \
      --settings \
-       "COSMOS_CONNECTION_STRING=your-connection-string" \
-       "COSMOS_DB=codexmiroir" \
-       "COSMOS_TIMELINE=timeline" \
-       "COSMOS_TASKS=tasks" \
-       "USERS_CSV=u_merlin" \
-       "DAY_HORIZON=30"
+       "GITHUB_OWNER=merlinbecker" \
+       "GITHUB_REPO=thoughts-vault" \
+       "GITHUB_BRANCH=master" \
+       "GITHUB_BASE_PATH=codexMiroir" \
+       "GITHUB_TOKEN=your-token" \
+       "AZURE_BLOB_CONN=your-connection-string" \
+       "AZURE_BLOB_CONTAINER=codex-cache"
    ```
 
 3. **Get the master key**
@@ -146,7 +149,7 @@ If you need to change your username:
 **Manual testing:**
 ```bash
 npm start
-# Open http://localhost:7071/ in browser
+# Open http://localhost:5000/ in browser
 # Follow the testing guide in TESTING_GUIDE.md
 ```
 

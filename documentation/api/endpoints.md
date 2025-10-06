@@ -108,8 +108,8 @@ Erstellt eine neue Task-Datei im GitHub Repository mit automatischer ID-Vergabe.
 - **GitHub Integration**: Commit direkt oder via PR (ENV: `CREATE_VIA_PR=true`)
 
 #### Fehler-Responses
-- `400`: Validierungsfehler (z.B. ungültige Kategorie)
-- `500`: GitHub API Fehler oder Blob Storage Fehler
+- `400`: Validierungsfehler (z.B. ungültige Kategorie, ungültiges Datum-Format, ungültiger Slot)
+- `500`: Server-Fehler (GitHub API, Blob Storage, ID-Vergabe)
 
 ### 2. Manual Sync
 - **POST /sync?mode=full** - Vollständiger Sync von GitHub
