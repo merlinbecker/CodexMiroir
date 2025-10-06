@@ -219,13 +219,18 @@ async function getLastHeadSha() {
   return sha?.trim() || "no-sha";
 }
 
-async function loadOrBuildTimeline(headSha, context) {
+async function loadOrBuildTimeline(headSha, context, nocache = false) {
   const artifactPath = `artifacts/timeline_${headSha}.json`;
   
   // Cache Check
-  const cached = await getTextBlob(artifactPath);
-  if (cached) {
-    return { json: JSON.parse(cached), etag: headSha };
+  if (!nocache) {
+    const cached = await getTextBlob(artifactPath);
+    if (cached) {
+      context.log(`[renderCodex] Cache HIT for ${headSha}`);
+      return { json: JSON.parse(cached), etag: headSha };
+    }
+  } else {
+    context.log(`[renderCodex] Cache BYPASS requested`);
   }
 
   // Build Timeline
@@ -384,12 +389,13 @@ app.http('renderCodex', {
   handler: async (request, context) => {
     const url = new URL(request.url);
     const format = (url.searchParams.get('format') || process.env.RENDER_DEFAULT_FORMAT || "json").toLowerCase();
+    const nocache = url.searchParams.get('nocache') === 'true';
     
     const headSha = await getLastHeadSha();
 
     // HTTP Caching: ETag Check
     const ifNoneMatch = request.headers.get("if-none-match");
-    if (ifNoneMatch && ifNoneMatch.replace(/"/g, "") === headSha) {
+    if (!nocache && ifNoneMatch && ifNoneMatch.replace(/"/g, "") === headSha) {
       return {
         status: 304,
         headers: { "ETag": `"${headSha}"` }
@@ -397,7 +403,7 @@ app.http('renderCodex', {
     }
 
     // Lade oder baue Timeline
-    const { json, etag } = await loadOrBuildTimeline(headSha, context);
+    const { json, etag } = await loadOrBuildTimeline(headSha, context, nocache);
 
     if (format === "html") {
       const html = buildHtmlFromTimeline(json);
