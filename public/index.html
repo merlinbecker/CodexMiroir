@@ -93,11 +93,15 @@
     </div>
 
     <script>
+        console.log('[DEBUG] Script started loading');
+        
         const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+        console.log('[DEBUG] dayNames defined');
 
         // Extract function key from URL (if provided)
         const urlParams = new URLSearchParams(window.location.search);
         const functionKey = urlParams.get('code') || '';
+        console.log('[DEBUG] functionKey extracted:', functionKey ? 'YES' : 'NO');
 
         function extractTaskNumber(filename) {
             const match = filename.match(/(\d{4})/);
@@ -160,7 +164,12 @@
         }
 
         console.log('[Timeline] Initializing...');
-        loadTimeline();
+        try {
+            loadTimeline();
+        } catch (err) {
+            console.error('[Timeline] Failed to initialize:', err);
+            document.getElementById('timeline').innerHTML = `<div class="error">Initialisierungsfehler: ${err.message}</div>`;
+        }
     </script>
 </body>
 </html>
