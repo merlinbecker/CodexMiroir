@@ -14,23 +14,23 @@ contributors. Siehe <https://arc42.org>.
 
 ## Aufgabenstellung
 
-CodexMiroir ist ein intelligentes Task-Management-System mit Timeline-basierter Aufgabenverwaltung. Das System implementiert eine **strukturierte Zeitslot-Verwaltung** mit automatischer und manueller Planung.
+CodexMiroir ist ein minimalistisches Task-Management-System nach dem **Spartarégime-Prinzip**.
 
 ### Kernprinzipien:
-- **Timeline-basierte Verwaltung**: Aufgaben werden in Zeitslots (Vormittag/Nachmittag/Abend) geplant
-- **Zwei Aufgabenarten**: Business und Personal mit unterschiedlichen Planungsregeln
-- **Zeitslots**: Tagesstruktur mit drei Slots (AM/PM/EV)
-- **Multi-User-Support**: Jeder Benutzer hat eigene Timeline und Tasks
-- **Cosmos DB**: Persistierung in Azure Cosmos DB mit Stored Procedures
+- **Keine Prio, kein Snooze, keine fancy Felder**: Nur nummerierte Markdown-Dateien (0000.md - 9999.md)
+- **Dateiname = Reihenfolge**: Niedrigere Nummern werden zuerst eingeplant
+- **Timeline-basierte Verwaltung**: Automatische Slot-Zuweisung nach Regelwerk
+- **Git-basiert**: Tasks leben in GitHub Repository, Sync zu Azure Blob Storage
+- **Read-Only Rendering**: Azure Function rendert Timeline aus gecachten Daten
 
 ### Funktionale Anforderungen:
-- Task-Management (CRUD-Operationen: Create, Read, Update, Delete)
-- Timeline-Verwaltung (Abrufen, Filtern nach Datum)
-- Automatische Task-Planung (AutoFill mit Regelwerk)
-- Manuelle Task-Zuweisung zu spezifischen Slots
-- Task-Priorisierung (Tausch mit höchstpriorisiertem Task)
-- Web-basierte Test-UI für Verwaltung
-- User-ID-basierte Datentrennung
+- Task-Verwaltung über Git (Markdown-Dateien in GitHub)
+- Automatischer Sync von GitHub zu Azure Blob Storage
+- Timeline-Rendering (JSON/HTML) mit Caching
+- Deterministische Auto-Fill-Logik (Fixed first, dann nach Dateinamen)
+- Kategorie-basierte Planung (geschäftlich = Mo-Fr, privat = Sa-So)
+- GitHub Webhook-Integration für automatischen Sync
+- ETag-basiertes HTTP Caching
 
 ## Qualitätsziele
 
@@ -56,9 +56,10 @@ CodexMiroir ist ein intelligentes Task-Management-System mit Timeline-basierter 
 ## Technische Randbedingungen
 
 - **Plattform**: Azure Functions v4 mit Node.js 18+ (ES Modules)
-- **Datenspeicher**: Azure Cosmos DB (NoSQL, zwei Container: tasks und timeline)
+- **Datenspeicher**: Azure Blob Storage für Cache, GitHub als Source of Truth
 - **Frontend**: Statische Web-UI (Vanilla JavaScript mit Alpine.js)
-- **Authentifizierung**: Azure Functions Master Key (authLevel: admin) mit User-ID im Pfad
+- **Sync**: GitHub API + Webhook für automatischen Pull
+- **Authentifizierung**: GitHub Webhook Secret, Azure Functions Function Keys
 
 ## Organisatorische Randbedingungen
 

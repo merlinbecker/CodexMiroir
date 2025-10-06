@@ -1,396 +1,230 @@
-
-# Task Creation Rules - CodexMiroir
+# Task Creation Rules - CodexMiroir Spartan Edition
 
 ## Übersicht
 
-Dieses Dokument beschreibt alle Regeln und Anforderungen für die Erstellung von Tasks im CodexMiroir-System.
+CodexMiroir folgt dem **Spartarégime**: Keine Prio, kein Snooze, keine komplexen Strukturen.
+Tasks sind nummerierte Markdown-Dateien im GitHub Repository.
 
-## Struktur eines klassischen Task-Items
+## Task-Datei-Struktur
 
-### Vollständiges Task-Objekt (Cosmos DB Format)
+### Dateiname
+- **Format**: `####.md` (z.B. `0000.md`, `0042.md`, `1337.md`)
+- **Bereich**: 0000 - 9999
+- **Sortierung**: Niedrigere Nummer = höhere Priorität (wird zuerst eingeplant)
 
-```json
-{
-  "id": "task_abc123-def456-ghi789",
-  "type": "task",
-  "userId": "u_merlin",
-  "kind": "business",
-  "title": "CodexMiroir Sprint Block",
-  "description": "3,5h Fokusblock für Sprint-Entwicklung",
-  "notes": [
-    {
-      "at": "2025-10-01T08:21:00Z",
-      "text": "Edgecase Weekend beachten"
-    }
-  ],
-  "tags": ["codexmiroir", "development"],
-  "project": {
-    "id": "proj_codexmiroir",
-    "name": "CodexMiroir"
-  },
-  "contact": {
-    "name": "Marina",
-    "email": "marina@example.com"
-  },
-  "external": {
-    "devOpsUrl": null,
-    "calendarEventId": null
-  },
-  "deadline": null,
-  "fixed": false,
-  "status": "open",
-  "priority": 3,
-  "checklist": [],
-  "worklog": [],
-  "planned": {
-    "date": "2025-10-03",
-    "slotIdx": 0
-  },
-  "performed": {
-    "date": "2025-10-03",
-    "slotIdx": 0
-  },
-  "completedAt": null,
-  "createdAt": "2025-10-01T13:00:00Z",
-  "updatedAt": "2025-10-01T13:00:00Z"
-}
+### YAML Frontmatter (Pflicht)
+
+```yaml
+---
+typ: task
+kategorie: geschäftlich | privat
+status: offen | abgeschlossen | abgebrochen
+tags: [tag1, tag2]  # optional
+deadline: dd.mm.yyyy  # optional
+fixedSlot:  # optional
+  datum: dd.mm.yyyy
+  zeit: morgens | nachmittags | abends
+---
 ```
 
-### Minimales Task-Objekt (Pflichtfelder)
+### Markdown Body (Optional)
 
-```json
-{
-  "type": "task",
-  "userId": "u_merlin",
-  "kind": "business",
-  "title": "Aufgabentitel",
-  "status": "open"
-}
-```
+Freier Text für:
+- Beschreibung
+- Notizen
+- Checklisten
+- Links
 
 ## Pflichtfelder
 
-### Bei API-Request (createTask)
-
-1. **userId** (String, aus URL-Parameter)
-   - Format: Beliebiger String
-   - Beispiel: `"u_merlin"`
-   - Wird aus dem URL-Path extrahiert: `/api/tasks/{userId}`
-
-2. **kind** (String, aus Request Body)
-   - Erlaubte Werte: `"business"`, `"personal"`, `"meeting"`
-   - **Wichtig**: Im Frontend wird "work" verwendet, API erwartet aber diese Werte
-   - Wird validiert durch `validateParams()`
-
-3. **title** (String, aus Request Body)
-   - Pflichtfeld für sinnvolle Task-Erstellung
-   - Kann leer sein (`""`) aber sollte vorhanden sein
-
-### Automatisch gesetzte Felder
-
-1. **type** (String)
-   - Wird automatisch auf `"task"` gesetzt
-   - Durch Pre-Trigger `taskNormalizeOnWrite()` oder im Code
-
-2. **status** (String)
-   - Default: `"open"`
-   - Automatisch gesetzt wenn nicht vorhanden
-
-3. **id** (String)
-   - **WIRD AUTOMATISCH VON COSMOS DB VERGEBEN**
-   - **Darf NICHT im Request Body enthalten sein**
-   - Format: Auto-generierte GUID von Cosmos DB
-   - Alternativer Generator (falls benötigt): `generateTaskId()` erzeugt `task_{timestamp}-{random}-{random}`
-
-4. **createdAt** (ISO String)
-   - Automatisch auf aktuellen Zeitpunkt gesetzt
-   - Format: ISO 8601 (`"2025-10-01T13:00:00Z"`)
-   - Nur gesetzt wenn noch nicht vorhanden (durch Pre-Trigger)
-
-5. **updatedAt** (ISO String)
-   - Wird bei jedem Schreibvorgang aktualisiert
-   - Format: ISO 8601
-   - Durch Pre-Trigger `taskNormalizeOnWrite()`
-
-6. **tags** (Array)
-   - Default: `[]`
-   - Automatisch normalisiert: lowercase, dedupliziert
-   - Durch Pre-Trigger verarbeitet
+1. **typ**: Muss `task` sein
+2. **kategorie**: `geschäftlich` oder `privat`
+3. **status**: `offen`, `abgeschlossen` oder `abgebrochen`
 
 ## Optionale Felder
 
-### Beschreibung & Kontext
-- **description** (String): Detaillierte Beschreibung
-- **notes** (Array): Array von Note-Objekten `{at: ISO-String, text: String}`
-- **tags** (Array): Schlagwörter für Kategorisierung
+- **tags**: Array von Strings
+- **deadline**: Datum im Format `dd.mm.yyyy`
+- **fixedSlot**: Objekt mit `datum` und `zeit` für feste Termine
 
-### Projekt & Zuordnung
-- **project** (Object): `{id: String, name: String}`
-- **contact** (Object): `{name: String, email: String}`
-- **external** (Object): `{devOpsUrl: String|null, calendarEventId: String|null}`
+## Timeline-Zuordnung
 
-### Planung & Deadline
-- **deadline** (String|null): ISO 8601 Datum
-- **fixed** (Boolean): Ob Task an festem Termin gebunden ist
-- **priority** (Number): Prioritätsstufe (z.B. 1-5)
+### Automatische Planung (ohne fixedSlot)
 
-### Timeline-Planung
-- **planned** (Object): `{date: String (YYYY-MM-DD), slotIdx: Number}`
-- **performed** (Object): `{date: String, slotIdx: Number}`
+Tasks ohne `fixedSlot` werden automatisch nach Dateinamen-Reihenfolge eingeplant:
 
-### Status & Verlauf
-- **status** (String): `"open"`, `"in_progress"`, `"completed"`, etc.
-- **completedAt** (String|null): ISO 8601 Datum
-- **checklist** (Array): Array von Checklist-Items
-- **worklog** (Array): Array von Worklog-Einträgen
+1. **Kategorie-Regeln**:
+   - `geschäftlich`: Mo-Fr, morgens → nachmittags
+   - `privat`: Sa-So, morgens → nachmittags
+   - `abends`: nie automatisch, nur per fixedSlot
 
-## Validierungsregeln
+2. **Reihenfolge**: 
+   - Niedrigere Dateinummer wird zuerst platziert
+   - `0000.md` kommt vor `0001.md`, etc.
 
-### 1. Parameter-Validierung (validateParams)
+3. **Freie Slots finden**:
+   - System sucht ab heute vorwärts
+   - Respektiert Kategorie-Wochentage
+   - Überspringt bereits belegte Slots
 
-```javascript
-validateParams({ userId, kind }, context)
+### Feste Termine (mit fixedSlot)
+
+Tasks mit `fixedSlot` werden zuerst platziert:
+
+```yaml
+---
+typ: task
+kategorie: geschäftlich
+status: offen
+fixedSlot:
+  datum: 15.10.2025
+  zeit: morgens
+---
+
+# Sprint Planning Meeting
+
+Vorbereitung für Q4 Sprint
 ```
 
-**Prüft:**
-- Alle Parameter vorhanden (nicht `null`, `undefined`, leerer String)
-- **Ausnahmen**: `0` und `false` sind erlaubte Werte
-- Bei Fehler: HTTP 400 mit JSON `{error: "Missing: field1, field2"}`
+### Domino-Logik bei Konflikten
 
-### 2. Kind-Validierung
+Wenn ein Fixed Task einen Slot belegt:
+1. **Fixed Tasks** bleiben stehen
+2. **Nicht-fixe Tasks** werden verschoben:
+   - morgens → nachmittags
+   - nachmittags → abends
+   - abends → nächster passender Tag
 
-**Erlaubte Werte:**
-- `"business"` - Geschäftliche Aufgaben
-- `"personal"` - Private Aufgaben  
-- `"meeting"` - Meeting-Termine
+## Beispiele
 
-**Frontend-Mapping:**
-- Frontend verwendet: `"work"` → muss zu `"business"` gemappt werden
-- Frontend verwendet: `"personal"` → bleibt `"personal"`
+### Einfacher Task
 
-### 3. Tags-Normalisierung (Pre-Trigger)
+**Datei**: `tasks/0100.md`
+```markdown
+---
+typ: task
+kategorie: geschäftlich
+status: offen
+---
 
-```javascript
-doc.tags = Array.from(new Set((doc.tags||[]).map(t=>String(t).toLowerCase())));
+# Code Review durchführen
+
+PR #123 checken und Feedback geben
 ```
 
-- Konvertiert zu String
-- Lowercase
-- Entfernt Duplikate
-- Default: leeres Array
+### Task mit Deadline
 
-### 4. ID-Generierung
+**Datei**: `tasks/0050.md`
+```markdown
+---
+typ: task
+kategorie: privat
+status: offen
+deadline: 31.10.2025
+tags: [finanzen, wichtig]
+---
 
-**WICHTIG:**
-```javascript
-// ❌ FALSCH - ID im Request Body senden
-const task = { id: "T-001", ... };
+# Steuererklärung vorbereiten
 
-// ✅ RICHTIG - ID wird automatisch vergeben
-const { id, ...bodyWithoutId } = body || {};
-const task = { ...bodyWithoutId };
+- Belege sammeln
+- ELSTER vorbereiten
+- Termin mit Steuerberater
 ```
 
-Cosmos DB vergibt automatisch eine eindeutige ID.
+### Fester Termin
 
-## Erstellungsprozess
+**Datei**: `tasks/0001.md`
+```markdown
+---
+typ: task
+kategorie: geschäftlich
+status: offen
+fixedSlot:
+  datum: 10.10.2025
+  zeit: nachmittags
+---
 
-### 1. API-Request
+# Kundenpräsentation Q4
 
-```http
-POST /api/tasks/{userId}
-Authorization: code=MASTER_KEY
-Content-Type: application/json
-
-{
-  "kind": "business",
-  "title": "Neue Aufgabe",
-  "description": "Details...",
-  "tags": ["tag1", "TAG2", "tag1"],
-  "deadline": "2025-10-15T23:59:59Z"
-}
+Quartalsreview mit Key Account
 ```
 
-### 2. Server-Verarbeitung
+## Git Workflow
 
-1. **Parameter-Extraktion**: `userId` aus URL
-2. **Validierung**: `validateParams({ userId, kind })`
-3. **ID-Entfernung**: Explizites ID-Feld wird entfernt
-4. **Task-Objekt erstellen**:
-   ```javascript
-   const task = {
-     type: "task",
-     userId,
-     kind,
-     title: title || "",
-     tags: tags || [],
-     status: status || "open",
-     createdAt: new Date().toISOString(),
-     updatedAt: new Date().toISOString(),
-     ...bodyWithoutId
-   };
-   ```
+### Task erstellen
 
-### 3. Pre-Trigger (taskNormalizeOnWrite)
+```bash
+# 1. Nächste freie Nummer finden
+ls tasks/ | sort -n | tail -1
 
-Wird automatisch vor dem Speichern ausgeführt:
-- Setzt `type: "task"` falls nicht vorhanden
-- Setzt `status: "open"` falls nicht vorhanden
-- Normalisiert `tags` (lowercase, dedupliziert)
-- Setzt `createdAt` falls nicht vorhanden
-- Aktualisiert `updatedAt` immer
+# 2. Neue Task-Datei erstellen
+vim tasks/0042.md
 
-### 4. Cosmos DB Speicherung
-
-- Vergibt automatisch eindeutige `id`
-- Speichert im `tasks` Container
-- Partition Key: `userId`
-
-### 5. Response
-
-```json
-{
-  "id": "abc123-def456-ghi789",
-  "type": "task",
-  "userId": "u_merlin",
-  "kind": "business",
-  "title": "Neue Aufgabe",
-  "description": "Details...",
-  "tags": ["tag1", "tag2"],
-  "status": "open",
-  "createdAt": "2025-10-03T14:23:45.123Z",
-  "updatedAt": "2025-10-03T14:23:45.123Z",
-  ...
-}
+# 3. Committen und pushen
+git add tasks/0042.md
+git commit -m "Add task 0042: Meeting vorbereiten"
+git push
 ```
 
-## Frontend-Integration
+### Task abschließen
 
-### Task-Dialog (index.html)
+```bash
+# Status auf 'abgeschlossen' setzen
+vim tasks/0042.md  # status: abgeschlossen
 
-```javascript
-// Feste Termine
-if (task.fixed) {
-  // Benötigt:
-  task.fixedDate = "2025-10-15";  // YYYY-MM-DD
-  task.fixedTime = "AM";          // AM, PM oder EV
-}
-
-// Mapping für Slots
-const slotMap = { 'AM': 0, 'PM': 1, 'EV': 2 };
+git add tasks/0042.md
+git commit -m "Complete task 0042"
+git push
 ```
 
-### Automatische Zuweisung
+### Task löschen
 
-Nach Task-Erstellung kann automatische Timeline-Zuweisung erfolgen:
-
-```javascript
-// Für feste Termine
-POST /api/timeline/{userId}/assign
-{
-  "taskId": "abc123...",
-  "date": "2025-10-15",
-  "slotIdx": 0
-}
-
-// Für flexible Tasks
-POST /api/timeline/{userId}/autofill
+```bash
+# Task-Datei entfernen
+git rm tasks/0042.md
+git commit -m "Remove task 0042"
+git push
 ```
 
-## Fehlerbehandlung
+## Automatischer Sync
 
-### Häufige Fehler
+Bei jedem Push zu GitHub:
+1. GitHub Webhook triggert Azure Function
+2. Azure Function pullt neue/geänderte Tasks
+3. Timeline wird neu berechnet
+4. Cache wird aktualisiert (neue ETag)
 
-1. **400 Bad Request - Missing Parameters**
-   ```json
-   {
-     "error": "Missing: userId, kind"
-   }
-   ```
+## Status-Management
 
-2. **400 Bad Request - Invalid Kind**
-   - Kind muss `"business"`, `"personal"` oder `"meeting"` sein
+### Offene Tasks
+- `status: offen` → wird in Timeline eingeplant
+- Erscheinen in der Wochenansicht
 
-3. **500 Internal Server Error**
-   - Cosmos DB Verbindungsprobleme
-   - Ungültige Datenstruktur
+### Abgeschlossene Tasks
+- `status: abgeschlossen` → nicht mehr in Timeline
+- Bleiben im Git History für Audit
 
-### Best Practices
+### Abgebrochene Tasks
+- `status: abgebrochen` → nicht mehr in Timeline
+- Ebenfalls im Git History
 
-1. **ID niemals manuell setzen** - Cosmos DB vergibt automatisch
-2. **Kind korrekt mappen** - Frontend "work" → API "business"
-3. **ISO 8601 für Datumsangaben** - `YYYY-MM-DDTHH:mm:ssZ`
-4. **Tags normalisiert übergeben** - lowercase, keine Duplikate
-5. **userId validieren** - muss vorhanden sein
-6. **Optionale Felder weglassen** - nicht mit `null` füllen
+## Best Practices
 
-## Unterschiede zwischen Systemen
+1. **Nummerierung**: Lücken lassen (0000, 0010, 0020, ...) für spätere Einfügungen
+2. **Kategorien konsistent**: Entweder `geschäftlich` oder `privat`, nicht wechseln
+3. **Deadlines sparsam**: Nur für echte Deadlines, nicht für Wunschtermine
+4. **Fixed Slots selten**: Nur für unverschiebbare Termine
+5. **Tags minimal**: Max 2-3 relevante Tags pro Task
+6. **Markdown nutzen**: Checklisten, Links, Code-Blocks für Details
 
-### Cosmos DB vs. Legacy API
+## Validierung
 
-**Legacy API (Blob Storage):**
-```json
-{
-  "list": "pro",
-  "id": "T-001",
-  "title": "Task",
-  "created_at_iso": "2025-09-23T10:00:00Z",
-  "scheduled_slot": "2025-W39-Tue-AM"
-}
-```
+Das System prüft beim Sync:
+- ✅ Dateiname ist `####.md` Format
+- ✅ YAML Frontmatter ist valide
+- ✅ `typ: task` ist gesetzt
+- ✅ `kategorie` ist `geschäftlich` oder `privat`
+- ✅ `status` ist `offen`, `abgeschlossen` oder `abgebrochen`
+- ✅ Wenn `fixedSlot` gesetzt: `datum` und `zeit` sind valide
 
-**Cosmos DB (Aktuell):**
-```json
-{
-  "type": "task",
-  "userId": "u_merlin",
-  "kind": "business",
-  "title": "Task",
-  "createdAt": "2025-09-23T10:00:00Z",
-  "planned": {
-    "date": "2025-10-03",
-    "slotIdx": 0
-  }
-}
-```
-
-## Zusammenfassung
-
-### Minimal-Request für Task-Erstellung
-
-```http
-POST /api/tasks/u_merlin?code=MASTER_KEY
-Content-Type: application/json
-
-{
-  "kind": "business",
-  "title": "Meine Aufgabe"
-}
-```
-
-### Voller Request mit allen Optionen
-
-```http
-POST /api/tasks/u_merlin?code=MASTER_KEY
-Content-Type: application/json
-
-{
-  "kind": "business",
-  "title": "Vollständige Aufgabe",
-  "description": "Detaillierte Beschreibung",
-  "tags": ["projekt", "wichtig"],
-  "project": {
-    "id": "proj_001",
-    "name": "Projekt Name"
-  },
-  "contact": {
-    "name": "Max Mustermann",
-    "email": "max@example.com"
-  },
-  "deadline": "2025-12-31T23:59:59Z",
-  "priority": 1,
-  "fixed": false
-}
-```
-
-Die ID, timestamps und weitere Metadaten werden automatisch vom System vergeben und verwaltet.
+Fehlerhafte Dateien werden ignoriert und im Log vermerkt.
