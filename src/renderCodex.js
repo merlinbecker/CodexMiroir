@@ -232,14 +232,26 @@ async function loadOrBuildTimeline(headSha) {
   const files = await list("raw/tasks/");
   const tasks = [];
   
+  context.log(`[renderCodex] Found ${files.length} files in raw/tasks/`);
+  
   for (const name of files) {
     if (!name.endsWith(".md")) continue;
     const md = await getTextBlob(name);
-    if (!md) continue;
+    if (!md) {
+      context.log(`[renderCodex] Empty file: ${name}`);
+      continue;
+    }
     const t = parseTask(md);
-    if (t.typ !== "task" || t.status !== "offen") continue;
+    context.log(`[renderCodex] Parsed ${name}:`, JSON.stringify(t));
+    
+    if (t.typ !== "task" || t.status !== "offen") {
+      context.log(`[renderCodex] Skipped ${name}: typ=${t.typ}, status=${t.status}`);
+      continue;
+    }
     tasks.push({ file: name, ...t });
   }
+  
+  context.log(`[renderCodex] Total valid tasks: ${tasks.length}`);
 
   // Erstelle Timeline-Skeleton für 7 Tage ab heute
   const now = new Date();
@@ -250,8 +262,14 @@ async function loadOrBuildTimeline(headSha) {
   const timeline = createWeekSkeleton(weekStart);
   
   // Platziere Tasks
+  context.log(`[renderCodex] Placing ${tasks.length} tasks in timeline`);
   placeFixedTasks(timeline, tasks);
   autoFillTasks(timeline, tasks);
+  
+  // Count placed tasks
+  const placedCount = timeline.reduce((sum, day) => 
+    sum + day.slots.filter(s => s.task).length, 0);
+  context.log(`[renderCodex] Placed ${placedCount} tasks in timeline`);
 
   // Payload erstellen
   const payload = {
