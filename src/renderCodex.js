@@ -219,7 +219,7 @@ async function getLastHeadSha() {
   return sha?.trim() || "no-sha";
 }
 
-async function loadOrBuildTimeline(headSha) {
+async function loadOrBuildTimeline(headSha, context) {
   const artifactPath = `artifacts/timeline_${headSha}.json`;
   
   // Cache Check
@@ -397,7 +397,7 @@ app.http('renderCodex', {
     }
 
     // Lade oder baue Timeline
-    const { json, etag } = await loadOrBuildTimeline(headSha);
+    const { json, etag } = await loadOrBuildTimeline(headSha, context);
 
     if (format === "html") {
       const html = buildHtmlFromTimeline(json);
