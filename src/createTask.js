@@ -118,7 +118,7 @@ async function openPr(fromBranch, toBranch, title, body) {
 
 app.http("createTask", {
   methods: ["POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "tasks",
   handler: async (request, context) => {
     try {

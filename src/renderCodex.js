@@ -384,7 +384,7 @@ h1{font-size:22px;margin:0 0 8px;color:#333}
 
 app.http('renderCodex', {
   methods: ['GET'],
-  authLevel: 'function',
+  authLevel: 'anonymous',
   route: 'codex',
   handler: async (request, context) => {
     const url = new URL(request.url);
