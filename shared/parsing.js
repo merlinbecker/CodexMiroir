@@ -1,4 +1,4 @@
-const matter = require("gray-matter");
+import matter from "gray-matter";
 
 function parseTask(mdText) {
   const fm = matter(mdText);
