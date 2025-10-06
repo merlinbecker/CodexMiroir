@@ -1,4 +1,4 @@
-const { BlobServiceClient } = require("@azure/storage-blob");
+import { BlobServiceClient } from "@azure/storage-blob";
 
 const conn = process.env.AZURE_BLOB_CONN;
 const containerName = process.env.AZURE_BLOB_CONTAINER || "codex-cache";
