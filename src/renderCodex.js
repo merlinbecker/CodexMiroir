@@ -284,6 +284,7 @@ async function loadOrBuildTimeline(headSha) {
 
 function buildHtmlFromTimeline(data) {
   const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+  const timeline = data.timeline || [];
   
   let html = `<!doctype html><meta charset="utf-8"><title>Codex Miroir Timeline</title>
 <style>
@@ -308,7 +309,7 @@ h1{font-size:22px;margin:0 0 8px;color:#333}
 <div class="meta">Woche ab ${htmlEscape(data.weekStart)} | Stand: ${htmlEscape(data.generatedAt)}</div>
 <div class="week">`;
 
-  for (const day of data.timeline) {
+  for (const day of timeline) {
     const dayName = dayNames[day.dayOfWeek];
     html += `<div class="day">
       <div class="day-header">${htmlEscape(dayName)} ${htmlEscape(day.datum)}</div>`;
