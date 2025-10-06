@@ -195,11 +195,15 @@ app.http("createTask", {
       let result;
       
       if (VIA_PR) {
-        // Feature-Branch je Task
+        // Feature-Branch je Task erstellen
         const feat = `${PR_PREFIX}/${id}`;
         await ensureBranch(BRANCH, feat);
         result = await commitFile(path, md, message, feat);
-        await openPr(feat, BRANCH, message, `Automatisch erstellt.\n\n${path}`);
+        const pr = await openPr(feat, BRANCH, message, `Automatisch erstellt.\n\n${path}`);
+        
+        // PR-URL zur Response hinzufügen
+        result.prUrl = pr.html_url;
+        result.prNumber = pr.number;
       } else {
         result = await commitFile(path, md, message, BRANCH);
       }
@@ -212,15 +216,23 @@ app.http("createTask", {
       // Sofortiger Cache-Update (optional, aber empfohlen)
       await putTextBlob(`raw/tasks/${id}.md`, md, "text/markdown");
 
+      const response = {
+        ok: true,
+        id,
+        path,
+        commitSha: result.commit.sha,
+        htmlUrl: result.content.html_url
+      };
+      
+      // PR-Info hinzufügen wenn via PR erstellt wurde
+      if (VIA_PR && result.prUrl) {
+        response.prUrl = result.prUrl;
+        response.prNumber = result.prNumber;
+      }
+      
       return {
         status: 200,
-        jsonBody: {
-          ok: true,
-          id,
-          path,
-          commitSha: result.commit.sha,
-          htmlUrl: result.content.html_url
-        }
+        jsonBody: response
       };
 
     } catch (e) {
