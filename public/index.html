@@ -107,9 +107,13 @@
         async function loadTimeline() {
             const container = document.getElementById('timeline');
             try {
+                console.log('[Timeline] Starting load...');
                 const apiUrl = functionKey ? `/codex?format=json&code=${encodeURIComponent(functionKey)}` : '/codex?format=json';
+                console.log('[Timeline] API URL:', apiUrl);
                 const response = await fetch(apiUrl);
+                console.log('[Timeline] Response status:', response.status);
                 const data = await response.json();
+                console.log('[Timeline] Data received:', data);
 
                 let html = '';
                 for (const day of data.timeline || []) {
@@ -148,11 +152,14 @@
                 }
 
                 container.innerHTML = html;
+                console.log('[Timeline] Rendered successfully');
             } catch (error) {
+                console.error('[Timeline] Error:', error);
                 container.innerHTML = `<div class="error">Fehler beim Laden: ${error.message}</div>`;
             }
         }
 
+        console.log('[Timeline] Initializing...');
         loadTimeline();
     </script>
 </body>

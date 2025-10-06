@@ -384,14 +384,18 @@ h1{font-size:22px;margin:0 0 8px;color:#333}
 
 app.http('renderCodex', {
   methods: ['GET'],
-  authLevel: 'anonymous',
+  authLevel: 'function',
   route: 'codex',
   handler: async (request, context) => {
+    context.log('[renderCodex] Request received');
     const url = new URL(request.url);
+    context.log('[renderCodex] URL:', url.toString());
     const format = (url.searchParams.get('format') || process.env.RENDER_DEFAULT_FORMAT || "json").toLowerCase();
     const nocache = url.searchParams.get('nocache') === 'true';
+    context.log('[renderCodex] Format:', format, 'NoCache:', nocache);
 
     const headSha = await getLastHeadSha();
+    context.log('[renderCodex] HeadSha:', headSha);
 
     // HTTP Caching: ETag Check
     const ifNoneMatch = request.headers.get("if-none-match");
@@ -403,10 +407,14 @@ app.http('renderCodex', {
     }
 
     // Lade oder baue Timeline
+    context.log('[renderCodex] Loading timeline...');
     const { json, etag } = await loadOrBuildTimeline(headSha, context, nocache);
+    context.log('[renderCodex] Timeline loaded, timeline has', json?.timeline?.length || 0, 'days');
 
     if (format === "html") {
+      context.log('[renderCodex] Rendering HTML');
       const html = buildHtmlFromTimeline(json);
+      context.log('[renderCodex] HTML length:', html.length);
       return {
         headers: { 
           "content-type": "text/html; charset=utf-8",
@@ -417,6 +425,7 @@ app.http('renderCodex', {
     }
 
     // JSON
+    context.log('[renderCodex] Returning JSON');
     return {
       headers: { 
         "content-type": "application/json; charset=utf-8",
