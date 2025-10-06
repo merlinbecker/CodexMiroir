@@ -1,0 +1,95 @@
+Gut. Spartarégime. Keine Prio, kein Snooze, keine fancy Felder. Nur nummerierte Dateien und wer wichtig ist, kriegt einen festen Slot. Funktioniert, wenn du es knallhart deterministisch hältst. Hier ist die schlanke Finalform.
+
+# Essenz ohne Extras
+
+## Task-Datei (Markdown)
+
+```yaml
+typ: task
+kategorie: geschäftlich | privat
+status: offen | abgeschlossen | abgebrochen
+tags: [optional, frei]
+deadline: [optional, dd.mm.yyyy]
+fixedSlot:           # optional, nur für harte Termine
+  datum: dd.mm.yyyy
+  zeit: morgens | nachmittags | abends
+```
+
+Dateiname: `tasks/####.md` mit `0000–9999`. Der Dateiname dient nur als **stabile Reihenfolge**, sonst nichts.
+
+## Slots pro Tag
+
+* morgens, nachmittags, abends
+* auto-befüllbar: morgens, nachmittags
+* abends: nur per fixedSlot
+
+## Zuweisungsreihenfolge ohne Prio
+
+1. **Fixed first**
+
+   * Alle Tasks mit `fixedSlot` zuerst platzieren.
+   * Kollision: Nicht-fixe des Tages schiebst du vorwärts (morgens → nachmittags → abends). Fixed bleibt stehen. Überlauf geht in den nächsten passenden Tag.
+
+2. **Auto-Zuordnung für offene Tasks ohne fixedSlot**
+
+   * Sortiere Tasks **streng nach Dateiname aufsteigend** (`0000` → `9999`). Das ist deine einzige Reihenfolge.
+   * Für jeden Task in dieser Reihenfolge:
+
+     * **geschäftlich:** nächster Werktag (Mo–Fr), morgens dann nachmittags.
+     * **privat:** nächstes Wochenende (Sa–So), morgens dann nachmittags.
+     * Trifft er belegt:
+
+       * steht dort ein **nicht-fixer** Task, schiebe den belegt stehenden einen Slot weiter (Domino).
+       * steht dort ein **fixer**, überspringe und prüfe den nächsten zulässigen Slot/Tag.
+       * Überlauf nach abends: weiter in den nächsten passenden Tag, wieder morgens beginnen.
+
+3. **Abends bleibt tabu**
+
+   * Wird nie automatisch befüllt, nur per `fixedSlot.zeit: abends`.
+
+4. **Deadline**
+
+   * Rein informativ. Keine Logik, kein Mitleid.
+
+## Konsequenzen dieses Minimalismus
+
+* „High prio“ existiert nur als **fixedSlot**. Willst du es früher drin haben, gib ihm einen Slot. Ende.
+* Reihenfolge aller übrigen steuert **nur** der Dateiname. Keine heimliche Prio, keine Seitentür.
+* Rebuilds sind stabil: gleicher Repo-Stand → gleiche Timeline. Änderungen kommen nur durch
+
+  * neue/gelöschte/editiere Tasks,
+  * veränderte fixedSlots.
+
+## Praktische Tipps
+
+* **Backlog-Stabilität:** reserviere dir Nummernbereiche, z. B. 0000–0999 für „Altes Zeug“, 9000–9999 für „Neu rein“. Nicht weil es priosiert, sondern damit deine natürliche Reihenfolge beim Auto-Füllen halbwegs menschlich wirkt.
+* **Umbenennen vermeiden:** Dateinamen sind die Reihenfolge. Wenn du ohne Grund umnummerierst, änderst du die Zukunft. Überraschung inklusive.
+
+## Dataview-Minimals (rein Anzeige)
+
+Offene, unscheduled:
+
+```dataview
+TABLE file.link as Task, kategorie, deadline
+FROM "tasks"
+WHERE typ="task" AND status="offen" AND !fixedSlot
+SORT file.name ASC
+```
+
+Offene, geplante Timeline:
+
+```dataview
+TABLE fixedSlot.datum AS Datum, fixedSlot.zeit AS Slot, file.link AS Task
+FROM "tasks"
+WHERE typ="task" AND status="offen" AND fixedSlot
+SORT date(split(fixedSlot.datum,".")[2] + "-" + split(fixedSlot.datum,".")[1] + "-" + split(fixedSlot.datum,".")[0]) ASC,
+     choice(fixedSlot.zeit="morgens",1, fixedSlot.zeit="nachmittags",2, fixedSlot.zeit="abends",3, 9) ASC
+```
+
+## Edge Cases, die du nicht ignorieren solltest
+
+* **Zwei fixe auf demselben Slot:** der später platzierte fixed gewinnt, der andere muss umlagern? Nein. Fixed wandert nie. Lösung: Fehler werfen oder Meldung „Slot doppelt belegt“ und manuellen Konflikt lassen. Maschinell: verbiete Doppelfix, Punkt.
+* **Hunderte Tasks ohne fixed:** ja, das dauert beim Rebuild. Dann nutze den Artefakt-Cache pro `headSha`, wie besprochen.
+* **Abends auto-befüllt?** Niemals. Wenn du das willst, ist es nicht mehr diese Spezifikation.
+
+Kurz: dein System ist jetzt so minimal, dass es beinahe elegant wird. Wer wichtig ist, wird fixiert. Der Rest marschiert in Nummernreihenfolge in die passenden Slots. Keine Ausreden, keine heimlichen Prioritäten. Genau dein Stil.
