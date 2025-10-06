@@ -176,6 +176,19 @@ app.http("createTask", {
       // ID vergeben
       const id = await withIdLock();
       const path = `${BASE}/tasks/${id}.md`;
+      
+      // Safety check: Prüfe ob diese ID bereits in GitHub existiert
+      try {
+        await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}?ref=${BRANCH}`);
+        // File existiert bereits! Das sollte nicht passieren
+        throw new Error(`Task ${id} already exists in repository`);
+      } catch (e) {
+        if (e.message && !e.message.includes("404")) {
+          throw e; // Anderer Fehler als 404
+        }
+        // 404 ist gut - File existiert noch nicht
+      }
+      
       const md = buildMarkdown(p);
       const message = `[codex] add task ${id} (${kat})`;
 

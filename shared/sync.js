@@ -56,12 +56,22 @@ async function listMdUnderTasks(ref) {
 async function fullSync(ref = BRANCH, clean = false) {
   const files = await listMdUnderTasks(ref);
   let changed = 0;
+  let maxId = -1;
+  
   for (const f of files) {
     const text = await fetchFileAtRef(f.repoPath, ref);
     if (!text) continue;
     await putTextBlob(toBlobPath(f.repoPath), text, "text/markdown");
     changed++;
+    
+    // Extrahiere ID aus Dateinamen (z.B. 0005.md -> 5)
+    const match = f.repoPath.match(/(\d{4})\.md$/);
+    if (match) {
+      const id = parseInt(match[1], 10);
+      if (id > maxId) maxId = id;
+    }
   }
+  
   let removed = 0;
   if (clean) {
     const existing = new Set(files.map((f) => toBlobPath(f.repoPath)));
@@ -73,17 +83,26 @@ async function fullSync(ref = BRANCH, clean = false) {
       }
     }
   }
+  
   // headSha speichern für Timeline-Cache-Invalidierung
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
+  
+  // nextId.txt aktualisieren: höchste ID + 1
+  if (maxId >= 0) {
+    const nextId = maxId + 1;
+    await putTextBlob("state/nextId.txt", String(nextId), "text/plain");
+  }
 
   // Erfolgsmeldung
-  return { scope: "tasks", mode: "full", changed, removed };
+  return { scope: "tasks", mode: "full", changed, removed, nextId: maxId >= 0 ? maxId + 1 : 0 };
 }
 
 async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH) {
   let changed = 0,
     deleted = 0,
-    skipped = 0;
+    skipped = 0,
+    maxId = -1;
+    
   for (const p of removed) {
     if (!p.endsWith(".md")) {
       skipped++;
@@ -92,6 +111,7 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH) {
     await deleteBlob(toBlobPath(p));
     deleted++;
   }
+  
   for (const p of addedOrModified) {
     if (!p.endsWith(".md")) {
       skipped++;
@@ -104,12 +124,28 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH) {
     }
     await putTextBlob(toBlobPath(p), text, "text/markdown");
     changed++;
+    
+    // Extrahiere ID aus Pfad (z.B. codex-miroir/tasks/0005.md -> 5)
+    const match = p.match(/(\d{4})\.md$/);
+    if (match) {
+      const id = parseInt(match[1], 10);
+      if (id > maxId) maxId = id;
+    }
   }
 
   // headSha speichern für Timeline-Cache-Invalidierung
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
+  
+  // nextId.txt aktualisieren, wenn neue Tasks hinzugefügt wurden
+  if (maxId >= 0) {
+    // Prüfe aktuelle nextId und nimm das Maximum
+    const current = await getTextBlob("state/nextId.txt");
+    const currentId = current ? parseInt(current.trim(), 10) : 0;
+    const nextId = Math.max(currentId, maxId + 1);
+    await putTextBlob("state/nextId.txt", String(nextId), "text/plain");
+  }
 
-  return { scope: "tasks", mode: "diff", changed, deleted, skipped, ref };
+  return { scope: "tasks", mode: "diff", changed, deleted, skipped, ref, nextId: maxId >= 0 ? maxId + 1 : null };
 }
 
 export { fullSync, applyDiff };
