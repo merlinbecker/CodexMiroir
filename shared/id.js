@@ -17,7 +17,8 @@ async function ensureContainer() {
 
 async function acquireLease(blobClient, seconds = 15) {
   try {
-    const { leaseId } = await blobClient.getBlockBlobClient().acquireLease(seconds);
+    const leaseClient = blobClient.getBlobLeaseClient();
+    const { leaseId } = await leaseClient.acquireLease(seconds);
     return leaseId;
   } catch (e) {
     // Blob noch nicht vorhanden: anlegen
@@ -25,7 +26,8 @@ async function acquireLease(blobClient, seconds = 15) {
       await blobClient.upload("0", 1, { 
         blobHTTPHeaders: { blobContentType: "text/plain" } 
       });
-      const { leaseId } = await blobClient.getBlockBlobClient().acquireLease(seconds);
+      const leaseClient = blobClient.getBlobLeaseClient();
+      const { leaseId } = await leaseClient.acquireLease(seconds);
       return leaseId;
     }
     throw e;
@@ -60,7 +62,8 @@ async function withIdLock() {
     
     return id;
   } finally {
-    await b.releaseLease(leaseId);
+    const leaseClient = b.getBlobLeaseClient(leaseId);
+    await leaseClient.releaseLease();
   }
 }
 
