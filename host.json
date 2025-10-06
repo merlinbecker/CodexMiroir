@@ -3,6 +3,7 @@
   "extensions": {
     "http": {
       "routePrefix": ""
+      "preserveRawBody": true
     }
   },
   "functionTimeout": "00:02:00",
