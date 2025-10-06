@@ -55,7 +55,63 @@ Freier Markdown-Text für Details, Notizen, etc.
 
 ## API Endpoints
 
-### Sync API
+### 1. Create Task
+
+**POST** `/api/tasks`
+
+Erstellt eine neue Task-Datei im GitHub Repository mit automatischer ID-Vergabe.
+
+#### Request Headers
+- `Content-Type: application/json`
+- `Idempotency-Key: <uuid>` (optional, empfohlen für Retry-Safety)
+
+#### Request Body
+```json
+{
+  "kategorie": "geschäftlich | privat",
+  "status": "offen",
+  "deadline": "dd.mm.yyyy",
+  "fixedSlot": {
+    "datum": "dd.mm.yyyy",
+    "zeit": "morgens | nachmittags | abends"
+  },
+  "tags": ["tag1", "tag2"],
+  "body": "Freitext-Beschreibung"
+}
+```
+
+**Pflichtfelder:**
+- `kategorie`: `geschäftlich` oder `privat`
+
+**Optionale Felder:**
+- `status`: Standard ist `offen`
+- `deadline`: Format `dd.mm.yyyy`
+- `fixedSlot`: Objekt mit `datum` und `zeit`
+- `tags`: Array von Strings
+- `body`: Markdown-Freitext
+
+#### Response
+```json
+{
+  "ok": true,
+  "id": "0042",
+  "path": "codex-miroir/tasks/0042.md",
+  "commitSha": "abc123...",
+  "htmlUrl": "https://github.com/..."
+}
+```
+
+#### Features
+- **Atomare ID-Vergabe**: Blob-Lease verhindert Doppel-IDs bei parallelen Requests
+- **Idempotenz**: Mit `Idempotency-Key` Header keine Doppel-Tasks bei Retries
+- **Sofortiger Cache**: Task wird direkt in Blob Storage geschrieben
+- **GitHub Integration**: Commit direkt oder via PR (ENV: `CREATE_VIA_PR=true`)
+
+#### Fehler-Responses
+- `400`: Validierungsfehler (z.B. ungültige Kategorie)
+- `500`: GitHub API Fehler oder Blob Storage Fehler
+
+### 2. Manual Sync
 - **POST /sync?mode=full** - Vollständiger Sync von GitHub
 - **POST /sync?mode=diff&since=SHA** - Diff-basierter Sync
 

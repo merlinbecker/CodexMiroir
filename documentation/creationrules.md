@@ -145,9 +145,40 @@ fixedSlot:
 Quartalsreview mit Key Account
 ```
 
-## Git Workflow
+## Task-Erstellung
 
-### Task erstellen
+### Option 1: API Endpoint (Empfohlen)
+
+**POST** `/api/tasks`
+
+```json
+{
+  "kategorie": "geschäftlich",
+  "status": "offen",
+  "deadline": "31.10.2025",
+  "tags": ["meeting", "wichtig"],
+  "fixedSlot": {
+    "datum": "15.10.2025",
+    "zeit": "morgens"
+  },
+  "body": "Sprint Planning Meeting\n\nVorbereitung für Q4 Sprint"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "id": "0042",
+  "path": "codex-miroir/tasks/0042.md",
+  "commitSha": "abc123...",
+  "htmlUrl": "https://github.com/..."
+}
+```
+
+**Idempotenz:** Header `Idempotency-Key: <uuid>` verhindert Doppel-Tasks bei Retries.
+
+### Option 2: Git Workflow (Manuell)
 
 ```bash
 # 1. Nächste freie Nummer finden
