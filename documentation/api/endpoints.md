@@ -1,16 +1,18 @@
-# CodexMiroir API Documentation (Spartan Edition)
+# CodexMiroir API
 
-## Systemkonzept
+## Spartarégime: Git → Blob → Timeline
 
-CodexMiroir folgt dem **Spartarégime**: Keine Prio, kein Snooze, keine fancy Felder.
-Nur nummerierte Markdown-Dateien (`0000.md` bis `9999.md`) und deterministische Timeline-Zuordnung.
+**Keine Task-Management-API!** Tasks werden über Git verwaltet.
+
+Die API dient nur zum:
+- **Sync**: GitHub → Blob Storage
+- **Render**: Timeline aus Cache generieren
 
 ## Datei-basiertes System
 
-### Task-Dateien
-- **Location**: `raw/tasks/####.md` (z.B. `0000.md`, `0001.md`, etc.)
+- **Location**: GitHub Repo → `codex-miroir/tasks/####.md`
 - **Format**: Markdown mit YAML Frontmatter
-- **Nummerierung**: 0000-9999, niedrigere Nummern = höhere Priorität
+- **Cache**: Azure Blob Storage (`raw/tasks/`, `artifacts/`)
 
 ### Task-Struktur
 

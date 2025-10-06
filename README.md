@@ -1,20 +1,18 @@
 # CodexMiroir
 
-**CodexMiroir** ist ein intelligentes Task-Management-System, das als Azure Function App mit integriertem Frontend läuft. Die Anwendung verwaltet Aufgaben in einer Timeline und bietet automatische Planung basierend auf Zeitslots und Prioritäten.
+**CodexMiroir** ist ein Git-basiertes Task-Management-System nach dem **Spartarégime-Prinzip**: Keine Prio, kein Snooze, keine fancy Felder - nur nummerierte Markdown-Dateien.
 
-## Was macht die App?
+## Kernkonzept
 
-CodexMiroir ist ein minimalistisches Task-Management-System nach dem **Spartarégime-Prinzip**:
-
-- **Git-basiert**: Tasks sind nummerierte Markdown-Dateien (0000.md - 9999.md) in GitHub
-- **Automatischer Sync**: GitHub Webhook triggert Sync zu Azure Blob Storage
+- **Tasks sind Dateien**: `0000.md` bis `9999.md` in GitHub Repository
+- **Dateiname = Priorität**: Niedrigere Nummer wird zuerst eingeplant
+- **Git = Source of Truth**: Alle Änderungen über Git Commits
+- **Automatischer Sync**: GitHub Webhook → Azure Function → Blob Storage Cache
 - **Timeline-Rendering**: Deterministische Berechnung der Wochenansicht
 - **Kategorie-Regeln**: geschäftlich (Mo-Fr) vs. privat (Sa-So)
 - **Fixed-First-Logik**: Tasks mit fixedSlot werden zuerst platziert
-- **Auto-Fill**: Restliche Tasks nach Dateinamen-Reihenfolge (0000 zuerst)
-- **Read-Only UI**: HTML/JSON Timeline ohne komplexe Interaktionen
-
-Die App nutzt **Azure Blob Storage** für Cache und **GitHub** als Source of Truth.
+- **Auto-Fill**: Restliche Tasks nach Dateinamen-Reihenfolge
+- **Read-Only UI**: HTML/JSON Timeline ohne Interaktionen
 
 ## Was braucht man, um die App laufen zu lassen?
 

@@ -1,24 +1,37 @@
 # Quick Start Guide
 
-## For Users
+## Für Nutzer
 
-### Accessing the App
+### Timeline anzeigen
 
-1. **Get the URL** from your administrator with the master key included:
+1. **URL öffnen**:
    ```
-   https://your-app.azurewebsites.net/?code=YOUR_MASTER_KEY
+   https://your-app.azurewebsites.net/codex?format=html
    ```
 
-2. **Open the URL** in your browser
+2. **Das war's** - Timeline wird angezeigt
 
-3. **Enter your username** when prompted (e.g., `u_merlin`)
-   - This will be saved automatically
-   - You won't be asked again on this browser
+### Tasks verwalten (Git-basiert)
 
-4. **Use the app**
-   - Load timeline
-   - Create tasks
-   - Manage your schedule
+Tasks werden über Git verwaltet, nicht über die UI:
+
+1. **Task erstellen**:
+   ```bash
+   cd codex-miroir/tasks/
+   vim 0042.md  # Neue Task-Datei
+   git add 0042.md
+   git commit -m "Add task 0042"
+   git push
+   ```
+
+2. **Task abschließen**:
+   ```bash
+   vim 0042.md  # status: abgeschlossen
+   git commit -am "Complete task 0042"
+   git push
+   ```
+
+3. **Timeline aktualisiert sich automatisch** via GitHub Webhook
 
 ### Changing Your Username
 

@@ -1,16 +1,12 @@
-# Task Creation Rules - CodexMiroir Spartan Edition
+# Task Creation Rules
 
-## Übersicht
+## Spartarégime: Datei = Task
 
-CodexMiroir folgt dem **Spartarégime**: Keine Prio, kein Snooze, keine komplexen Strukturen.
-Tasks sind nummerierte Markdown-Dateien im GitHub Repository.
+Tasks sind **nummerierte Markdown-Dateien** in `codex-miroir/tasks/`:
 
-## Task-Datei-Struktur
-
-### Dateiname
-- **Format**: `####.md` (z.B. `0000.md`, `0042.md`, `1337.md`)
-- **Bereich**: 0000 - 9999
-- **Sortierung**: Niedrigere Nummer = höhere Priorität (wird zuerst eingeplant)
+- **Dateiname**: `0000.md` bis `9999.md`
+- **Reihenfolge**: Niedrigere Nummer = zuerst eingeplant
+- **Git**: Source of Truth für alle Tasks
 
 ### YAML Frontmatter (Pflicht)
 
