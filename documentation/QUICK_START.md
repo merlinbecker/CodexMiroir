@@ -60,7 +60,7 @@ If you need to change your username:
    ```
 
 3. **Configure local settings**
-   
+
    Create `local.settings.json`:
    ```json
    {
@@ -87,7 +87,7 @@ If you need to change your username:
    ```
    http://localhost:7071/
    ```
-   
+
    Note: Function key is not required locally
 
 ### Deploying to Azure
@@ -117,7 +117,7 @@ If you need to change your username:
      --name your-function-app-name \
      --resource-group your-resource-group
    ```
-   
+
    Or via Azure Portal:
    - Navigate to your Function App
    - Go to "Functions" → "App keys"

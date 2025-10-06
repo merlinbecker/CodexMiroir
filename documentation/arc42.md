@@ -30,7 +30,7 @@ CodexMiroir ist ein minimalistisches Task-Management-System nach dem **Spartaré
 - Deterministische Auto-Fill-Logik (Fixed first, dann nach Dateinamen)
 - Kategorie-basierte Planung (geschäftlich = Mo-Fr, privat = Sa-So)
 - GitHub Webhook-Integration für automatischen Sync
-- ETag-basiertes HTTP Caching
+- ETag-basiertes HTTP Caching (basierend auf Git HEAD SHA)
 
 ## Qualitätsziele
 
@@ -159,9 +159,9 @@ Die Architektur folgt dem **Azure Functions v4 Programming Model** mit klarer Tr
 ## Technologie-Stack
 
 - **Runtime**: Node.js 18+ auf Azure Functions v4
-- **Datenbank**: Azure Cosmos DB (NoSQL)
-- **Frontend**: Vanilla JavaScript mit Alpine.js
-- **Testing**: Jest mit Coverage-Reports
+- **Storage**: Azure Blob Storage (Cache), GitHub (Source of Truth)
+- **Frontend**: Statisches HTML/CSS/JS (kein Framework)
+- **Sync**: GitHub API + Webhook
 - **Deployment**: Azure Functions Core Tools
 
 # Bausteinsicht
@@ -175,17 +175,17 @@ C4Container
     Person(user, "Nutzer", "Task-Manager")
     
     System_Boundary(functions, "Azure Functions App") {
-        Container(web_ui, "Web UI", "HTML/CSS/JS", "Statische Test-Oberfläche")
-        Container(api, "API Functions", "Node.js", "Task & Timeline Management")
-        Container(static_srv, "Static Server", "Node.js", "Serviert Web-UI")
+        Container(api, "Sync & Render", "Node.js", "GitHub Sync, Timeline Build")
+        Container(static_srv, "Static Server", "Node.js", "Serviert Timeline HTML")
     }
     
-    ContainerDb(cosmos, "Cosmos DB", "NoSQL", "Tasks & Timeline")
+    System_Ext(github, "GitHub Repository", "Git", "Markdown Tasks (Source of Truth)")
+    ContainerDb(blob, "Azure Blob Storage", "Cache", "Timeline Artifacts & Raw Tasks")
     
-    Rel(user, web_ui, "Nutzt", "Browser")
-    Rel(web_ui, api, "API Calls", "HTTPS/JSON")
-    Rel(user, static_srv, "Lädt App", "HTTPS")
-    Rel(api, cosmos, "R/W Daten", "Cosmos SDK")
+    Rel(user, static_srv, "Lädt Timeline", "Browser/HTTPS")
+    Rel(github, api, "Webhook Push", "HTTPS")
+    Rel(api, github, "Pull Tasks", "GitHub API")
+    Rel(api, blob, "Cache R/W", "Blob SDK")
 ```
 
 **Begründung:**
@@ -193,9 +193,9 @@ Die Architektur trennt klar zwischen statischer UI-Auslieferung und API-Funktion
 
 **Enthaltene Bausteine:**
 
-### API Functions Container
-- **Zweck**: RESTful API für Task- und Timeline-Management
-- **Verantwortung**: CRUD-Operationen, Validierung, Cosmos DB-Zugriff
+### Sync & Render Functions
+- **Zweck**: GitHub Sync und Timeline-Berechnung
+- **Verantwortung**: Task-Sync von GitHub, Timeline-Build, Cache-Management
 - **Technologie**: Node.js mit Azure Functions v4, ES Modules
 
 ### Web UI
@@ -219,39 +219,35 @@ Die Architektur trennt klar zwischen statischer UI-Auslieferung und API-Funktion
 
 ```mermaid
 C4Component
-    title API Functions - Interne Komponenten
+    title Azure Functions - Interne Komponenten
     
-    Container_Boundary(api, "API Functions") {
+    Container_Boundary(functions, "Azure Functions App") {
         Component(functions_js, "functions.js", "Entry Point", "Registriert alle Functions")
-        Component(cosmos, "_cosmos.js", "DB Client", "Cosmos DB Connection")
-        Component(helpers, "_helpers.js", "Utilities", "Error Handling, Validation")
-        Component(ensure_days, "_ensureDays.js", "Day Management", "Erstellt Timeline Days")
+        Component(storage, "storage.js", "Blob Client", "Azure Blob Storage Access")
+        Component(parsing, "parsing.js", "Parser", "Markdown → Task Object")
+        Component(sync, "sync.js", "Sync Logic", "GitHub → Blob Sync")
         
-        Component(create_task, "createTask.js", "HTTP Function", "POST /api/tasks/{userId}")
-        Component(get_task, "getTask.js", "HTTP Function", "GET /api/tasks/{userId}/{taskId}")
-        Component(update_task, "updateTask.js", "HTTP Function", "PUT /api/tasks/{userId}/{taskId}")
-        Component(delete_task, "deleteTask.js", "HTTP Function", "DELETE /api/tasks/{userId}/{taskId}")
-        
-        Component(get_timeline, "getTimeline.js", "HTTP Function", "GET /api/timeline/{userId}")
-        Component(assign_slot, "assignToSlot.js", "HTTP Function", "POST /api/timeline/{userId}/assign")
-        Component(autofill, "autoFill.js", "HTTP Function", "POST /api/timeline/{userId}/autofill")
-        Component(prioritize, "prioritizeTask.js", "HTTP Function", "POST /api/timeline/{userId}/prioritize")
-        
+        Component(github_webhook, "githubWebhook.js", "HTTP Function", "POST /github/webhook")
+        Component(manual_sync, "manualSync.js", "HTTP Function", "GET/POST /sync")
+        Component(render_codex, "renderCodex.js", "HTTP Function", "GET /codex")
         Component(serve_static, "serveStatic.js", "HTTP Function", "GET /{*path}")
     }
     
-    ContainerDb(cosmos_db, "Cosmos DB", "NoSQL", "tasks & timeline")
+    System_Ext(github_api, "GitHub API", "REST", "Pull Task-Dateien")
+    ContainerDb(blob_storage, "Azure Blob Storage", "Cache", "raw/tasks/, artifacts/")
     
-    Rel(functions_js, create_task, "imports", "ES Module")
-    Rel(functions_js, get_timeline, "imports", "ES Module")
-    Rel(functions_js, serve_static, "imports", "ES Module")
+    Rel(functions_js, github_webhook, "imports", "ES Module")
+    Rel(functions_js, render_codex, "imports", "ES Module")
     
-    Rel(create_task, cosmos, "uses", "Function Call")
-    Rel(create_task, helpers, "uses", "Function Call")
-    Rel(get_timeline, cosmos, "uses", "Function Call")
-    Rel(autofill, ensure_days, "uses", "Function Call")
+    Rel(github_webhook, sync, "triggers", "Function Call")
+    Rel(manual_sync, sync, "triggers", "Function Call")
+    Rel(sync, github_api, "pulls", "GitHub API")
+    Rel(sync, storage, "writes", "Function Call")
     
-    Rel(cosmos, cosmos_db, "Queries", "Cosmos SDK")
+    Rel(render_codex, storage, "reads cache", "Function Call")
+    Rel(render_codex, parsing, "parses tasks", "Function Call")
+    
+    Rel(storage, blob_storage, "R/W", "Blob SDK")
 ```
 
 **Komponenten-Beschreibung:**
@@ -261,38 +257,29 @@ C4Component
 - **Schnittstellen**: Import aller Function-Module
 - **Ablageort**: `/src/functions.js`
 
-### Cosmos DB Client (_cosmos.js)
-- **Zweck**: Gemeinsame Cosmos DB Connection-Verwaltung
-- **Schnittstellen**: Exported `cosmos()` Funktion für DB-Zugriff
-- **Leistungsmerkmale**: Connection Pooling, Error Handling
-- **Ablageort**: `/src/_cosmos.js`
+### Blob Storage Client (storage.js)
+- **Zweck**: Azure Blob Storage Zugriff
+- **Schnittstellen**: `list()`, `getTextBlob()`, `putTextBlob()`
+- **Leistungsmerkmale**: Async/Await, Error Handling
+- **Ablageort**: `/shared/storage.js`
 
-### Helper Utilities (_helpers.js)
-- **Zweck**: Gemeinsame Utility-Funktionen
-- **Schnittstellen**: `errorResponse()`, `validateParams()`, `getContentType()`, `generateTaskId()`
+### Parsing Module (parsing.js)
+- **Zweck**: Markdown-Parsing mit gray-matter
+- **Schnittstellen**: `parseTask(mdText)`, `sortKey(dateStr, slot)`
 - **Qualitätsmerkmale**: Stateless, Pure Functions
-- **Ablageort**: `/src/_helpers.js`
+- **Ablageort**: `/shared/parsing.js`
 
-### Day Management (_ensureDays.js)
-- **Zweck**: Stellt sicher, dass Timeline-Day-Dokumente existieren
-- **Schnittstellen**: `ensureDaysUpTo(userId, targetDate, ctx)`
-- **Ablageort**: `/src/_ensureDays.js`
+### Sync Module (sync.js)
+- **Zweck**: GitHub → Blob Storage Synchronisation
+- **Schnittstellen**: `fullSync(ref, clean)`, `applyDiff(paths, ref)`
+- **Ablageort**: `/shared/sync.js`
 
-### Task CRUD Functions
-Alle mit `authLevel: "admin"` (Master Key erforderlich):
+### HTTP Functions
+Alle mit `authLevel: "function"` (Function Key erforderlich):
 
-- **createTask.js**: POST `/api/tasks/{userId}` - Erstellt neuen Task
-- **getTask.js**: GET `/api/tasks/{userId}/{taskId}` - Ruft Task ab
-- **updateTask.js**: PUT `/api/tasks/{userId}/{taskId}` - Aktualisiert Task
-- **deleteTask.js**: DELETE `/api/tasks/{userId}/{taskId}` - Löscht Task
-
-### Timeline Management Functions
-Alle mit `authLevel: "admin"` (Master Key erforderlich):
-
-- **getTimeline.js**: GET `/api/timeline/{userId}` - Ruft Timeline ab
-- **assignToSlot.js**: POST `/api/timeline/{userId}/assign` - Manuelle Slot-Zuweisung
-- **autoFill.js**: POST `/api/timeline/{userId}/autofill` - Automatische Planung
-- **prioritizeTask.js**: POST `/api/timeline/{userId}/prioritize` - Task-Priorisierung
+- **githubWebhook.js**: POST `/github/webhook` - GitHub Webhook Handler
+- **manualSync.js**: GET/POST `/sync` - Manueller Sync Trigger
+- **renderCodex.js**: GET `/codex` - Timeline Rendering (JSON/HTML)
 
 ### Static Server (serveStatic.js)
 - **Zweck**: Auslieferung der Web-UI (`/public/`)
