@@ -1,16 +1,15 @@
-
 const { app } = require('@azure/functions');
 const { list, getTextBlob } = require("../shared/storage");
 const { parseTask, sortKey } = require("../shared/parsing");
 
-function htmlEscape(s) { 
-  return (s || "").replace(/[&<>"']/g, c => ({ 
+function htmlEscape(s) {
+  return (s || "").replace(/[&<>"']/g, c => ({
     "&":"&amp;",
     "<":"&lt;",
     ">":"&gt;",
     "\"":"&quot;",
-    "'":"&#39;" 
-  }[c])); 
+    "'":"&#39;"
+  }[c]));
 }
 
 app.http('renderCodex', {
@@ -20,7 +19,7 @@ app.http('renderCodex', {
   handler: async (request, context) => {
     const url = new URL(request.url);
     const format = (url.searchParams.get('format') || process.env.RENDER_DEFAULT_FORMAT || "json").toLowerCase();
-    
+
     // Lade alle Task-Dateien aus Cache
     const files = await list("raw/tasks/");
     const tasks = [];
@@ -73,6 +72,13 @@ section{margin:16px 0;padding:12px;border:1px solid #ddd;border-radius:10px}
         const [d, z] = group.slot.split("|");
         html += `<section><div class="slot">${htmlEscape(d)} – ${htmlEscape(z)}</div>`;
         for (const it of group.items) {
+          // Sortiere Tasks nach laufender Nummer im Dateinamen (z.B. 0000-taskname.md)
+          group.items.sort((a, b) => {
+            const numA = parseInt(a.file.split('/').pop().match(/^(\d+)/)?.[1] || '9999');
+            const numB = parseInt(b.file.split('/').pop().match(/^(\d+)/)?.[1] || '9999');
+            return numA - numB;
+          });
+
           const title = it.file.split("/").pop().replace(/^\d{4}-\d{2}-\d{2}_/, "").replace(/\.md$/,"").replace(/-/g," ");
           html += `<div class="item">• ${htmlEscape(title)} <span class="badge">${htmlEscape(it.kategorie || "?")}</span>${
             it.deadline ? `<span class="badge">DL: ${htmlEscape(it.deadline)}</span>` : ""
@@ -82,10 +88,10 @@ section{margin:16px 0;padding:12px;border:1px solid #ddd;border-radius:10px}
         }
         html += `</section>`;
       }
-      
-      return { 
-        headers: { "content-type": "text/html; charset=utf-8" }, 
-        body: html 
+
+      return {
+        headers: { "content-type": "text/html; charset=utf-8" },
+        body: html
       };
     }
 
