@@ -95,6 +95,10 @@
     <script>
         const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 
+        // Extract function key from URL (if provided)
+        const urlParams = new URLSearchParams(window.location.search);
+        const functionKey = urlParams.get('code') || '';
+
         function extractTaskNumber(filename) {
             const match = filename.match(/(\d{4})/);
             return match ? parseInt(match[1], 10) : 9999;
@@ -103,7 +107,8 @@
         async function loadTimeline() {
             const container = document.getElementById('timeline');
             try {
-                const response = await fetch('/codex?format=json');
+                const apiUrl = functionKey ? `/codex?format=json&code=${encodeURIComponent(functionKey)}` : '/codex?format=json';
+                const response = await fetch(apiUrl);
                 const data = await response.json();
 
                 let html = '';

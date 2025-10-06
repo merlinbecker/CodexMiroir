@@ -160,6 +160,10 @@
         const fixedFields = document.getElementById('fixedSlotFields');
         const resultDiv = document.getElementById('result');
 
+        // Extract function key from URL (if provided)
+        const urlParams = new URLSearchParams(window.location.search);
+        const functionKey = urlParams.get('code') || '';
+
         checkbox.addEventListener('change', () => {
             if (checkbox.checked) {
                 fixedFields.classList.add('visible');
@@ -202,7 +206,8 @@
             }
 
             try {
-                const response = await fetch('/api/tasks', {
+                const apiUrl = functionKey ? `/api/tasks?code=${encodeURIComponent(functionKey)}` : '/api/tasks';
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
