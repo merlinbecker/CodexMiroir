@@ -1,0 +1,215 @@
+
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Task erstellen - Codex Miroir</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+    <style>
+        body {
+            padding: 2rem;
+        }
+        .container {
+            max-width: 800px;
+        }
+        .result {
+            margin-top: 2rem;
+            padding: 1rem;
+            border-radius: 4px;
+            display: none;
+        }
+        .result.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .result.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .checkbox-group {
+            margin: 1rem 0;
+        }
+        .fixed-slot-fields {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 4px;
+        }
+        .fixed-slot-fields.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <header>
+            <h1>Task erstellen</h1>
+            <p><a href="/">← Zurück zur Timeline</a></p>
+        </header>
+
+        <form id="taskForm">
+            <label>
+                Kategorie *
+                <select name="kategorie" required>
+                    <option value="">Bitte wählen</option>
+                    <option value="geschäftlich">Geschäftlich</option>
+                    <option value="privat">Privat</option>
+                </select>
+            </label>
+
+            <label>
+                Titel / Beschreibung *
+                <textarea name="body" rows="5" required placeholder="Z.B. Meeting mit Marina vorbereiten&#10;&#10;Details zur Aufgabe..."></textarea>
+            </label>
+
+            <label>
+                Tags (kommasepariert)
+                <input type="text" name="tags" placeholder="meeting, wichtig, projekt-x" />
+            </label>
+
+            <label>
+                Deadline (dd.mm.yyyy)
+                <input type="text" name="deadline" placeholder="31.12.2025" pattern="\d{2}\.\d{2}\.\d{4}" />
+                <small>Format: dd.mm.yyyy (z.B. 31.12.2025)</small>
+            </label>
+
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" id="hasFixedSlot" name="hasFixedSlot" />
+                    Fester Termin (fixedSlot)
+                </label>
+            </div>
+
+            <div id="fixedSlotFields" class="fixed-slot-fields">
+                <h4>Fester Termin Details</h4>
+                <label>
+                    Datum (dd.mm.yyyy) *
+                    <input type="text" name="fixedSlotDatum" placeholder="15.10.2025" pattern="\d{2}\.\d{2}\.\d{4}" />
+                </label>
+                <label>
+                    Tageszeit *
+                    <select name="fixedSlotZeit">
+                        <option value="">Bitte wählen</option>
+                        <option value="morgens">Morgens</option>
+                        <option value="nachmittags">Nachmittags</option>
+                        <option value="abends">Abends</option>
+                    </select>
+                </label>
+            </div>
+
+            <button type="submit" id="submitBtn">Task erstellen</button>
+        </form>
+
+        <div id="result" class="result"></div>
+    </main>
+
+    <script>
+        const form = document.getElementById('taskForm');
+        const fixedSlotCheckbox = document.getElementById('hasFixedSlot');
+        const fixedSlotFields = document.getElementById('fixedSlotFields');
+        const resultDiv = document.getElementById('result');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Toggle fixed slot fields
+        fixedSlotCheckbox.addEventListener('change', () => {
+            if (fixedSlotCheckbox.checked) {
+                fixedSlotFields.classList.add('visible');
+                form.fixedSlotDatum.required = true;
+                form.fixedSlotZeit.required = true;
+            } else {
+                fixedSlotFields.classList.remove('visible');
+                form.fixedSlotDatum.required = false;
+                form.fixedSlotZeit.required = false;
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            resultDiv.style.display = 'none';
+            resultDiv.className = 'result';
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Wird erstellt...';
+
+            try {
+                // Build payload
+                const payload = {
+                    kategorie: form.kategorie.value,
+                    status: 'offen',
+                    body: form.body.value.trim()
+                };
+
+                // Parse tags
+                const tagsInput = form.tags.value.trim();
+                if (tagsInput) {
+                    payload.tags = tagsInput.split(',').map(t => t.trim()).filter(t => t);
+                }
+
+                // Parse deadline
+                const deadlineInput = form.deadline.value.trim();
+                if (deadlineInput) {
+                    payload.deadline = deadlineInput;
+                }
+
+                // Parse fixed slot
+                if (fixedSlotCheckbox.checked) {
+                    const datum = form.fixedSlotDatum.value.trim();
+                    const zeit = form.fixedSlotZeit.value.trim();
+                    if (datum && zeit) {
+                        payload.fixedSlot = {
+                            datum: datum,
+                            zeit: zeit
+                        };
+                    }
+                }
+
+                // Generate idempotency key
+                const idempotencyKey = crypto.randomUUID();
+
+                // Send POST request
+                const response = await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Idempotency-Key': idempotencyKey
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `
+                        <h4>✓ Task erfolgreich erstellt!</h4>
+                        <p><strong>ID:</strong> ${data.id}</p>
+                        <p><strong>Pfad:</strong> ${data.path}</p>
+                        <p><strong>Commit SHA:</strong> ${data.commitSha}</p>
+                        <p><a href="${data.htmlUrl}" target="_blank">Auf GitHub ansehen →</a></p>
+                        <p><a href="/codex?format=html&nocache=true">Timeline neu laden →</a></p>
+                    `;
+                    form.reset();
+                } else {
+                    throw new Error(data.error || 'Unbekannter Fehler');
+                }
+
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <h4>✗ Fehler beim Erstellen</h4>
+                    <p>${error.message}</p>
+                `;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Task erstellen';
+            }
+        });
+    </script>
+</body>
+</html>
