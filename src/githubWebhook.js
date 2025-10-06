@@ -1,12 +1,80 @@
+/***
+ *
+ * arbeite diesen snippet unten ein, es wurde nur noch auf tasks vereinfacht
+ *
+ *
+ */
 
-const { app } = require('@azure/functions');
+// githubWebhook/index.js
+const crypto = require("crypto");
+const { applyDiff } = require("../shared/sync");
+
+const BASE = (process.env.GITHUB_BASE_PATH || "codex-miroir").replace(
+  /\/+$/,
+  "",
+);
+const SECRET = process.env.GITHUB_WEBHOOK_SECRET;
+
+function verifySignature(req) {
+  const sig = req.headers["x-hub-signature-256"];
+  if (!sig || !sig.startsWith("sha256=")) return false;
+  const mac = crypto.createHmac("sha256", SECRET);
+  mac.update(req.rawBody || "");
+  const digest = `sha256=${mac.digest("hex")}`;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(digest));
+  } catch {
+    return false;
+  }
+}
+
+module.exports = async function (context, req) {
+  if (!verifySignature(req)) {
+    context.res = { status: 401, body: "invalid signature" };
+    return;
+  }
+  if (req.headers["x-github-event"] !== "push") {
+    context.res = { status: 202, body: "ignored" };
+    return;
+  }
+
+  const payload = req.body || {};
+  const head = payload.after;
+
+  const addedOrModified = [];
+  const removed = [];
+  for (const c of payload.commits || []) {
+    for (const p of c.added || [])
+      if (p.startsWith(`${BASE}/tasks/`) && p.endsWith(".md"))
+        addedOrModified.push(p);
+    for (const p of c.modified || [])
+      if (p.startsWith(`${BASE}/tasks/`) && p.endsWith(".md"))
+        addedOrModified.push(p);
+    for (const p of c.removed || [])
+      if (p.startsWith(`${BASE}/tasks/`) && p.endsWith(".md")) removed.push(p);
+  }
+
+  const res = await applyDiff({ addedOrModified, removed }, head);
+  context.res = {
+    status: 200,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ok: true, head, ...res }, null, 2),
+  };
+};
+
+/// es folgt der alte code
+
+const { app } = require("@azure/functions");
 const crypto = require("crypto");
 const { putTextBlob, deleteBlob } = require("../shared/storage");
 
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
 const BRANCH = process.env.GITHUB_BRANCH || "main";
-const BASE = (process.env.GITHUB_BASE_PATH || "codex-miroir").replace(/\/+$/, "");
+const BASE = (process.env.GITHUB_BASE_PATH || "codex-miroir").replace(
+  /\/+$/,
+  "",
+);
 const TOKEN = process.env.GITHUB_TOKEN;
 const SECRET = process.env.GITHUB_WEBHOOK_SECRET;
 
@@ -27,10 +95,10 @@ async function fetchFileAtSha(path, sha) {
   const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}?ref=${sha}`;
   const r = await fetch(url, {
     headers: {
-      "Authorization": `Bearer ${TOKEN}`,
+      Authorization: `Bearer ${TOKEN}`,
       "User-Agent": "codex-miroir",
-      "Accept": "application/vnd.github.v3+json"
-    }
+      Accept: "application/vnd.github.v3+json",
+    },
   });
   if (r.status === 404) return null;
   if (!r.ok) throw new Error(`GitHub ${r.status} for ${path}`);
@@ -41,7 +109,9 @@ async function fetchFileAtSha(path, sha) {
     return buf.toString("utf8");
   }
   // Fallback raw
-  const raw = await fetch(j.download_url, { headers: { "Authorization": `Bearer ${TOKEN}` } });
+  const raw = await fetch(j.download_url, {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+  });
   return await raw.text();
 }
 
@@ -50,23 +120,23 @@ function toBlobPath(repoPath) {
   return `raw/${repoPath.replace(`${BASE}/`, "")}`;
 }
 
-app.http('githubWebhook', {
-  methods: ['POST'],
-  authLevel: 'anonymous',
-  route: 'github/webhook',
+app.http("githubWebhook", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "github/webhook",
   handler: async (request, context) => {
     if (!verifySignature(request)) {
-      return { 
-        status: 401, 
-        body: "invalid signature" 
+      return {
+        status: 401,
+        body: "invalid signature",
       };
     }
 
     const event = request.headers.get("x-github-event");
     if (event !== "push") {
-      return { 
-        status: 202, 
-        body: "ignored" 
+      return {
+        status: 202,
+        body: "ignored",
       };
     }
 
@@ -76,16 +146,25 @@ app.http('githubWebhook', {
     const touched = new Set();
     for (const c of payload.commits || []) {
       for (const p of [...c.added, ...c.modified, ...c.removed]) {
-        if (p && (p.startsWith(`${BASE}/tasks/`) || p.startsWith(`${BASE}/timeline/`)) && p.endsWith(".md")) {
+        if (
+          p &&
+          (p.startsWith(`${BASE}/tasks/`) ||
+            p.startsWith(`${BASE}/timeline/`)) &&
+          p.endsWith(".md")
+        ) {
           touched.add(p);
         }
       }
     }
 
-    let changed = 0, removed = 0, skipped = 0;
+    let changed = 0,
+      removed = 0,
+      skipped = 0;
     for (const p of touched) {
       // removed?
-      const wasRemoved = (payload.commits || []).some(c => (c.removed || []).includes(p));
+      const wasRemoved = (payload.commits || []).some((c) =>
+        (c.removed || []).includes(p),
+      );
       if (wasRemoved) {
         await deleteBlob(toBlobPath(p));
         removed++;
@@ -93,9 +172,9 @@ app.http('githubWebhook', {
       }
       // pull fresh content at head SHA
       const text = await fetchFileAtSha(p, headSha);
-      if (text == null) { 
-        skipped++; 
-        continue; 
+      if (text == null) {
+        skipped++;
+        continue;
       }
       await putTextBlob(toBlobPath(p), text, "text/markdown");
       changed++;
@@ -103,16 +182,16 @@ app.http('githubWebhook', {
 
     return {
       status: 200,
-      headers: { 
-        "content-type": "application/json" 
+      headers: {
+        "content-type": "application/json",
       },
-      jsonBody: { 
-        ok: true, 
-        head: headSha, 
-        changed, 
-        removed, 
-        skipped 
-      }
+      jsonBody: {
+        ok: true,
+        head: headSha,
+        changed,
+        removed,
+        skipped,
+      },
     };
-  }
+  },
 });

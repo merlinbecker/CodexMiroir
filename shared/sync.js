@@ -1,0 +1,107 @@
+// shared/sync.js
+const { putTextBlob, deleteBlob, list: listBlobs } = require("./storage");
+
+const OWNER = process.env.GITHUB_OWNER;
+const REPO = process.env.GITHUB_REPO;
+const BRANCH = process.env.GITHUB_BRANCH || "main";
+const BASE = (process.env.GITHUB_BASE_PATH || "codex-miroir").replace(
+  /\/+$/,
+  "",
+);
+const TOKEN = process.env.GITHUB_TOKEN;
+
+async function gh(url, accept = "application/vnd.github.v3+json") {
+  const r = await fetch(`https://api.github.com${url}`, {
+    headers: {
+      Authorization: `Bearer ${TOKEN}`,
+      "User-Agent": "codex-miroir",
+      Accept: accept,
+    },
+  });
+  if (!r.ok) throw new Error(`GitHub ${r.status} ${url}`);
+  return r;
+}
+
+function toBlobPath(repoPath) {
+  // codex-miroir/tasks/x.md -> raw/tasks/x.md
+  return `raw/${repoPath.replace(`${BASE}/`, "")}`;
+}
+
+async function fetchFileAtRef(repoPath, ref) {
+  const r = await gh(
+    `/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(repoPath)}?ref=${ref}`,
+  );
+  const j = await r.json();
+  if (j.type !== "file") return null;
+  if (j.encoding === "base64" && j.content)
+    return Buffer.from(j.content, "base64").toString("utf8");
+  const raw = await fetch(j.download_url, {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+  });
+  if (!raw.ok) throw new Error(`RAW ${raw.status} ${j.download_url}`);
+  return await raw.text();
+}
+
+async function listMdUnderTasks(ref) {
+  const path = `${BASE}/tasks`;
+  const r = await gh(
+    `/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}?ref=${ref}`,
+  );
+  const arr = await r.json();
+  return arr
+    .filter((x) => x.type === "file" && x.name.endsWith(".md"))
+    .map((x) => ({ repoPath: `${path}/${x.name}` }));
+}
+
+async function fullSync(ref = BRANCH, clean = false) {
+  const files = await listMdUnderTasks(ref);
+  let changed = 0;
+  for (const f of files) {
+    const text = await fetchFileAtRef(f.repoPath, ref);
+    if (!text) continue;
+    await putTextBlob(toBlobPath(f.repoPath), text, "text/markdown");
+    changed++;
+  }
+  let removed = 0;
+  if (clean) {
+    const existing = new Set(files.map((f) => toBlobPath(f.repoPath)));
+    const blobs = await listBlobs(`raw/tasks/`);
+    for (const b of blobs) {
+      if (!existing.has(b)) {
+        await deleteBlob(b);
+        removed++;
+      }
+    }
+  }
+  return { scope: "tasks", mode: "full", changed, removed };
+}
+
+async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH) {
+  let changed = 0,
+    deleted = 0,
+    skipped = 0;
+  for (const p of removed) {
+    if (!p.endsWith(".md")) {
+      skipped++;
+      continue;
+    }
+    await deleteBlob(toBlobPath(p));
+    deleted++;
+  }
+  for (const p of addedOrModified) {
+    if (!p.endsWith(".md")) {
+      skipped++;
+      continue;
+    }
+    const text = await fetchFileAtRef(p, ref);
+    if (!text) {
+      skipped++;
+      continue;
+    }
+    await putTextBlob(toBlobPath(p), text, "text/markdown");
+    changed++;
+  }
+  return { scope: "tasks", mode: "diff", changed, deleted, skipped, ref };
+}
+
+module.exports = { fullSync, applyDiff, toBlobPath, fetchFileAtRef };
