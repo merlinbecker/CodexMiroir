@@ -2,126 +2,171 @@
 <!doctype html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Task erstellen - Codex Miroir</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
     <style>
-        body {
-            padding: 2rem;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 20px;
+            max-width: 700px;
+            margin: 0 auto;
+            background: #f5f5f5;
         }
-        .container {
-            max-width: 800px;
+        header { 
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #333;
         }
-        .result {
-            margin-top: 2rem;
-            padding: 1rem;
+        h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        form { 
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        label { 
+            display: block;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+        label span { 
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+        }
+        input, select, textarea { 
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
             border-radius: 4px;
-            display: none;
+            font-size: 1rem;
         }
-        .result.success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+        textarea { resize: vertical; }
+        small { 
+            display: block;
+            margin-top: 0.25rem;
+            color: #666;
+            font-size: 0.8rem;
         }
-        .result.error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+        .checkbox-group { margin: 1rem 0; }
+        .checkbox-group label { 
+            display: flex;
+            align-items: center;
+            font-weight: normal;
         }
-        .checkbox-group {
-            margin: 1rem 0;
+        .checkbox-group input { 
+            width: auto;
+            margin-right: 0.5rem;
         }
-        .fixed-slot-fields {
+        .fixed-slot { 
             display: none;
             margin-top: 1rem;
             padding: 1rem;
-            background-color: rgba(0, 0, 0, 0.05);
+            background: #f8f9fa;
             border-radius: 4px;
         }
-        .fixed-slot-fields.visible {
-            display: block;
+        .fixed-slot.visible { display: block; }
+        button { 
+            width: 100%;
+            padding: 0.75rem;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 1rem;
         }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .result { 
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 4px;
+            display: none;
+        }
+        .result.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .result.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     </style>
 </head>
 <body>
-    <main class="container">
-        <header>
-            <h1>Task erstellen</h1>
-            <p><a href="/">← Zurück zur Timeline</a></p>
-        </header>
+    <header>
+        <h1>Task erstellen</h1>
+        <p><a href="/">← Zurück zur Timeline</a></p>
+    </header>
 
-        <form id="taskForm">
+    <form id="taskForm">
+        <label>
+            <span>Kategorie *</span>
+            <select name="kategorie" required>
+                <option value="">Bitte wählen</option>
+                <option value="geschäftlich">Geschäftlich</option>
+                <option value="privat">Privat</option>
+            </select>
+        </label>
+
+        <label>
+            <span>Titel / Beschreibung *</span>
+            <textarea name="body" rows="5" required placeholder="Z.B. Meeting mit Marina vorbereiten"></textarea>
+        </label>
+
+        <label>
+            <span>Tags (kommasepariert)</span>
+            <input type="text" name="tags" placeholder="meeting, wichtig, projekt-x">
+        </label>
+
+        <label>
+            <span>Deadline</span>
+            <input type="text" name="deadline" placeholder="31.12.2025" pattern="\d{2}\.\d{2}\.\d{4}">
+            <small>Format: dd.mm.yyyy</small>
+        </label>
+
+        <div class="checkbox-group">
             <label>
-                Kategorie *
-                <select name="kategorie" required>
+                <input type="checkbox" id="hasFixedSlot">
+                Fester Termin (fixedSlot)
+            </label>
+        </div>
+
+        <div id="fixedSlotFields" class="fixed-slot">
+            <h4>Fester Termin Details</h4>
+            <label>
+                <span>Datum *</span>
+                <input type="text" name="fixedSlotDatum" placeholder="15.10.2025" pattern="\d{2}\.\d{2}\.\d{4}">
+            </label>
+            <label>
+                <span>Tageszeit *</span>
+                <select name="fixedSlotZeit">
                     <option value="">Bitte wählen</option>
-                    <option value="geschäftlich">Geschäftlich</option>
-                    <option value="privat">Privat</option>
+                    <option value="morgens">Morgens</option>
+                    <option value="nachmittags">Nachmittags</option>
+                    <option value="abends">Abends</option>
                 </select>
             </label>
+        </div>
 
-            <label>
-                Titel / Beschreibung *
-                <textarea name="body" rows="5" required placeholder="Z.B. Meeting mit Marina vorbereiten&#10;&#10;Details zur Aufgabe..."></textarea>
-            </label>
+        <button type="submit">Task erstellen</button>
+    </form>
 
-            <label>
-                Tags (kommasepariert)
-                <input type="text" name="tags" placeholder="meeting, wichtig, projekt-x" />
-            </label>
-
-            <label>
-                Deadline (dd.mm.yyyy)
-                <input type="text" name="deadline" placeholder="31.12.2025" pattern="\d{2}\.\d{2}\.\d{4}" />
-                <small>Format: dd.mm.yyyy (z.B. 31.12.2025)</small>
-            </label>
-
-            <div class="checkbox-group">
-                <label>
-                    <input type="checkbox" id="hasFixedSlot" name="hasFixedSlot" />
-                    Fester Termin (fixedSlot)
-                </label>
-            </div>
-
-            <div id="fixedSlotFields" class="fixed-slot-fields">
-                <h4>Fester Termin Details</h4>
-                <label>
-                    Datum (dd.mm.yyyy) *
-                    <input type="text" name="fixedSlotDatum" placeholder="15.10.2025" pattern="\d{2}\.\d{2}\.\d{4}" />
-                </label>
-                <label>
-                    Tageszeit *
-                    <select name="fixedSlotZeit">
-                        <option value="">Bitte wählen</option>
-                        <option value="morgens">Morgens</option>
-                        <option value="nachmittags">Nachmittags</option>
-                        <option value="abends">Abends</option>
-                    </select>
-                </label>
-            </div>
-
-            <button type="submit" id="submitBtn">Task erstellen</button>
-        </form>
-
-        <div id="result" class="result"></div>
-    </main>
+    <div id="result" class="result"></div>
 
     <script>
         const form = document.getElementById('taskForm');
-        const fixedSlotCheckbox = document.getElementById('hasFixedSlot');
-        const fixedSlotFields = document.getElementById('fixedSlotFields');
+        const checkbox = document.getElementById('hasFixedSlot');
+        const fixedFields = document.getElementById('fixedSlotFields');
         const resultDiv = document.getElementById('result');
-        const submitBtn = document.getElementById('submitBtn');
 
-        // Toggle fixed slot fields
-        fixedSlotCheckbox.addEventListener('change', () => {
-            if (fixedSlotCheckbox.checked) {
-                fixedSlotFields.classList.add('visible');
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+                fixedFields.classList.add('visible');
                 form.fixedSlotDatum.required = true;
                 form.fixedSlotZeit.required = true;
             } else {
-                fixedSlotFields.classList.remove('visible');
+                fixedFields.classList.remove('visible');
                 form.fixedSlotDatum.required = false;
                 form.fixedSlotZeit.required = false;
             }
@@ -130,52 +175,38 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const btn = form.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.textContent = 'Wird erstellt...';
             resultDiv.style.display = 'none';
-            resultDiv.className = 'result';
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Wird erstellt...';
+
+            const payload = {
+                kategorie: form.kategorie.value,
+                status: 'offen',
+                body: form.body.value.trim()
+            };
+
+            if (form.tags.value.trim()) {
+                payload.tags = form.tags.value.split(',').map(t => t.trim()).filter(t => t);
+            }
+
+            if (form.deadline.value.trim()) {
+                payload.deadline = form.deadline.value.trim();
+            }
+
+            if (checkbox.checked && form.fixedSlotDatum.value && form.fixedSlotZeit.value) {
+                payload.fixedSlot = {
+                    datum: form.fixedSlotDatum.value.trim(),
+                    zeit: form.fixedSlotZeit.value.trim()
+                };
+            }
 
             try {
-                // Build payload
-                const payload = {
-                    kategorie: form.kategorie.value,
-                    status: 'offen',
-                    body: form.body.value.trim()
-                };
-
-                // Parse tags
-                const tagsInput = form.tags.value.trim();
-                if (tagsInput) {
-                    payload.tags = tagsInput.split(',').map(t => t.trim()).filter(t => t);
-                }
-
-                // Parse deadline
-                const deadlineInput = form.deadline.value.trim();
-                if (deadlineInput) {
-                    payload.deadline = deadlineInput;
-                }
-
-                // Parse fixed slot
-                if (fixedSlotCheckbox.checked) {
-                    const datum = form.fixedSlotDatum.value.trim();
-                    const zeit = form.fixedSlotZeit.value.trim();
-                    if (datum && zeit) {
-                        payload.fixedSlot = {
-                            datum: datum,
-                            zeit: zeit
-                        };
-                    }
-                }
-
-                // Generate idempotency key
-                const idempotencyKey = crypto.randomUUID();
-
-                // Send POST request
                 const response = await fetch('/api/tasks', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Idempotency-Key': idempotencyKey
+                        'Idempotency-Key': crypto.randomUUID()
                     },
                     body: JSON.stringify(payload)
                 });
@@ -188,26 +219,19 @@
                     resultDiv.innerHTML = `
                         <h4>✓ Task erfolgreich erstellt!</h4>
                         <p><strong>ID:</strong> ${data.id}</p>
-                        <p><strong>Pfad:</strong> ${data.path}</p>
-                        <p><strong>Commit SHA:</strong> ${data.commitSha}</p>
-                        <p><a href="${data.htmlUrl}" target="_blank">Auf GitHub ansehen →</a></p>
                         <p><a href="/codex?format=html&nocache=true">Timeline neu laden →</a></p>
                     `;
                     form.reset();
                 } else {
                     throw new Error(data.error || 'Unbekannter Fehler');
                 }
-
             } catch (error) {
                 resultDiv.className = 'result error';
                 resultDiv.style.display = 'block';
-                resultDiv.innerHTML = `
-                    <h4>✗ Fehler beim Erstellen</h4>
-                    <p>${error.message}</p>
-                `;
+                resultDiv.innerHTML = `<h4>✗ Fehler</h4><p>${error.message}</p>`;
             } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Task erstellen';
+                btn.disabled = false;
+                btn.textContent = 'Task erstellen';
             }
         });
     </script>
