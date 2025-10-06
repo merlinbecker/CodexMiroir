@@ -5,3 +5,4 @@ import './githubWebhook.js';
 import './manualSync.js';
 import './renderCodex.js';
 import './serveStatic.js';
+import './createTask.js';
