@@ -73,6 +73,10 @@ async function fullSync(ref = BRANCH, clean = false) {
       }
     }
   }
+  // headSha speichern für Timeline-Cache-Invalidierung
+  await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
+
+  // Erfolgsmeldung
   return { scope: "tasks", mode: "full", changed, removed };
 }
 
@@ -101,6 +105,10 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH) {
     await putTextBlob(toBlobPath(p), text, "text/markdown");
     changed++;
   }
+
+  // headSha speichern für Timeline-Cache-Invalidierung
+  await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
+
   return { scope: "tasks", mode: "diff", changed, deleted, skipped, ref };
 }
 
