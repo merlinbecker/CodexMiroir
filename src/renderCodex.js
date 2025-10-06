@@ -1,4 +1,3 @@
-
 import { app } from '@azure/functions';
 import { list, getTextBlob, putTextBlob } from "../shared/storage.js";
 import { parseTask } from "../shared/parsing.js";
@@ -67,12 +66,12 @@ function extractTaskNumber(filename) {
 
 function createWeekSkeleton(startDate) {
   const skeleton = [];
-  
+
   for (let i = 0; i < 7; i++) {
     const date = new Date(startDate);
     date.setDate(date.getDate() + i);
     const dateStr = formatDateStr(date);
-    
+
     const day = {
       datum: dateStr,
       dayOfWeek: date.getDay(),
@@ -82,10 +81,10 @@ function createWeekSkeleton(startDate) {
         isFixed: false
       }))
     };
-    
+
     skeleton.push(day);
   }
-  
+
   return skeleton;
 }
 
@@ -95,24 +94,24 @@ function createWeekSkeleton(startDate) {
 
 function placeFixedTasks(timeline, tasks) {
   const fixedTasks = tasks.filter(t => t.fixedSlot);
-  
+
   fixedTasks.forEach(task => {
     const targetDateStr = task.fixedSlot.datum;
     const targetSlot = task.fixedSlot.zeit;
     const targetDay = timeline.find(d => d.datum === targetDateStr);
-    
+
     if (!targetDay) return; // Datum außerhalb der Timeline
-    
+
     const slotIndex = SLOTS.indexOf(targetSlot);
     if (slotIndex === -1) return; // Ungültiger Slot
-    
+
     const slot = targetDay.slots[slotIndex];
-    
+
     if (slot.task && !slot.isFixed) {
       // Domino: Verschiebe nicht-fixen Task
       shiftTaskForward(timeline, targetDay, slotIndex, slot.task);
     }
-    
+
     // Platziere fixed Task
     slot.task = task;
     slot.isFixed = true;
@@ -123,13 +122,13 @@ function shiftTaskForward(timeline, currentDay, fromSlotIndex, task) {
   // Versuche nächsten Slot im selben Tag
   for (let i = fromSlotIndex + 1; i < SLOTS.length; i++) {
     const slot = currentDay.slots[i];
-    
+
     if (!slot.task) {
       slot.task = task;
       slot.isFixed = false;
       return;
     }
-    
+
     if (!slot.isFixed) {
       // Rekursiv weiterschieben
       const nextTask = slot.task;
@@ -139,7 +138,7 @@ function shiftTaskForward(timeline, currentDay, fromSlotIndex, task) {
       return;
     }
   }
-  
+
   // Überlauf: Nächster passender Tag
   const nextDay = findNextSuitableDay(timeline, currentDay.datum, task.kategorie);
   if (nextDay) {
@@ -149,15 +148,15 @@ function shiftTaskForward(timeline, currentDay, fromSlotIndex, task) {
 
 function findNextSuitableDay(timeline, fromDateStr, kategorie) {
   const fromDate = parseDateStr(fromDateStr);
-  
+
   for (const day of timeline) {
     const dayDate = parseDateStr(day.datum);
     if (dayDate <= fromDate) continue;
-    
+
     if (kategorie === 'geschäftlich' && isWeekday(dayDate)) return day;
     if (kategorie === 'privat' && isWeekend(dayDate)) return day;
   }
-  
+
   return null;
 }
 
@@ -166,13 +165,13 @@ function placeTaskInDay(timeline, day, task) {
     const slotName = AUTO_FILLABLE_SLOTS[i];
     const slotIndex = SLOTS.indexOf(slotName);
     const slot = day.slots[slotIndex];
-    
+
     if (!slot.task) {
       slot.task = task;
       slot.isFixed = false;
       return true;
     }
-    
+
     if (!slot.isFixed) {
       const displaced = slot.task;
       slot.task = task;
@@ -181,7 +180,7 @@ function placeTaskInDay(timeline, day, task) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -189,21 +188,21 @@ function autoFillTasks(timeline, tasks) {
   const openTasks = tasks
     .filter(t => !t.fixedSlot)
     .sort((a, b) => extractTaskNumber(a.file) - extractTaskNumber(b.file));
-  
+
   openTasks.forEach(task => {
     const kategorie = task.kategorie;
-    
+
     for (const day of timeline) {
       const dayDate = parseDateStr(day.datum);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       if (dayDate < today) continue; // Keine Vergangenheit
-      
+
       // Kategorie-Regeln prüfen
       if (kategorie === 'geschäftlich' && !isWeekday(dayDate)) continue;
       if (kategorie === 'privat' && !isWeekend(dayDate)) continue;
-      
+
       if (placeTaskInDay(timeline, day, task)) {
         break; // Task platziert
       }
@@ -222,7 +221,7 @@ async function getLastHeadSha() {
 
 async function loadOrBuildTimeline(headSha, context, nocache = false) {
   const artifactPath = `artifacts/timeline_${headSha}.json`;
-  
+
   // Cache Check
   if (!nocache) {
     const cached = await getTextBlob(artifactPath);
@@ -237,9 +236,9 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
   // Build Timeline
   const files = await list("raw/tasks/");
   const tasks = [];
-  
+
   context.log(`[renderCodex] Found ${files.length} files in raw/tasks/`);
-  
+
   for (const name of files) {
     if (!name.endsWith(".md")) continue;
     const md = await getTextBlob(name);
@@ -249,29 +248,29 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
     }
     const t = parseTask(md);
     context.log(`[renderCodex] Parsed ${name}:`, JSON.stringify(t));
-    
+
     if (t.typ !== "task" || t.status !== "offen") {
       context.log(`[renderCodex] Skipped ${name}: typ=${t.typ}, status=${t.status}`);
       continue;
     }
     tasks.push({ file: name, ...t });
   }
-  
+
   context.log(`[renderCodex] Total valid tasks: ${tasks.length}`);
 
   // Erstelle Timeline-Skeleton für 7 Tage ab heute
   const now = new Date();
   now.setHours(0, 0, 0, 0); // Normalisiere auf Tagesbeginn
   const weekStart = new Date(now); // Speichere Start für Meta-Info
-  
+
   // Beginne mit heute und zeige 7 Tage voraus
   const timeline = createWeekSkeleton(weekStart);
-  
+
   // Platziere Tasks
   context.log(`[renderCodex] Placing ${tasks.length} tasks in timeline`);
   placeFixedTasks(timeline, tasks);
   autoFillTasks(timeline, tasks);
-  
+
   // Count placed tasks
   const placedCount = timeline.reduce((sum, day) => 
     sum + day.slots.filter(s => s.task).length, 0);
@@ -312,7 +311,7 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
 function buildHtmlFromTimeline(data) {
   const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
   const timeline = data.timeline || [];
-  
+
   let html = `<!doctype html><meta charset="utf-8"><title>Codex Miroir Timeline</title>
 <style>
 body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:20px;background:#fafafa}
@@ -340,42 +339,42 @@ h1{font-size:22px;margin:0 0 8px;color:#333}
     const dayName = dayNames[day.dayOfWeek];
     html += `<div class="day">
       <div class="day-header">${htmlEscape(dayName)} ${htmlEscape(day.datum)}</div>`;
-    
+
     for (const slot of day.slots) {
       html += `<div class="slot ${htmlEscape(slot.zeit)}">
         <div class="slot-label">${htmlEscape(slot.zeit)}</div>`;
-      
+
       if (slot.task) {
         const title = slot.task.file.split('/').pop().replace(/^\d{4}\.md$/, '').replace(/-/g, ' ');
         const num = extractTaskNumber(slot.task.file);
-        
+
         html += `<div class="task-title">[${num}] ${htmlEscape(title)}
           <span class="badge">${htmlEscape(slot.task.kategorie || '?')}</span>`;
-        
+
         if (slot.task.isFixed) {
           html += `<span class="badge fixed">FIX</span>`;
         }
-        
+
         if (slot.task.deadline) {
           html += `<span class="badge">DL: ${htmlEscape(slot.task.deadline)}</span>`;
         }
-        
+
         (slot.task.tags || []).forEach(t => {
           html += `<span class="tag">#${htmlEscape(t)}</span>`;
         });
-        
+
         html += `</div>`;
       } else {
         html += `<div class="empty">– leer –</div>`;
       }
-      
+
       html += `</div>`;
     }
-    
-    html += `</div>`;
+
+    html += `</div>`; // close .day
   }
 
-  html += `</div>`;
+  html += `</div>`; // close .timeline
   return html;
 }
 
@@ -391,7 +390,7 @@ app.http('renderCodex', {
     const url = new URL(request.url);
     const format = (url.searchParams.get('format') || process.env.RENDER_DEFAULT_FORMAT || "json").toLowerCase();
     const nocache = url.searchParams.get('nocache') === 'true';
-    
+
     const headSha = await getLastHeadSha();
 
     // HTTP Caching: ETag Check
