@@ -119,7 +119,7 @@ async function openPr(fromBranch, toBranch, title, body) {
 app.http("createTask", {
   methods: ["POST"],
   authLevel: "function",
-  route: "tasks",
+  route: "api/tasks",
   handler: async (request, context) => {
     try {
       const idemKey = request.headers.get("idempotency-key");
