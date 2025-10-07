@@ -13,7 +13,7 @@ Tasks sind **nummerierte Markdown-Dateien** in `codex-miroir/tasks/`:
 ```yaml
 ---
 typ: task
-kategorie: geschäftlich | privat
+kategorie: arbeit | privat
 status: offen | abgeschlossen | abgebrochen
 tags: [tag1, tag2]  # optional
 deadline: dd.mm.yyyy  # optional
