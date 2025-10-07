@@ -18,8 +18,8 @@ radar-beta
 | Reliability Rating | 1.0 | 🟩 |
 | Maintainability Rating | 1.0 | 🟩 |
 | Coverage | 2.0% | ❌ |
-| Code Duplication | 10.1% | 🟩 |
-| Lines of Code | 2216 | 📊 |
+| Code Duplication | 10.0% | 🟩 |
+| Lines of Code | 2223 | 📊 |
 ## SonarCloud Badges
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
@@ -28,4 +28,4 @@ radar-beta
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=coverage)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
-Generated on: 2025-10-07T20:15:55.790Z
+Generated on: 2025-10-07T20:38:33.044Z
