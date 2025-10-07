@@ -76,6 +76,74 @@ describe('githubWebhook.js', () => {
       const isValid = verifySignature('body', 'sha256=short', 'secret');
       expect(isValid).toBe(false);
     });
+
+    test('should throw error when body is not string or Buffer', () => {
+      const verifySignature = (requestBody, signature, webhookSecret) => {
+        if (!signature || !signature.startsWith('sha256=')) return false;
+        
+        // Ensure body is a string or buffer (defensive check)
+        if (typeof requestBody !== 'string' && !Buffer.isBuffer(requestBody)) {
+          throw new TypeError(`verifySignature expects string or Buffer, got ${typeof requestBody}`);
+        }
+        
+        const mac = crypto.createHmac('sha256', webhookSecret);
+        mac.update(requestBody);
+        const digest = `sha256=${mac.digest('hex')}`;
+        try {
+          return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+        } catch {
+          return false;
+        }
+      };
+      
+      // Test with invalid types that would cause the original error
+      const secret = 'test-secret';
+      const signature = 'sha256=abc123';
+      
+      // Test with an object (simulating ReadableStream)
+      expect(() => {
+        verifySignature({}, signature, secret);
+      }).toThrow(TypeError);
+      
+      // Test with array
+      expect(() => {
+        verifySignature([], signature, secret);
+      }).toThrow(TypeError);
+      
+      // Test with number
+      expect(() => {
+        verifySignature(123, signature, secret);
+      }).toThrow(TypeError);
+    });
+
+    test('should accept Buffer as body', () => {
+      const secret = 'test-secret';
+      const payload = Buffer.from(JSON.stringify({ test: 'data' }));
+      
+      const hmac = crypto.createHmac('sha256', secret);
+      hmac.update(payload);
+      const expectedSignature = `sha256=${hmac.digest('hex')}`;
+      
+      const verifySignature = (requestBody, signature, webhookSecret) => {
+        if (!signature || !signature.startsWith('sha256=')) return false;
+        
+        if (typeof requestBody !== 'string' && !Buffer.isBuffer(requestBody)) {
+          throw new TypeError(`verifySignature expects string or Buffer, got ${typeof requestBody}`);
+        }
+        
+        const mac = crypto.createHmac('sha256', webhookSecret);
+        mac.update(requestBody);
+        const digest = `sha256=${mac.digest('hex')}`;
+        try {
+          return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+        } catch {
+          return false;
+        }
+      };
+      
+      const isValid = verifySignature(payload, expectedSignature, secret);
+      expect(isValid).toBe(true);
+    });
   });
 
   describe('webhook payload processing', () => {
