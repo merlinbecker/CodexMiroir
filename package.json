@@ -6,10 +6,10 @@
   "private": true,
   "scripts": {
     "start": "func start",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
-    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
-    "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --ci --watchAll=false",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "test:ci": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage --ci --watchAll=false",
     "deploy:sprocs": "node database/infra/deploy-sprocs.js"
   },
   "dependencies": {
@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.1.2",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.2.3",
     "jest": "^30.1.3"
   },
