@@ -14,9 +14,9 @@ const SLOT_LABELS = {
 };
 
 const TASK_KINDS = {
-    business: 'Geschäftlich',
+    business: 'Arbeit',
     personal: 'Privat',
-    work: 'Geschäftlich'
+    work: 'Arbeit'
 };
 
 const SLOT_HOURS = {
@@ -33,7 +33,7 @@ document.addEventListener('alpine:init', () => {
         allDays: [], // Speichert alle Tage vom Server
         error: null,
         saving: false, // Verhindert doppelte Save-Aufrufe
-        isBusinessMode: true, // Standard: Geschäftlich
+        isBusinessMode: true, // Standard: Arbeit
         dialog: { show: false, mode: 'create', date: '', slot: null },
         task: {
             // Keine ID - wird erst beim Speichern vom Backend generiert
@@ -164,7 +164,7 @@ document.addEventListener('alpine:init', () => {
         applyTheme() {
             const html = document.documentElement;
             if (this.isBusinessMode) {
-                // Dark Theme für Geschäftlich
+                // Dark Theme für Arbeit
                 html.setAttribute('data-theme', 'dark');
             } else {
                 // Light Theme für Privat

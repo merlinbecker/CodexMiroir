@@ -28,7 +28,7 @@ CodexMiroir ist ein minimalistisches Task-Management-System nach dem **Spartaré
 - Automatischer Sync von GitHub zu Azure Blob Storage
 - Timeline-Rendering (JSON/HTML) mit Caching
 - Deterministische Auto-Fill-Logik (Fixed first, dann nach Dateinamen)
-- Kategorie-basierte Planung (geschäftlich = Mo-Fr, privat = Sa-So)
+- Kategorie-basierte Planung (arbeit = Mo-Fr, privat = Sa-So)
 - GitHub Webhook-Integration für automatischen Sync
 - ETag-basiertes HTTP Caching (basierend auf Git HEAD SHA)
 

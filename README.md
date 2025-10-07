@@ -10,7 +10,7 @@
 - **Git = Source of Truth**: Alle Änderungen über Git Commits
 - **Automatischer Sync**: GitHub Webhook → Azure Function → Blob Storage Cache
 - **Timeline-Rendering**: Deterministische Berechnung der Wochenansicht
-- **Kategorie-Regeln**: geschäftlich (Mo-Fr) vs. privat (Sa-So)
+- **Kategorie-Regeln**: arbeit (Mo-Fr) vs. privat (Sa-So)
 - **Fixed-First-Logik**: Tasks mit fixedSlot werden zuerst platziert
 - **Auto-Fill**: Restliche Tasks nach Dateinamen-Reihenfolge
 
@@ -211,7 +211,7 @@ Erstellt neuen Task in GitHub.
 **Request Body**:
 ```json
 {
-  "kategorie": "geschäftlich",
+  "kategorie": "arbeit",
   "deadline": "02.10.2025",
   "fixedSlot": {
     "datum": "02.10.2025",
@@ -316,7 +316,7 @@ GITHUB_PR_BRANCH_PREFIX=codex/tasks
 ### Validierungsregeln
 
 **Kategorie**:
-- Muss `geschäftlich` oder `privat` sein
+- Muss `arbeit` oder `privat` sein
 
 **Deadline/Datum**:
 - Format: `dd.mm.yyyy` (z.B. "02.10.2025")

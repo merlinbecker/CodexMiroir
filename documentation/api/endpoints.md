@@ -19,7 +19,7 @@ Die API dient nur zum:
 ```yaml
 ---
 typ: task
-kategorie: geschäftlich | privat
+kategorie: arbeit | privat
 status: offen | abgeschlossen | abgebrochen
 tags: [optional]
 deadline: dd.mm.yyyy (optional)
@@ -44,7 +44,7 @@ Freier Markdown-Text für Details, Notizen, etc.
 1. **Fixed first**: Tasks mit `fixedSlot` werden zuerst platziert
 2. **Automatische Planung**: Tasks ohne `fixedSlot` werden nach Dateinamen-Reihenfolge (0000-9999) zugewiesen
 3. **Kategorie-Regeln**:
-   - `geschäftlich`: Mo-Fr, morgens → nachmittags
+   - `arbeit`: Mo-Fr, morgens → nachmittags
    - `privat`: Sa-So, morgens → nachmittags
    - `abends`: nie auto-befüllbar
 
@@ -68,7 +68,7 @@ Erstellt eine neue Task-Datei im GitHub Repository mit automatischer ID-Vergabe.
 #### Request Body
 ```json
 {
-  "kategorie": "geschäftlich | privat",
+  "kategorie": "arbeit | privat",
   "status": "offen",
   "deadline": "dd.mm.yyyy",
   "fixedSlot": {
@@ -81,7 +81,7 @@ Erstellt eine neue Task-Datei im GitHub Repository mit automatischer ID-Vergabe.
 ```
 
 **Pflichtfelder:**
-- `kategorie`: `geschäftlich` oder `privat`
+- `kategorie`: `arbeit` oder `privat`
 
 **Optionale Felder:**
 - `status`: Standard ist `offen`
@@ -146,7 +146,7 @@ Die API läuft als Azure Functions App und synchronisiert sich automatisch mit e
 # In codex-miroir/tasks/ eine neue Datei erstellen:
 echo '---
 typ: task
-kategorie: geschäftlich
+kategorie: arbeit
 status: offen
 deadline: 15.10.2025
 ---

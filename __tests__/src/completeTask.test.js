@@ -57,7 +57,7 @@ describe('completeTask.js', () => {
 
       const existingMd = `---
 typ: task
-kategorie: geschäftlich
+kategorie: arbeit
 status: offen
 ---
 

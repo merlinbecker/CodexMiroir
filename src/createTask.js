@@ -127,10 +127,10 @@ app.http("createTask", {
 
       // Validierung
       const kat = p.kategorie;
-      if (!["geschäftlich", "privat"].includes(kat)) {
+      if (!["arbeit", "privat"].includes(kat)) {
         return {
           status: 400,
-          jsonBody: { ok: false, error: "kategorie muss 'geschäftlich' oder 'privat' sein" }
+          jsonBody: { ok: false, error: "kategorie muss 'arbeit' oder 'privat' sein" }
         };
       }
       

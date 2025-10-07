@@ -136,10 +136,10 @@ app.http("updateTask", {
       const updates = await request.json();
       
       // Validierung
-      if (updates.kategorie && !["geschäftlich", "privat"].includes(updates.kategorie)) {
+      if (updates.kategorie && !["arbeit", "privat"].includes(updates.kategorie)) {
         return {
           status: 400,
-          jsonBody: { ok: false, error: "kategorie muss 'geschäftlich' oder 'privat' sein" }
+          jsonBody: { ok: false, error: "kategorie muss 'arbeit' oder 'privat' sein" }
         };
       }
       
