@@ -231,7 +231,6 @@ jobs:
           const duplicationEmoji = (value) => value >= 4 ? '🟩' : value >= 2 ? '🟨' : '🟥';
           
           // Build the report content
-          const hasPrevious = previousData.measures?.length > 0;
           const radarChart = [
             '# Code Quality Report',
             '',
