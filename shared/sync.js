@@ -1,5 +1,5 @@
 // shared/sync.js
-import { putTextBlob, deleteBlob, list as listBlobs } from "./storage.js";
+import { putTextBlob, deleteBlob, list as listBlobs, getTextBlob } from "./storage.js";
 
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
