@@ -6,9 +6,10 @@ Die Tests wurden komplett neu aufgebaut, mit einem Test für jede Funktion im Re
 ## Durchgeführte Arbeiten
 
 ### 1. Test-Infrastruktur eingerichtet
-- Jest für ES-Module konfiguriert (`NODE_OPTIONS=--experimental-vm-modules`)
+- Jest für ES-Module konfiguriert (`cross-env NODE_OPTIONS=--experimental-vm-modules`)
 - Test-Verzeichnisstruktur erstellt: `__tests__/shared/` und `__tests__/src/`
 - Package.json aktualisiert für ES-Module-Support
+- `cross-env` verwendet für plattformübergreifende Kompatibilität (Windows/Linux/macOS)
 
 ### 2. Tests für Shared-Module erstellt
 
