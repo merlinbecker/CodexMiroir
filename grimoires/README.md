@@ -18,6 +18,21 @@ Diese Sammlung enthält "Cloud Grimoires" – technische Learnings aus der Praxi
 **Schlüssel-Learning:**
 > _„Ein Rating ist ein Spiegel, doch nur im richtigen Licht zeigt er die Wahrheit. Invertiere die Skala, umarme die Leere, und das Radar wird leuchten."_
 
+### [#2 – Die Beschwörung der Atomaren Zeitmaschine](grimoire-stored-procedures.md)
+**Thema:** Cosmos DB Stored Procedures für atomare Timeline-Operationen
+
+**Was du lernen wirst:**
+- Stored Procedures in Cosmos DB für atomare Operationen
+- AutoFill-Logik mit Business-Regeln (Werktag vs. Wochenende)
+- Shift-und-Carry-Mechanismus für Task-Verschiebungen
+- Pre-Triggers für automatische Datennormalisierung
+- Idempotentes Deployment von Database Scripts
+- Fixed-Flag als Escape Hatch für Ausnahmen
+- Race Condition Prevention durch serverseitige Logik
+
+**Schlüssel-Learning:**
+> _„Wo zwei Clients gleichzeitig schreiben, herrscht Chaos. Aber in der Datenbank, wo JavaScript atomar wird, gibt es nur eine Wahrheit. Ein Fixed-Flag ist ein Escape Hatch, kein Hack."_
+
 ---
 
 ## Format
