@@ -7,3 +7,4 @@ import './renderCodex.js';
 import './serveStatic.js';
 import './createTask.js';
 import './updateTask.js';
+import './completeTask.js';

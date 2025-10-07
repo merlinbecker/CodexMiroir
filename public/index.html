@@ -78,6 +78,19 @@
             border-radius: 4px;
             margin: 1rem 0;
         }
+        .complete-btn {
+            margin-left: 10px;
+            padding: 4px 8px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .complete-btn:hover {
+            background-color: #218838;
+        }
     </style>
 </head>
 <body>
@@ -94,7 +107,7 @@
 
     <script type="text/javascript">
         console.log('[DEBUG] Script started loading');
-        
+
         const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
         console.log('[DEBUG] dayNames defined');
 
@@ -144,6 +157,10 @@
                                 html += `<span class="badge">DL: ${slot.task.deadline}</span>`;
                             }
 
+                            // Add complete button
+                            const taskFile = slot.task.file.split('/').pop().replace('.md', '');
+                            html += `<button class="complete-btn" onclick="completeTask('${taskFile}', '${day.datum}', '${slot.zeit}')">✓ Erledigt</button>`;
+
                             html += `</div>`;
                         } else {
                             html += `<div class="empty">– leer –</div>`;
@@ -160,6 +177,32 @@
             } catch (error) {
                 console.error('[Timeline] Error:', error);
                 container.innerHTML = `<div class="error">Fehler beim Laden: ${error.message}</div>`;
+            }
+        }
+
+        async function completeTask(taskFile, date, slotTime) {
+            console.log(`[CompleteTask] Completing task: ${taskFile} on ${date} in slot ${slotTime}`);
+            try {
+                const response = await fetch('/.netlify/functions/completeTask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ taskFile, date, slotTime }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('[CompleteTask] Result:', result);
+                alert('Task erfolgreich als abgeschlossen markiert!');
+                // Reload timeline to reflect changes
+                loadTimeline();
+            } catch (error) {
+                console.error('[CompleteTask] Error:', error);
+                alert(`Fehler beim Abschließen des Tasks: ${error.message}`);
             }
         }
 

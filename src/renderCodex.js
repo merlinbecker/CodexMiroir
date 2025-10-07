@@ -253,6 +253,12 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
       context.log(`[renderCodex] Skipped ${name}: typ=${t.typ}, status=${t.status}`);
       continue;
     }
+    
+    // Skip completed tasks
+    if (t.status === "abgeschlossen") {
+      context.log(`[renderCodex] Skipped completed task ${name}`);
+      continue;
+    }
     tasks.push({ file: name, ...t });
   }
 
