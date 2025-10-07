@@ -183,12 +183,15 @@
         async function completeTask(taskFile, date, slotTime) {
             console.log(`[CompleteTask] Completing task: ${taskFile} on ${date} in slot ${slotTime}`);
             try {
-                const response = await fetch('/.netlify/functions/completeTask', {
+                const apiUrl = functionKey 
+                    ? `/api/tasks/${taskFile}/complete?code=${encodeURIComponent(functionKey)}`
+                    : `/api/tasks/${taskFile}/complete`;
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ taskFile, date, slotTime }),
+                    body: JSON.stringify({ datum: date, zeit: slotTime }),
                 });
 
                 if (!response.ok) {
