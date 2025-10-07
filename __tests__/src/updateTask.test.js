@@ -3,9 +3,9 @@ import { describe, test, expect } from '@jest/globals';
 describe('updateTask.js', () => {
   describe('validation', () => {
     test('should validate kategorie', () => {
-      const isValidKategorie = (kat) => ['geschäftlich', 'privat'].includes(kat);
+      const isValidKategorie = (kat) => ['arbeit', 'privat'].includes(kat);
       
-      expect(isValidKategorie('geschäftlich')).toBe(true);
+      expect(isValidKategorie('arbeit')).toBe(true);
       expect(isValidKategorie('privat')).toBe(true);
       expect(isValidKategorie('invalid')).toBe(false);
       expect(isValidKategorie(undefined)).toBe(false);
@@ -58,7 +58,7 @@ describe('updateTask.js', () => {
 
       const existingMd = `---
 typ: task
-kategorie: geschäftlich
+kategorie: arbeit
 status: offen
 ---
 
@@ -93,7 +93,7 @@ Original task`;
 
       const existingMd = `---
 typ: task
-kategorie: geschäftlich
+kategorie: arbeit
 status: offen
 ---
 
@@ -171,7 +171,7 @@ Old content`;
 
       const existingMd = `---
 typ: task
-kategorie: geschäftlich
+kategorie: arbeit
 deadline: null
 ---
 
@@ -205,7 +205,7 @@ Task`;
 
       const existingMd = `---
 typ: task
-kategorie: geschäftlich
+kategorie: arbeit
 tags: []
 ---
 

@@ -6,7 +6,7 @@ describe('parsing.js', () => {
     test('should parse task with complete frontmatter', () => {
       const markdown = `---
 typ: task
-kategorie: geschäftlich
+kategorie: arbeit
 status: offen
 tags: [urgent, backend]
 deadline: 31.12.2024
@@ -20,7 +20,7 @@ This is the task body.`;
       const result = parseTask(markdown);
 
       expect(result.typ).toBe('task');
-      expect(result.kategorie).toBe('geschäftlich');
+      expect(result.kategorie).toBe('arbeit');
       expect(result.status).toBe('offen');
       expect(result.tags).toEqual(['urgent', 'backend']);
       expect(result.deadline).toBe('31.12.2024');
@@ -54,7 +54,7 @@ Simple task.`;
     test('should parse completed task', () => {
       const markdown = `---
 typ: task
-kategorie: geschäftlich
+kategorie: arbeit
 status: abgeschlossen
 abgeschlossen_am:
   datum: 20.01.2025

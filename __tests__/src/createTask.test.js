@@ -45,20 +45,20 @@ describe('createTask.js', () => {
       // We need to access the handler directly - the module exports via app.http
       // For now, let's test the validation logic separately
       const payload = { kategorie: 'invalid' };
-      const isValid = ['geschäftlich', 'privat'].includes(payload.kategorie);
+      const isValid = ['arbeit', 'privat'].includes(payload.kategorie);
       
       expect(isValid).toBe(false);
     });
 
-    test('should accept valid kategorie geschäftlich', () => {
-      const payload = { kategorie: 'geschäftlich' };
-      const isValid = ['geschäftlich', 'privat'].includes(payload.kategorie);
+    test('should accept valid kategorie arbeit', () => {
+      const payload = { kategorie: 'arbeit' };
+      const isValid = ['arbeit', 'privat'].includes(payload.kategorie);
       expect(isValid).toBe(true);
     });
 
     test('should accept valid kategorie privat', () => {
       const payload = { kategorie: 'privat' };
-      const isValid = ['geschäftlich', 'privat'].includes(payload.kategorie);
+      const isValid = ['arbeit', 'privat'].includes(payload.kategorie);
       expect(isValid).toBe(true);
     });
 
@@ -117,7 +117,7 @@ describe('createTask.js', () => {
       };
 
       const payload = {
-        kategorie: 'geschäftlich',
+        kategorie: 'arbeit',
         tags: ['urgent', 'backend'],
         deadline: '31.12.2024',
         fixedSlot: {
@@ -130,7 +130,7 @@ describe('createTask.js', () => {
       const markdown = buildMarkdown(payload);
 
       expect(markdown).toContain('typ: task');
-      expect(markdown).toContain('kategorie: geschäftlich');
+      expect(markdown).toContain('kategorie: arbeit');
       expect(markdown).toContain('status: offen');
       expect(markdown).toContain('tags: [urgent, backend]');
       expect(markdown).toContain('deadline: 31.12.2024');

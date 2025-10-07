@@ -34,5 +34,5 @@ Alle Task-Änderungen erfolgen über Git Commits.
 ### Regeln
 1. **Fixed first**: Tasks mit `fixedSlot` werden zuerst platziert
 2. **Auto-Fill**: Restliche Tasks nach Dateinamen (0000 zuerst)
-3. **Kategorie-Regeln**: geschäftlich (Mo-Fr), privat (Sa-So)
+3. **Kategorie-Regeln**: arbeit (Mo-Fr), privat (Sa-So)
 4. **Domino-Logik**: Konflikte werden vorwärts verschoben

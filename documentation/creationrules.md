@@ -34,7 +34,7 @@ Freier Text für:
 ## Pflichtfelder
 
 1. **typ**: Muss `task` sein
-2. **kategorie**: `geschäftlich` oder `privat`
+2. **kategorie**: `arbeit` oder `privat`
 3. **status**: `offen`, `abgeschlossen` oder `abgebrochen`
 
 ## Optionale Felder
@@ -50,7 +50,7 @@ Freier Text für:
 Tasks ohne `fixedSlot` werden automatisch nach Dateinamen-Reihenfolge eingeplant:
 
 1. **Kategorie-Regeln**:
-   - `geschäftlich`: Mo-Fr, morgens → nachmittags
+   - `arbeit`: Mo-Fr, morgens → nachmittags
    - `privat`: Sa-So, morgens → nachmittags
    - `abends`: nie automatisch, nur per fixedSlot
 
@@ -70,7 +70,7 @@ Tasks mit `fixedSlot` werden zuerst platziert:
 ```yaml
 ---
 typ: task
-kategorie: geschäftlich
+kategorie: arbeit
 status: offen
 fixedSlot:
   datum: 15.10.2025
@@ -99,7 +99,7 @@ Wenn ein Fixed Task einen Slot belegt:
 ```markdown
 ---
 typ: task
-kategorie: geschäftlich
+kategorie: arbeit
 status: offen
 ---
 
@@ -133,7 +133,7 @@ tags: [finanzen, wichtig]
 ```markdown
 ---
 typ: task
-kategorie: geschäftlich
+kategorie: arbeit
 status: offen
 fixedSlot:
   datum: 10.10.2025
@@ -153,7 +153,7 @@ Quartalsreview mit Key Account
 
 ```json
 {
-  "kategorie": "geschäftlich",
+  "kategorie": "arbeit",
   "status": "offen",
   "deadline": "31.10.2025",
   "tags": ["meeting", "wichtig"],
@@ -238,7 +238,7 @@ Bei jedem Push zu GitHub:
 ## Best Practices
 
 1. **Nummerierung**: Lücken lassen (0000, 0010, 0020, ...) für spätere Einfügungen
-2. **Kategorien konsistent**: Entweder `geschäftlich` oder `privat`, nicht wechseln
+2. **Kategorien konsistent**: Entweder `arbeit` oder `privat`, nicht wechseln
 3. **Deadlines sparsam**: Nur für echte Deadlines, nicht für Wunschtermine
 4. **Fixed Slots selten**: Nur für unverschiebbare Termine
 5. **Tags minimal**: Max 2-3 relevante Tags pro Task
@@ -250,7 +250,7 @@ Das System prüft beim Sync:
 - ✅ Dateiname ist `####.md` Format
 - ✅ YAML Frontmatter ist valide
 - ✅ `typ: task` ist gesetzt
-- ✅ `kategorie` ist `geschäftlich` oder `privat`
+- ✅ `kategorie` ist `arbeit` oder `privat`
 - ✅ `status` ist `offen`, `abgeschlossen` oder `abgebrochen`
 - ✅ Wenn `fixedSlot` gesetzt: `datum` und `zeit` sind valide
 
