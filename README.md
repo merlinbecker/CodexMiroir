@@ -1,382 +1,407 @@
+
 # CodexMiroir
 
-**CodexMiroir** ist ein intelligentes Task-Management-System, das als Azure Function App mit integriertem Frontend läuft. Die Anwendung verwaltet Aufgaben in einer Timeline und bietet automatische Planung basierend auf Zeitslots und Prioritäten.
+**CodexMiroir** ist ein Git-basiertes Task-Management-System nach dem **Spartarégime-Prinzip**: Keine Prio, kein Snooze, keine fancy Felder - nur nummerierte Markdown-Dateien.
 
-## Was macht die App?
+## Kernkonzept
 
-CodexMiroir ist ein umfassendes Task-Management-System mit folgenden Kernfunktionen:
+- **Tasks sind Dateien**: `0000.md` bis `9999.md` in GitHub Repository (`codex-miroir/tasks/`)
+- **Dateiname = Priorität**: Niedrigere Nummer wird zuerst eingeplant
+- **Git = Source of Truth**: Alle Änderungen über Git Commits
+- **Automatischer Sync**: GitHub Webhook → Azure Function → Blob Storage Cache
+- **Timeline-Rendering**: Deterministische Berechnung der Wochenansicht
+- **Kategorie-Regeln**: geschäftlich (Mo-Fr) vs. privat (Sa-So)
+- **Fixed-First-Logik**: Tasks mit fixedSlot werden zuerst platziert
+- **Auto-Fill**: Restliche Tasks nach Dateinamen-Reihenfolge
 
-- **Timeline-basierte Aufgabenverwaltung**: Aufgaben werden in Zeitslots (Vormittag/Nachmittag) geplant
-- **Automatische Planung**: Tasks werden automatisch in passende freie Slots eingeplant
-- **Manuelle Zuweisung**: Tasks können manuell zu bestimmten Zeitslots zugewiesen werden
-- **Priorisierung**: Tasks können priorisiert werden (tauscht Position mit höchstpriorisiertem Task)
-- **CRUD-Operationen**: Vollständige Verwaltung von Tasks (Erstellen, Lesen, Aktualisieren, Löschen)
-- **Multi-User-Support**: Jeder Benutzer hat seine eigene Timeline und Task-Liste
-- **Web-Interface**: Integrierte Test-UI für einfache Verwaltung
-
-Die App nutzt **Azure Cosmos DB** für die Datenspeicherung und **Stored Procedures** für komplexe Planungslogik.
-
-## Was braucht man, um die App laufen zu lassen?
+## Setup & Installation
 
 ### Voraussetzungen
 
 #### Für lokale Entwicklung:
 - **Node.js** 18+ (LTS empfohlen)
 - **Azure Functions Core Tools v4** (`npm install -g azure-functions-core-tools@4`)
-- **Azure Cosmos DB**:
-  - Entweder ein Azure Cosmos DB Account
-  - Oder lokaler Cosmos DB Emulator
-- **Git** (zum Klonen des Repository)
+- **Azure Blob Storage** (oder lokaler Azurite Emulator)
+- **GitHub Token** mit `repo` Scope
+- **Git** zum Klonen des Repository
 
-#### Für Azure-Deployment:
+#### Für Azure Deployment:
 - Azure Account mit aktiver Subscription
-- Azure Function App (erstellt in Azure Portal)
-- Azure Cosmos DB Account
-- Azure CLI (optional, für Deployment-Automatisierung)
+- Azure Function App
+- Azure Blob Storage Account
+- GitHub Repository mit Tasks
+- Azure CLI (optional)
 
 ### Lokale Entwicklung einrichten
 
-1. **Repository klonen**
-   ```bash
-   git clone https://github.com/merlinbecker/CodexMiroir.git
-   cd CodexMiroir
-   ```
-
-2. **Dependencies installieren**
-   ```bash
-   npm install
-   ```
-
-3. **Cosmos DB konfigurieren**
-   
-   Erstelle die Datei `local.settings.json` im Root-Verzeichnis:
-   ```json
-   {
-     "IsEncrypted": false,
-     "Values": {
-       "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-       "FUNCTIONS_WORKER_RUNTIME": "node",
-       "COSMOS_CONNECTION_STRING": "AccountEndpoint=https://<your-account>.documents.azure.com:443/;AccountKey=<your-key>;",
-       "COSMOS_DB": "codexmiroir",
-       "COSMOS_TIMELINE": "timeline",
-       "COSMOS_TASKS": "tasks",
-       "USERS_CSV": "u_merlin",
-       "DAY_HORIZON": "30"
-     }
-   }
-   ```
-
-4. **Stored Procedures deployen** (einmalig erforderlich)
-   ```bash
-   npm run deploy:sprocs
-   ```
-
-5. **Function App starten**
-   ```bash
-   npm start
-   ```
-
-6. **Browser öffnen**
-   ```
-   http://localhost:7071/
-   ```
-   
-   **Hinweis**: Bei lokaler Entwicklung wird der Function Key ignoriert. Du wirst beim ersten Öffnen nach einem Username gefragt (z.B. `u_merlin`).
-
-### Azure Deployment
-
+#### 1. Repository klonen
 ```bash
-# Function App deployen
-func azure functionapp publish your-function-app-name
-
-# Umgebungsvariablen konfigurieren
-az functionapp config appsettings set \
-  --name your-function-app-name \
-  --resource-group your-resource-group \
-  --settings \
-    "COSMOS_CONNECTION_STRING=your-cosmos-connection-string" \
-    "COSMOS_DB=codexmiroir" \
-    "COSMOS_TIMELINE=timeline" \
-    "COSMOS_TASKS=tasks" \
-    "USERS_CSV=u_merlin" \
-    "DAY_HORIZON=30"
-
-# Master Key abrufen
-az functionapp keys list \
-  --name your-function-app-name \
-  --resource-group your-resource-group
+git clone https://github.com/merlinbecker/CodexMiroir.git
+cd CodexMiroir
+npm install
 ```
 
-**Nach dem Deployment**: Öffne die App mit dem Master Key:
-```
-https://your-function-app.azurewebsites.net/?code=YOUR_MASTER_KEY
-```
+#### 2. Environment Variables konfigurieren
 
-Siehe auch: [SECURITY_SETUP.md](./documentation/SECURITY_SETUP.md) und [arc42.md](./documentation/arc42.md) für Details zur Architektur und Deployment.
+Die Datei `local.settings.json` ist bereits vorhanden:
 
-## API-Routen und Funktionen im Detail
-
-### 🔒 Sicherheit
-
-**Alle API-Endpoints sind mit Master Key Authentication gesichert!**
-
-- Alle `/api/*` Routen benötigen `authLevel: "admin"`
-- Zugriff erfolgt über: `?code=YOUR_MASTER_KEY`
-- Das Frontend extrahiert den Key automatisch aus der URL
-- Die Test-UI unter `/` ist öffentlich zugänglich (anonymous)
-
----
-
-### 📋 Timeline-Management
-
-#### **GET** `/api/timeline/{userId}`
-Ruft die Timeline für einen Benutzer ab.
-
-**Query Parameter**:
-- `dateFrom` (optional): Start-Datum im Format `YYYY-MM-DD`
-- `dateTo` (optional): End-Datum im Format `YYYY-MM-DD`
-
-**Beispiel**:
-```bash
-curl "http://localhost:7071/api/timeline/u_merlin?dateFrom=2025-10-02&dateTo=2025-10-09"
-```
-
-**Antwort**: Liste von Tagen mit Zeitslots und zugewiesenen Tasks
-
----
-
-#### **POST** `/api/timeline/{userId}/assign`
-Weist einen Task manuell einem bestimmten Zeitslot zu.
-
-**Request Body**:
 ```json
 {
-  "date": "2025-10-02",
-  "slotIdx": 0,
-  "task": {
-    "id": "task_123",
-    "kind": "business",
-    "title": "Meeting vorbereiten"
-  },
-  "source": "manual"
-}
-```
-
-**Parameter**:
-- `date`: Datum im Format `YYYY-MM-DD`
-- `slotIdx`: Slot-Index (0 = Vormittag, 1 = Nachmittag)
-- `task`: Task-Objekt mit `id`, `kind`, `title`
-- `source`: `"manual"` oder `"auto"`
-
-**Beispiel**:
-```bash
-curl -X POST http://localhost:7071/api/timeline/u_merlin/assign \
-  -H "Content-Type: application/json" \
-  -d '{"date":"2025-10-02","slotIdx":0,"task":{"id":"task_123","kind":"business","title":"Test"},"source":"manual"}'
-```
-
----
-
-#### **POST** `/api/timeline/{userId}/autofill`
-Plant einen Task automatisch in den nächsten passenden freien Slot gemäß definierten Regeln.
-
-**Request Body**:
-```json
-{
-  "dateFrom": "2025-10-02",
-  "task": {
-    "id": "task_456",
-    "kind": "personal",
-    "title": "Dokumente sortieren"
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "GITHUB_OWNER": "merlinbecker",
+    "GITHUB_REPO": "thoughts-vault",
+    "GITHUB_BRANCH": "master",
+    "GITHUB_BASE_PATH": "codexMiroir",
+    "GITHUB_TOKEN": "<YOUR_GITHUB_TOKEN>",
+    "AZURE_BLOB_CONN": "<YOUR_BLOB_CONNECTION_STRING>",
+    "AZURE_BLOB_CONTAINER": "codex-cache",
+    "CREATE_VIA_PR": "false",
+    "GITHUB_PR_BRANCH_PREFIX": "codex/tasks"
   }
 }
 ```
 
-**Parameter**:
-- `dateFrom`: Start-Datum für die Suche nach freien Slots
-- `task`: Task-Objekt mit `id`, `kind`, `title`
-- Die App sucht automatisch die nächsten 30 Tage nach einem passenden Slot
+**📝 Wichtige Einstellungen:**
 
-**Logik**:
-- Respektiert Regeln für `business` vs. `personal` Tasks
-- Berücksichtigt bereits belegte Slots
-- Nutzt Cosmos DB Stored Procedure für konsistente Planung
+| Variable | Beschreibung | Wo bekomme ich das? |
+|----------|--------------|---------------------|
+| `GITHUB_TOKEN` | GitHub Personal Access Token | GitHub → Settings → Developer settings → Tokens |
+| `GITHUB_OWNER` | Dein GitHub Username | Dein Profil |
+| `GITHUB_REPO` | Repository Name | Dein Repository |
+| `GITHUB_BASE_PATH` | Pfad zu Tasks im Repo | z.B. `codexMiroir` |
+| `AZURE_BLOB_CONN` | Blob Storage Connection String | Azure Portal → Storage Account → Access keys |
+| `CREATE_VIA_PR` | Tasks via PR erstellen | `true` oder `false` |
 
----
+#### 3. Azure Blob Storage einrichten
 
-#### **POST** `/api/timeline/{userId}/prioritize`
-Priorisiert einen Task, indem er mit dem höchstpriorisierten Task in der Timeline getauscht wird.
+**Option A: Azurite Emulator (lokal, für Entwicklung)**
+```bash
+npm install -g azurite
+azurite --silent --location ./azurite
+```
+→ Nutze `AzureWebJobsStorage: "UseDevelopmentStorage=true"`
+
+**Option B: Azure Blob Storage (Cloud)**
+1. Azure Portal → Create Storage Account
+2. Name: `codexmiroirstorage` (muss global unique sein)
+3. Region: `West Europe`
+4. Performance: `Standard`, Redundancy: `LRS`
+5. Nach Erstellung: Access keys → Connection string kopieren
+6. In `local.settings.json` einfügen als `AZURE_BLOB_CONN`
+
+#### 4. GitHub Token erstellen
+
+1. GitHub → Settings → Developer settings → Personal access tokens → **Generate new token (classic)**
+2. Note: `CodexMiroir Local Dev`
+3. Expiration: `90 days` (oder länger)
+4. **Scopes auswählen**: ✅ `repo` (Full control of private repositories)
+5. Generate token → Token kopieren
+6. In `local.settings.json` einfügen als `GITHUB_TOKEN`
+
+⚠️ **Wichtig**: Token niemals in Git committen!
+
+#### 5. Function App starten
+
+```bash
+npm start
+```
+
+Browser öffnen: `http://localhost:5000/`
+
+✅ **Die UI sollte nun laufen!**
+
+### Azure Deployment
+
+#### 1. Azure Resources erstellen
+
+```bash
+# Resource Group
+az group create --name codexmiroir-rg --location westeurope
+
+# Storage Account
+az storage account create \
+  --name codexmiroirstorage \
+  --resource-group codexmiroir-rg \
+  --location westeurope \
+  --sku Standard_LRS
+
+# Blob Container erstellen
+az storage container create \
+  --name codex-cache \
+  --account-name codexmiroirstorage
+
+# Function App
+az functionapp create \
+  --name codexmiroir-func \
+  --resource-group codexmiroir-rg \
+  --consumption-plan-location westeurope \
+  --runtime node \
+  --runtime-version 18 \
+  --functions-version 4 \
+  --storage-account codexmiroirstorage
+```
+
+#### 2. Environment Variables konfigurieren
+
+```bash
+# Blob Connection String abrufen
+BLOB_CONN=$(az storage account show-connection-string \
+  --name codexmiroirstorage \
+  --resource-group codexmiroir-rg \
+  --query connectionString -o tsv)
+
+# App Settings setzen
+az functionapp config appsettings set \
+  --name codexmiroir-func \
+  --resource-group codexmiroir-rg \
+  --settings \
+    "GITHUB_TOKEN=<your-github-token>" \
+    "GITHUB_OWNER=merlinbecker" \
+    "GITHUB_REPO=thoughts-vault" \
+    "GITHUB_BRANCH=master" \
+    "GITHUB_BASE_PATH=codexMiroir" \
+    "AZURE_BLOB_CONN=$BLOB_CONN" \
+    "AZURE_BLOB_CONTAINER=codex-cache" \
+    "CREATE_VIA_PR=false"
+```
+
+#### 3. Function App deployen
+
+```bash
+func azure functionapp publish codexmiroir-func
+```
+
+#### 4. GitHub Webhook einrichten
+
+1. GitHub Repository → **Settings** → **Webhooks** → **Add webhook**
+2. **Payload URL**: `https://codexmiroir-func.azurewebsites.net/github/webhook`
+3. **Content type**: `application/json`
+4. **Secret**: Generiere starkes Secret (z.B. `openssl rand -hex 32`)
+5. Setze Secret in Azure:
+   ```bash
+   az functionapp config appsettings set \
+     --name codexmiroir-func \
+     --resource-group codexmiroir-rg \
+     --settings "GITHUB_WEBHOOK_SECRET=<your-secret>"
+   ```
+6. **Events**: ✅ `push`
+7. **Active**: ✅
+
+#### 5. Initial Sync ausführen
+
+```bash
+# Full Sync mit Clean-Option
+curl -X POST https://codexmiroir-func.azurewebsites.net/sync?clean=true
+```
+
+✅ **Deployment abgeschlossen!**
+
+Öffne: `https://codexmiroir-func.azurewebsites.net/`
+
+## API-Routen
+
+### 📋 Task Management
+
+#### **POST** `/api/tasks`
+Erstellt neuen Task in GitHub.
 
 **Request Body**:
 ```json
 {
-  "taskId": "task_789"
+  "kategorie": "geschäftlich",
+  "deadline": "02.10.2025",
+  "fixedSlot": {
+    "datum": "02.10.2025",
+    "zeit": "morgens"
+  },
+  "tags": ["wichtig"],
+  "body": "Task Beschreibung"
 }
 ```
 
-**Funktion**:
-- Findet den Task in der Timeline
-- Tauscht Position mit dem ersten (höchstpriorisierten) Task
-- Aktualisiert beide Slots atomar
-
----
-
-### 📝 Task-Management
-
-#### **POST** `/api/tasks/{userId}`
-Erstellt einen neuen Task.
-
-**Request Body**:
+**Response**:
 ```json
 {
-  "id": "task_custom_id",
-  "kind": "business",
-  "title": "Neue Aufgabe",
-  "tags": ["wichtig", "dringend"],
-  "status": "open"
+  "ok": true,
+  "id": "0042",
+  "path": "codex-miroir/tasks/0042.md",
+  "commitSha": "abc123...",
+  "htmlUrl": "https://github.com/..."
 }
 ```
+
+**Mit Idempotenz-Key** (verhindert Duplikate):
+```bash
+curl -X POST http://localhost:5000/api/tasks \
+  -H "idempotency-key: unique-key-123" \
+  -H "Content-Type: application/json" \
+  -d '{"kategorie":"privat","body":"Task"}'
+```
+
+#### **PUT/PATCH** `/api/tasks/{id}`
+Aktualisiert existierenden Task.
+
+**Request Body** (alle Felder optional):
+```json
+{
+  "status": "abgeschlossen",
+  "deadline": "05.10.2025"
+}
+```
+
+### 🔄 Sync Functions
+
+#### **POST** `/github/webhook`
+GitHub Webhook Handler (automatischer Sync bei Push).
+
+#### **GET/POST** `/sync`
+Manueller Sync Trigger.
 
 **Parameter**:
-- `id` (optional): Custom Task-ID (wird sonst automatisch generiert)
-- `kind`: `"business"` oder `"personal"`
-- `title`: Aufgabentitel
-- `tags` (optional): Array von Tags
-- `status` (optional): Status des Tasks (default: `"open"`)
+- `clean=true` → Löscht Cache vor Sync (Full-Sync)
 
----
-
-#### **GET** `/api/tasks/{userId}/{taskId}`
-Ruft Details eines spezifischen Tasks ab.
-
-**Beispiel**:
 ```bash
-curl http://localhost:7071/api/tasks/u_merlin/task_123
+curl -X POST http://localhost:5000/sync?clean=true
 ```
 
----
+### 📊 Timeline Rendering
 
-#### **PUT** `/api/tasks/{userId}/{taskId}`
-Aktualisiert einen existierenden Task (auch **PATCH** möglich).
+#### **GET** `/codex`
+Rendert Timeline als JSON oder HTML.
 
-**Request Body**: Objekt mit zu aktualisierenden Feldern
-```json
-{
-  "title": "Aktualisierter Titel",
-  "status": "in_progress",
-  "tags": ["aktualisiert"]
-}
-```
+**Parameter**:
+- `format=json` → JSON Output (default)
+- `format=html` → HTML Output
 
-**Funktion**:
-- Merged Updates mit existierendem Task
-- Nur angegebene Felder werden geändert
-
----
-
-#### **DELETE** `/api/tasks/{userId}/{taskId}`
-Löscht einen Task aus der Datenbank.
-
-**Beispiel**:
 ```bash
-curl -X DELETE http://localhost:7071/api/tasks/u_merlin/task_123
+curl http://localhost:5000/codex?format=html
 ```
 
----
-
-### 🌐 Frontend / Test-UI
+### 🌐 Frontend
 
 #### **GET** `/{*path}`
-Serviert die statische Test-UI (anonymer Zugriff).
+Serviert statische UI (public access).
 
-**Funktionen der Test-UI**:
-- Username-Verwaltung (localStorage)
-- Master Key-Extraktion aus URL
-- Interaktive Task- und Timeline-Verwaltung
-- Visualisierung der Timeline
-- Manuelle Task-Zuweisung
-- Auto-Fill-Funktion
+## Konfigurationsoptionen
 
-**Zugriff**:
-- Lokal: `http://localhost:7071/`
-- Azure: `https://your-app.azurewebsites.net/?code=YOUR_MASTER_KEY`
+### GitHub Integration
 
----
+```bash
+# Standard-Branch (default: main)
+GITHUB_DEFAULT_BRANCH=master
+
+# Base-Pfad im Repo (default: codex-miroir)
+GITHUB_BASE_PATH=tasks
+
+# Committer Info
+GITHUB_COMMITTER_NAME="Codex Bot"
+GITHUB_COMMITTER_EMAIL="bot@example.com"
+```
+
+### PR-Modus aktivieren
+
+```bash
+# Tasks via Pull Requests erstellen
+CREATE_VIA_PR=true
+
+# Branch-Prefix für PRs
+GITHUB_PR_BRANCH_PREFIX=codex/tasks
+```
+
+**Resultat**: Jeder neue Task erstellt einen Feature-Branch + PR statt direktem Commit.
+
+### Validierungsregeln
+
+**Kategorie**:
+- Muss `geschäftlich` oder `privat` sein
+
+**Deadline/Datum**:
+- Format: `dd.mm.yyyy` (z.B. "02.10.2025")
+
+**Fixed Slot Zeit**:
+- Muss `morgens`, `nachmittags` oder `abends` sein
+
+## Troubleshooting
+
+### Lokale Entwicklung
+
+❌ **"GITHUB_TOKEN not configured"**
+→ Setze `GITHUB_TOKEN` in `local.settings.json`
+
+❌ **"Blob container not found"**
+→ Starte Azurite Emulator oder erstelle Container in Azure
+
+❌ **Timer Function Warnung**
+→ Normal ohne Storage Emulator, HTTP-Endpoints funktionieren trotzdem
+
+### Azure Deployment
+
+❌ **Webhook-Aufrufe schlagen fehl**
+→ Prüfe GitHub Webhook Secret, validiere Signature-Berechnung
+
+❌ **Sync funktioniert nicht**
+→ Prüfe GitHub Token Permissions (benötigt `repo` Scope)
+
+❌ **Cache-Updates fehlen**
+→ Prüfe Blob Storage Connection String, Container-Name
 
 ## Projektstruktur
 
 ```
 /
 ├── src/                         # Azure Functions (Backend)
-│   ├── functions.js            # Main entry point (registriert alle Functions)
-│   ├── _cosmos.js              # Gemeinsamer Cosmos DB Client
-│   ├── assignToSlot.js         # POST /api/timeline/{userId}/assign
-│   ├── autoFill.js             # POST /api/timeline/{userId}/autofill
-│   ├── getTimeline.js          # GET /api/timeline/{userId}
-│   ├── createTask.js           # POST /api/tasks/{userId}
-│   ├── getTask.js              # GET /api/tasks/{userId}/{taskId}
-│   ├── updateTask.js           # PUT /api/tasks/{userId}/{taskId}
-│   ├── deleteTask.js           # DELETE /api/tasks/{userId}/{taskId}
-│   ├── prioritizeTask.js       # POST /api/timeline/{userId}/prioritize
-│   └── serveStatic.js          # GET /{*path} (Test-UI)
-├── public/                      # Frontend / Test-UI
-│   ├── index.html              # UI
-│   ├── app.js                  # Frontend-Logik
-│   └── styles.css              # Styles
-├── database/                    # Cosmos DB Stored Procedures
-│   └── infra/
-│       └── deploy-sprocs.js    # Deployment-Script
-├── __tests__/                   # Jest Tests
-├── documentation/               # Erweiterte Dokumentation
-├── host.json                    # Azure Functions Konfiguration
-├── package.json                 # Dependencies
-└── local.settings.json         # Lokale Konfiguration (nicht in Git)
+│   ├── functions.js            # Main entry point
+│   ├── createTask.js           # POST /api/tasks
+│   ├── updateTask.js           # PUT /api/tasks/{id}
+│   ├── githubWebhook.js        # POST /github/webhook
+│   ├── manualSync.js           # GET/POST /sync
+│   ├── renderCodex.js          # GET /codex
+│   └── serveStatic.js          # GET /{*path}
+├── shared/                      # Gemeinsame Module
+│   ├── storage.js              # Blob Storage Client
+│   ├── sync.js                 # GitHub Sync Logic
+│   ├── parsing.js              # Markdown Parser
+│   └── id.js                   # ID Lock Management
+├── public/                      # Frontend UI
+│   ├── index.html
+│   ├── app.js
+│   └── styles.css
+├── documentation/               # Erweiterte Docs
+│   ├── arc42.md                # Architektur-Dokumentation
+│   ├── QUICK_START.md          # Schnellstart-Guide
+│   └── SECURITY_SETUP.md       # Sicherheits-Setup
+├── local.settings.json         # Lokale Konfiguration (nicht in Git!)
+├── host.json                   # Azure Functions Config
+└── package.json                # Dependencies
 ```
 
 ## Tests
 
-Tests ausführen:
 ```bash
+# Tests ausführen
 npm test
-```
 
-Test-Coverage anzeigen:
-```bash
+# Mit Coverage
 npm run test:coverage
 ```
 
-Tests umfassen:
-- Task-Validierung
-- Datums-Utilities
-- Voice-Command-Processing
-- Table-Management-Logik
-
-Für manuelle Tests siehe: [TESTING_GUIDE.md](./TESTING_GUIDE.md)
-
 ## Weitere Dokumentation
 
-- **[arc42.md](./documentation/arc42.md)** - Vollständige Architektur-Dokumentation (Betrieb, Deployment, API-Details)
-- **[SECURITY_SETUP.md](./documentation/SECURITY_SETUP.md)** - Sicherheits-Setup und Master Key Management
-- **[QUICK_START.md](./documentation/QUICK_START.md)** - Schnellstart-Guide für Benutzer und Entwickler
-- **[TESTING_GUIDE.md](./documentation/TESTING_GUIDE.md)** - Anleitung für manuelle Tests
-- **[documentation/](./documentation/)** - Erweiterte API-Dokumentation
+- **[arc42.md](./documentation/arc42.md)** - Vollständige Architektur-Dokumentation
+- **[QUICK_START.md](./documentation/QUICK_START.md)** - Schnellstart-Guide
+- **[SECURITY_SETUP.md](./documentation/SECURITY_SETUP.md)** - Sicherheits-Setup
+- **[TESTING_GUIDE.md](./documentation/TESTING_GUIDE.md)** - Test-Anleitung
 
 ## Technologie-Stack
 
-- **Backend**: Azure Functions v4 (Node.js 18+)
-- **Datenbank**: Azure Cosmos DB (NoSQL)
+- **Backend**: Azure Functions v4 (Node.js 18+, ES Modules)
+- **Storage**: Azure Blob Storage (Cache) + GitHub (Source of Truth)
 - **Frontend**: Vanilla JavaScript, HTML, CSS
-- **Programmiermodell**: ES Modules
+- **Sync**: GitHub Webhooks + GitHub API
 - **Testing**: Jest
-- **Deployment**: Azure Functions Core Tools
-
-## Vorteile der Architektur
-
-1. **Unified Deployment** - Eine einzige Azure Function App für Frontend und Backend
-2. **Kosteneffizient** - Kein separates Hosting für Frontend notwendig
-3. **Skalierbar** - Azure Functions skaliert automatisch
-4. **Sicher** - Master Key Authentication für alle API-Endpoints
-5. **Einfache Konfiguration** - Eine Domain, ein SSL-Zertifikat
 
 ## Lizenz
 

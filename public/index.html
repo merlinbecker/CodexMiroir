@@ -1,206 +1,221 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CodexMiroir Timeline</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-    <link rel="stylesheet" href="styles.css">
-    <script src="app.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+    <title>Codex Miroir - Timeline</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        header { 
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #333;
+        }
+        h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .nav { margin-top: 1rem; }
+        .nav a { 
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .nav a:hover { background: #0056b3; }
+        #timeline { margin-top: 2rem; }
+        .day { 
+            background: white;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .day-header { 
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+        .slot { 
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border-left: 3px solid #ddd;
+            background: #fafafa;
+        }
+        .slot.morgens { border-left-color: #28a745; }
+        .slot.nachmittags { border-left-color: #007bff; }
+        .slot.abends { border-left-color: #fd7e14; }
+        .slot-label { 
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+        .task { font-size: 0.9rem; color: #222; }
+        .badge { 
+            display: inline-block;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: #e0e0e0;
+            margin-left: 4px;
+        }
+        .badge.fixed { background: #dc3545; color: white; }
+        .empty { color: #999; font-size: 0.85rem; }
+        .loading { text-align: center; padding: 2rem; color: #666; }
+        .error { 
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+        .complete-btn {
+            margin-left: 10px;
+            padding: 4px 8px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .complete-btn:hover {
+            background-color: #218838;
+        }
+    </style>
 </head>
-<body x-data="app" x-init="init()">
-    <main class="container">
-        <header>
-            <h1>CodexMiroir Timeline</h1>
-            <p>Task-Management & Timeline-Verwaltung</p>
-        </header>
+<body>
+    <header>
+        <h1>Codex Miroir</h1>
+        <div class="nav">
+            <a href="/create-task.html">+ Neue Task erstellen</a>
+        </div>
+    </header>
 
-        <!-- Konfiguration -->
-        <section>
-            <h2>Konfiguration</h2>
-            <div class="grid">
-                <label>
-                    Benutzername
-                    <input type="text" x-model="userId" placeholder="z.B. u_merlin" @change="updateUserId()">
-                </label>
-                <div>
-                    <label>Function Key Status</label>
-                    <p x-text="functionKey ? '✓ Vorhanden' : '⚠ Nicht gefunden (optional für lokale Entwicklung)'" :style="functionKey ? 'color: green;' : 'color: orange;'"></p>
-                </div>
-            </div>
-            
-            <!-- Modus-Schalter -->
-            <div class="mode-toggle" style="margin: 1rem 0;">
-                <button @click="toggleMode()" 
-                        :class="isBusinessMode ? 'secondary' : 'outline'"
-                        style="width: 100%; padding: 1rem; font-size: 1.1rem; font-weight: bold;">
-                    <span x-text="isBusinessMode ? '💼 Geschäftlich' : '🏠 Privat'"></span>
-                    <br>
-                    <small x-text="isBusinessMode ? '(Nur Werktage, Geschäftstermine)' : '(Alle Tage, Private Termine)'" style="font-weight: normal; opacity: 0.8;"></small>
-                </button>
-            </div>
-            
-            <div class="grid">
-                <button @click="createAndAutoAssign()" class="secondary">+ Neuer Task (automatisch zuweisen)</button>
-            </div>
-            
-            <!-- Rabbit R1 Info -->
-            <div style="margin-top: 1rem; padding: 0.5rem; background-color: rgba(100, 100, 255, 0.1); border-radius: 4px;">
-                <small>
-                    <strong>🐰 Rabbit R1 Steuerung:</strong><br>
-                    • Timeline lädt automatisch die nächsten 7 Tage<br>
-                    • Scroll-Rad: Hoch = Timeline runter, Runter = Timeline hoch<br>
-                    • Lange Taste drücken (R): Spracherkennung für neuen Task
-                </small>
-            </div>
-        </section>
+    <div id="timeline">
+        <div class="loading">Timeline wird geladen...</div>
+    </div>
 
-        <!-- Fehler-Anzeige -->
-        <div x-show="error" role="alert" x-text="error" style="color: red; padding: 1rem; margin: 1rem 0;"></div>
+    <script type="text/javascript">
+        console.log('[DEBUG] Script started loading');
 
-        <!-- Timeline -->
-        <section x-show="days.length">
-            <h2>Timeline</h2>
-            <template x-for="day in days" :key="day.date">
-                <article class="day">
-                    <header>
-                        <strong x-text="format(day.date)"></strong>
-                        <small x-text="'KW ' + week(day.date)"></small>
-                    </header>
-                    
-                    <template x-for="slot in day.slots" :key="slot.idx">
-                        <div class="slot" :class="{
-                            empty: !slot.assignment.taskId, 
-                            locked: slot.locked, 
-                            current: isCurrent(day.date, slot.label),
-                            past: isPast(day.date, slot.label)
-                        }">
-                            <div class="grid">
-                                <div>
-                                    <strong x-text="label(slot.label)"></strong>
-                                    <template x-if="isCurrent(day.date, slot.label)">
-                                        <small style="color: green; font-weight: bold;">● AKTUELL</small>
-                                    </template>
-                                    <template x-if="isPast(day.date, slot.label) && !isCurrent(day.date, slot.label)">
-                                        <small style="color: gray; font-weight: bold;">● VERGANGEN</small>
-                                    </template>
-                                </div>
-                                <div>
-                                    <template x-if="slot.assignment.taskId">
-                                        <div>
-                                            <p>
-                                                <strong x-text="slot.assignment.taskTitle || slot.assignment.taskId"></strong> 
-                                                (<span x-text="kind(slot.assignment.kind)"></span>)
-                                            </p>
-                                            <template x-if="!isCurrent(day.date, slot.label)">
-                                                <template x-if="isPast(day.date, slot.label)">
-                                                    <!-- Vergangene Tasks: nur nach unten -->
-                                                    <button class="btn-sm secondary" @click="moveDown(slot.assignment.taskId)">⬇ Nach unten</button>
-                                                </template>
-                                                <template x-if="!isPast(day.date, slot.label)">
-                                                    <!-- Zukünftige Tasks: nach oben und unten -->
-                                                    <button class="btn-sm secondary" @click="prio(slot.assignment.taskId)">⬆ Priorisieren</button>
-                                                    <button class="btn-sm secondary" @click="moveDown(slot.assignment.taskId)">⬇ Nach unten</button>
-                                                </template>
-                                            </template>
-                                            <button class="btn-sm contrast" @click="edit(slot.assignment.taskId)">✏ Bearbeiten</button>
-                                        </div>
-                                    </template>
-                                    <template x-if="!slot.assignment.taskId && !slot.locked">
-                                        <button class="btn-sm" @click="createNewTask()">+ Neuer Task</button>
-                                    </template>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                </article>
-            </template>
-        </section>
+        const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+        console.log('[DEBUG] dayNames defined');
 
-        <!-- Task Dialog -->
-        <template x-if="dialog.show">
-            <div class="modal-backdrop" @click="dialog.show = false">
-                <dialog open @click.stop>
-                    <article>
-                        <header>
-                            <button aria-label="Close" @click="dialog.show = false"></button>
-                            <h3 x-text="dialog.mode === 'edit' ? 'Task bearbeiten' : (dialog.mode === 'create-auto' ? 'Neuer Task (wird automatisch zugewiesen)' : 'Task erstellen')"></h3>
-                        </header>
-                        <form @submit.prevent="save">
-                            <label>
-                                Titel
-                                <input type="text" x-model="task.title" placeholder="Titel" required>
-                            </label>
+        // Extract function key from URL (if provided)
+        const urlParams = new URLSearchParams(window.location.search);
+        const functionKey = urlParams.get('code') || '';
+        console.log('[DEBUG] functionKey extracted:', functionKey ? 'YES' : 'NO');
 
-                            <label>
-                                Beschreibung
-                                <textarea x-model="task.description" placeholder="Beschreibung" rows="3"></textarea>
-                            </label>
+        function extractTaskNumber(filename) {
+            const match = filename.match(/(\d{4})/);
+            return match ? parseInt(match[1], 10) : 9999;
+        }
 
-                            <label>
-                                Typ
-                                <select x-model="task.kind" required>
-                                    <template x-if="isBusinessMode">
-                                        <optgroup label="Geschäftlich (empfohlen)">
-                                            <option value="business" selected>Geschäftlich</option>
-                                        </optgroup>
-                                    </template>
-                                    <template x-if="!isBusinessMode">
-                                        <optgroup label="Privat (empfohlen)">
-                                            <option value="personal" selected>Privat</option>
-                                        </optgroup>
-                                    </template>
-                                    <optgroup label="Andere">
-                                        <option value="business" x-show="!isBusinessMode">Geschäftlich</option>
-                                        <option value="personal" x-show="isBusinessMode">Privat</option>
-                                    </optgroup>
-                                </select>
-                            </label>
+        async function loadTimeline() {
+            const container = document.getElementById('timeline');
+            try {
+                console.log('[Timeline] Starting load...');
+                const apiUrl = functionKey ? `/codex?format=json&code=${encodeURIComponent(functionKey)}` : '/codex?format=json';
+                console.log('[Timeline] API URL:', apiUrl);
+                const response = await fetch(apiUrl);
+                console.log('[Timeline] Response status:', response.status);
+                const data = await response.json();
+                console.log('[Timeline] Data received:', data);
 
-                            <label>
-                                Deadline
-                                <input type="date" x-model="task.deadline">
-                            </label>
+                let html = '';
+                for (const day of data.timeline || []) {
+                    const dayName = dayNames[day.dayOfWeek];
+                    html += `<div class="day">
+                        <div class="day-header">${dayName} ${day.datum}</div>`;
 
-                            <label>
-                                <input type="checkbox" x-model="task.fixed">
-                                Fester Termin
-                            </label>
+                    for (const slot of day.slots) {
+                        html += `<div class="slot ${slot.zeit}">
+                            <div class="slot-label">${slot.zeit}</div>`;
 
-                            <template x-if="task.fixed">
-                                <div class="grid">
-                                    <label>
-                                        Datum
-                                        <input type="date" x-model="task.fixedDate">
-                                    </label>
-                                    <label>
-                                        Tageszeit
-                                        <select x-model="task.fixedTime" required>
-                                            <option value="">Bitte wählen</option>
-                                            <option value="AM">Morgens</option>
-                                            <option value="PM">Mittags</option>
-                                            <option value="EV">Abends</option>
-                                        </select>
-                                    </label>
-                                </div>
-                            </template>
+                        if (slot.task) {
+                            const title = slot.task.file.split('/').pop().replace(/^\d{4}/, '').replace(/\.md$/, '').replace(/-/g, ' ');
+                            const num = extractTaskNumber(slot.task.file);
 
-                            <footer>
-                                <button type="button" class="secondary" @click="dialog.show = false">Abbrechen</button>
-                                <template x-if="dialog.mode === 'edit'">
-                                    <button type="button" style="background-color: #d32f2f; color: white;" @click="deleteTask(task.id)">🗑 Löschen</button>
-                                </template>
-                                <button type="submit" :disabled="saving">
-                                    <span x-show="!saving">Speichern</span>
-                                    <span x-show="saving">Speichere...</span>
-                                </button>
-                            </footer>
-                        </form>
-                    </article>
-                </dialog>
-            </div>
-        </template>
-    </main>
+                            html += `<div class="task">[${num}] ${title}
+                                <span class="badge">${slot.task.kategorie || '?'}</span>`;
+
+                            if (slot.task.isFixed) {
+                                html += `<span class="badge fixed">FIX</span>`;
+                            }
+
+                            if (slot.task.deadline) {
+                                html += `<span class="badge">DL: ${slot.task.deadline}</span>`;
+                            }
+
+                            // Add complete button
+                            const taskFile = slot.task.file.split('/').pop().replace('.md', '');
+                            html += `<button class="complete-btn" onclick="completeTask('${taskFile}', '${day.datum}', '${slot.zeit}')">✓ Erledigt</button>`;
+
+                            html += `</div>`;
+                        } else {
+                            html += `<div class="empty">– leer –</div>`;
+                        }
+
+                        html += `</div>`;
+                    }
+
+                    html += `</div>`;
+                }
+
+                container.innerHTML = html;
+                console.log('[Timeline] Rendered successfully');
+            } catch (error) {
+                console.error('[Timeline] Error:', error);
+                container.innerHTML = `<div class="error">Fehler beim Laden: ${error.message}</div>`;
+            }
+        }
+
+        async function completeTask(taskFile, date, slotTime) {
+            console.log(`[CompleteTask] Completing task: ${taskFile} on ${date} in slot ${slotTime}`);
+            try {
+                const apiUrl = functionKey 
+                    ? `/api/tasks/${taskFile}/complete?code=${encodeURIComponent(functionKey)}`
+                    : `/api/tasks/${taskFile}/complete`;
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ datum: date, zeit: slotTime }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('[CompleteTask] Result:', result);
+                alert('Task erfolgreich als abgeschlossen markiert!');
+                // Reload timeline to reflect changes
+                loadTimeline();
+            } catch (error) {
+                console.error('[CompleteTask] Error:', error);
+                alert(`Fehler beim Abschließen des Tasks: ${error.message}`);
+            }
+        }
+
+        console.log('[Timeline] Initializing...');
+        try {
+            loadTimeline();
+        } catch (err) {
+            console.error('[Timeline] Failed to initialize:', err);
+            document.getElementById('timeline').innerHTML = `<div class="error">Initialisierungsfehler: ${err.message}</div>`;
+        }
+    </script>
 </body>
 </html>

@@ -1,0 +1,340 @@
+Gut, Baumeister. Während du die Timeline schmiedest, hier der Plan, wie du **neue Tasks per Azure Function anlegst** und **sauber ins Repo committest**. Keine Faxgeräte, kein menschlicher Klickzirkus.
+
+# Zielbild
+
+* **HTTP-Endpoint** `/api/tasks` (POST): nimmt Task-Daten, vergibt eine **fortlaufende Nummer** `0000–9999`, baut die Markdown-Datei, **committet** sie via GitHub Contents API in `codex-miroir/tasks/NNNN.md`.
+* **Konsistenz:** Nummernvergabe ist **atomar** via Blob-„Lock“.
+* **Cache:** Nach Commit brauchst du nicht manuell syncen; dein **GitHub Webhook** zieht die Datei in den Storage. Wenn du sofortige Anzeige willst, kannst du optional den Blob direkt mitschreiben.
+
+---
+
+# Datenfluss in kurz
+
+1. Client schickt JSON an `/api/tasks`
+2. Function validiert Payload
+3. **Lock** auf `state/nextId.txt` (Blob-Lease) → liest current, erhöht, schreibt zurück
+4. Markdown bauen → `tasks/NNNN.md`
+5. GitHub **PUT /repos/:owner/:repo/contents/codex-miroir/tasks/NNNN.md** mit Base64-Content
+6. Response mit `file`, `sha`, `url`
+7. Webhook feuert, Storage spiegelt. Ende.
+
+---
+
+# API-Contract
+
+## Request (JSON)
+
+```json
+{
+  "kategorie": "geschäftlich | privat",
+  "status": "offen",                    // default: "offen"
+  "deadline": "dd.mm.yyyy",             // optional
+  "fixedSlot": {                        // optional
+    "datum": "dd.mm.yyyy",
+    "zeit": "morgens | nachmittags | abends"
+  },
+  "tags": ["meeting","xyz"],            // optional
+  "body": "Freitextbeschreibung"        // optional
+}
+```
+
+## Response (JSON)
+
+```json
+{
+  "ok": true,
+  "id": "0042",
+  "path": "codex-miroir/tasks/0042.md",
+  "commitSha": "<sha>",
+  "htmlUrl": "<github file url>"
+}
+```
+
+**Idempotenz (empfohlen):** Header `Idempotency-Key: <uuid>` → bei Retries keine Doppel-Tasks. Speichere Key → id in `state/idempotency/<key>.txt`.
+
+---
+
+# Sicherheitszeug
+
+* Nutze Functions-eigene **Function Keys** oder **EasyAuth**.
+* Rate-Limit: pro Key z. B. 10/min.
+* Im Payload keine Frontmatter-Explosion zulassen. Du kennst Menschen.
+
+---
+
+# Env Vars (zusätzlich zu den bisherigen)
+
+```
+GITHUB_COMMITTER_NAME   # z. B. Codex Bot
+GITHUB_COMMITTER_EMAIL  # z. B. bot@example.com
+GITHUB_DEFAULT_BRANCH   # z. B. main
+# Optional für PR-Flow:
+GITHUB_PR_BRANCH_PREFIX # z. B. codex/tasks
+CREATE_VIA_PR           # "true" | "false" (default false = Direkt-Commit)
+```
+
+---
+
+# Storage-Dateien
+
+```
+state/nextId.txt           # z. B. 42   (nächste freie Nummer)
+state/idempotency/<key>.txt # mappt Idempotency-Key -> vergebene ID
+```
+
+---
+
+# Code
+
+## 1) `shared/id.js` – Nummernvergabe mit Blob-Lease
+
+```js
+// shared/id.js
+const { BlobServiceClient } = require("@azure/storage-blob");
+
+const conn = process.env.AZURE_BLOB_CONN;
+const containerName = process.env.AZURE_BLOB_CONTAINER || "codex-cache";
+const NEXT_ID_BLOB = "state/nextId.txt";
+
+function svc(){ return BlobServiceClient.fromConnectionString(conn); }
+async function ensureContainer(){ const c=svc().getContainerClient(containerName); await c.createIfNotExists(); return c; }
+
+async function acquireLease(blobClient, seconds=15){
+  try { const { leaseId } = await blobClient.getBlockBlobClient().acquireLease(seconds); return leaseId; }
+  catch(e){
+    // Falls Blob noch nicht existiert: anlegen
+    if (e.statusCode === 404){
+      await blobClient.upload("0", 1, { blobHTTPHeaders: { blobContentType: "text/plain" } });
+      const { leaseId } = await blobClient.getBlockBlobClient().acquireLease(seconds);
+      return leaseId;
+    }
+    throw e;
+  }
+}
+
+async function withIdLock(fn){
+  const c = await ensureContainer();
+  const b = c.getBlockBlobClient(NEXT_ID_BLOB);
+  const leaseId = await acquireLease(b);
+  try{
+    const dl = await b.download(0, undefined, { conditions: { leaseId } });
+    const buf = await streamToBuffer(dl.readableStreamBody);
+    const cur = parseInt(buf.toString("utf8").trim() || "0", 10);
+    const next = isNaN(cur) ? 0 : cur;
+    const id = String(next).padStart(4,"0");
+    const newVal = String(next + 1);
+    await b.upload(Buffer.from(newVal,"utf8"), Buffer.byteLength(newVal), {
+      conditions: { leaseId },
+      blobHTTPHeaders: { blobContentType: "text/plain" }
+    });
+    return id;
+  } finally {
+    await b.releaseLease(leaseId);
+  }
+}
+
+async function streamToBuffer(s){
+  const chunks=[]; for await (const ch of s) chunks.push(Buffer.isBuffer(ch)?ch:Buffer.from(ch));
+  return Buffer.concat(chunks);
+}
+
+module.exports = { withIdLock };
+```
+
+## 2) `createTask/function.json`
+
+```json
+{
+  "bindings": [
+    { "authLevel": "function", "type": "httpTrigger", "direction": "in",
+      "name": "req", "methods": ["post"], "route": "tasks" },
+    { "type": "http", "direction": "out", "name": "res" }
+  ],
+  "scriptFile": "../createTask/index.js"
+}
+```
+
+## 3) `createTask/index.js`
+
+```js
+const { withIdLock } = require("../shared/id");
+
+const OWNER  = process.env.GITHUB_OWNER;
+const REPO   = process.env.GITHUB_REPO;
+const BRANCH = process.env.GITHUB_DEFAULT_BRANCH || process.env.GITHUB_BRANCH || "main";
+const TOKEN  = process.env.GITHUB_TOKEN;
+
+const COMMITTER = {
+  name:  process.env.GITHUB_COMMITTER_NAME  || "Codex Miroir Bot",
+  email: process.env.GITHUB_COMMITTER_EMAIL || "bot@example.com"
+};
+
+const BASE = (process.env.GITHUB_BASE_PATH || "codex-miroir").replace(/\/+$/,"");
+const VIA_PR = (process.env.CREATE_VIA_PR || "false").toLowerCase() === "true";
+const PR_PREFIX = process.env.GITHUB_PR_BRANCH_PREFIX || "codex/tasks";
+
+function b64(s){ return Buffer.from(s,"utf8").toString("base64"); }
+function isDate(s){ return /^\d{2}\.\d{2}\.\d{4}$/.test(s || ""); }
+function slotOk(z){ return ["morgens","nachmittags","abends"].includes((z||"").toLowerCase()); }
+
+async function gh(url, method="GET", body){
+  const r = await fetch(`https://api.github.com${url}`, {
+    method,
+    headers: {
+      "Authorization": `Bearer ${TOKEN}`,
+      "User-Agent": "codex-miroir",
+      "Accept": "application/vnd.github.v3+json"
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (!r.ok) {
+    const txt = await r.text().catch(()=> "");
+    throw new Error(`GitHub ${r.status} ${url} :: ${txt}`);
+  }
+  return r.json();
+}
+
+function buildMarkdown(payload){
+  const fm = {
+    typ: "task",
+    kategorie: payload.kategorie,
+    status: payload.status || "offen",
+    tags: payload.tags || [],
+    deadline: payload.deadline || null,
+    fixedSlot: payload.fixedSlot || null
+  };
+  // YAML
+  const yaml = [
+    "---",
+    `typ: ${fm.typ}`,
+    `kategorie: ${fm.kategorie}`,
+    `status: ${fm.status}`,
+    `tags: ${Array.isArray(fm.tags) ? `[${fm.tags.join(", ")}]` : "[]"}`,
+    `deadline: ${fm.deadline ? fm.deadline : "null"}`,
+    fm.fixedSlot ? `fixedSlot:\n  datum: ${fm.fixedSlot.datum}\n  zeit: ${fm.fixedSlot.zeit}` : "fixedSlot: null",
+    "---"
+  ].join("\n");
+  const body = (payload.body || "").trim();
+  return `${yaml}\n\n${body}\n`;
+}
+
+async function ensureBranch(base, feature){
+  // create feature branch from base
+  const baseRef = await gh(`/repos/${OWNER}/${REPO}/git/ref/heads/${base}`);
+  const sha = baseRef.object.sha;
+  // try to create; if exists, fine
+  try {
+    await gh(`/repos/${OWNER}/${REPO}/git/refs`, "POST", { ref: `refs/heads/${feature}`, sha });
+  } catch(e){ /* might already exist */ }
+  return feature;
+}
+
+async function commitFile(path, content, message, branch){
+  return gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}`, "PUT", {
+    message,
+    content: b64(content),
+    branch,
+    committer: COMMITTER
+  });
+}
+
+async function openPr(fromBranch, toBranch, title, body){
+  return gh(`/repos/${OWNER}/${REPO}/pulls`,"POST",{ title, head: fromBranch, base: toBranch, body });
+}
+
+module.exports = async function (context, req){
+  try{
+    const idemKey = req.headers["idempotency-key"]; // optional
+    const p = req.body || {};
+
+    // Minimalvalidierung
+    const kat = p.kategorie;
+    if (!["geschäftlich","privat"].includes(kat)) return bad(400,"kategorie muss 'geschäftlich' oder 'privat' sein");
+    if (p.deadline && !isDate(p.deadline)) return bad(400,"deadline muss dd.mm.yyyy sein");
+    if (p.fixedSlot){
+      if (!isDate(p.fixedSlot.datum)) return bad(400,"fixedSlot.datum muss dd.mm.yyyy sein");
+      if (!slotOk(p.fixedSlot.zeit)) return bad(400,"fixedSlot.zeit muss morgens|nachmittags|abends sein");
+    }
+
+    // Idempotenz optional: wenn key vorhanden, prüfe ob bereits gemappt
+    if (idemKey){
+      const { getTextBlob, putTextBlob } = require("../shared/storage");
+      const prior = await getTextBlob(`state/idempotency/${idemKey}.txt`);
+      if (prior){
+        const id = prior.trim();
+        return ok({ ok: true, id, path: `${BASE}/tasks/${id}.md`, reused: true });
+      }
+    }
+
+    // ID vergeben
+    const id = await withIdLock();
+    const path = `${BASE}/tasks/${id}.md`;
+    const md = buildMarkdown(p);
+    const message = `[codex] add task ${id} (${kat})`;
+
+    let result;
+    if (VIA_PR){
+      // Feature-Branch je Task
+      const feat = `${PR_PREFIX}/${id}`;
+      await ensureBranch(BRANCH, feat);
+      result = await commitFile(path, md, message, feat);
+      await openPr(feat, BRANCH, message, `Automatisch erstellt.\n\n${path}`);
+    } else {
+      result = await commitFile(path, md, message, BRANCH);
+    }
+
+    // Idempotenz-Key persistieren
+    if (idemKey){
+      const { putTextBlob } = require("../shared/storage");
+      await putTextBlob(`state/idempotency/${idemKey}.txt`, id, "text/plain");
+    }
+
+    return ok({
+      ok: true,
+      id,
+      path,
+      commitSha: result.commit.sha,
+      htmlUrl: result.content.html_url
+    });
+
+  } catch(e){
+    context.log.error(e);
+    return bad(500, String(e.message || e));
+  }
+
+  function ok(body){ context.res = { headers: { "content-type":"application/json" }, body: JSON.stringify(body, null, 2) }; }
+  function bad(status, msg){ context.res = { status, headers:{ "content-type":"application/json" }, body: JSON.stringify({ ok:false, error: msg }, null, 2) }; }
+};
+```
+
+---
+
+# PR-Flow vs Direkt-Commit
+
+* **Direkt-Commit**: simpel, sofortiger Webhook, keine Reviews.
+* **PR-Flow**: Branch `codex/tasks/<id>`, PR eröffnet, Merge-Regeln möglich. Du willst Governance? Nimm PR.
+
+---
+
+# Sofortige Anzeige ohne Webhook abwarten
+
+Wenn du die Task direkt nach Erstellung sehen willst, kannst du zusätzlich zum GitHub-Commit die Datei **auch direkt in den Blob-Cache** schreiben:
+
+```js
+const { putTextBlob } = require("../shared/storage");
+await putTextBlob(`raw/tasks/${id}.md`, md, "text/markdown");
+// Optional: state/lastHeadSha.txt setzt du nicht hier, das macht weiterhin der Webhook bei Push.
+// Dein render-Endpoint kann notfalls ohne headSha-Caching die Datei schon lesen.
+```
+
+Realistisch reicht der Webhook, aber du liebst Geschwindigkeit, also bitte.
+
+---
+
+# Fertigkeitsprüfung
+
+* Parallel 10 POSTs? Dank **Blob-Lease** gibt es keine Doppelnummern.
+* API retried? Mit **Idempotency-Key** kein Doppel-Commit.
+* Alles minimal invasiv, deterministic AF.
+
+Los jetzt. Bau deine Timeline. Ich halte dir die Commit-Schleuder warm.

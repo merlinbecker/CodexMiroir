@@ -1,0 +1,134 @@
+Kurz gesagt: **berechne on the fly, cache schlau.**
+Reine Live-Berechnung ist okay bei wenigen hundert Tasks. Ab da nervt die Latenz. Also nimm einen **artefakt-Cache**, der nur invalidiert, wenn sich der Stand im Repo geändert hat.
+
+## Empfehlung
+
+* **Webhook/Sync speichert `headSha`** des letzten Pushes (oder Branch-Head) in den Blob.
+* **Render-Endpoint** schaut: gibt’s `artifacts/timeline_<headSha>.json`?
+
+  * Ja → direkt ausliefern.
+  * Nein → Tasks lesen, Timeline bauen, als `timeline_<headSha>.json` ablegen, dann ausliefern.
+* Bonus: Setz **ETag** = `headSha` in der Response. Bei `If-None-Match` → `304 Not Modified`. Spart Bandbreite und Serverzeit.
+
+So hast du instant Responses, null Doppelarbeit, und der Cache wird automatisch ungültig, wenn du pushst.
+
+---
+
+## Blob-Layout
+
+```
+raw/tasks/*.md                  # gespiegelte Task-Dateien
+state/lastHeadSha.txt           # letzter bekannter Head-SHA (vom Webhook/Sync)
+artifacts/timeline_<sha>.json   # materialisierte Timeline pro Repo-Stand
+```
+
+---
+
+## Mini-Implementierung
+
+### Beim Webhook/Sync (nach erfolgreichem Pull)
+
+```js
+// state/lastHeadSha.txt aktualisieren
+await putTextBlob("state/lastHeadSha.txt", headSha, "text/plain");
+// optional: alten Timeline-Cache NICHT löschen. Re-Use spart CPU beim Rollback.
+```
+
+### renderCodex: Cache-Check + Lazy-Build
+
+```js
+const { list, getTextBlob, putTextBlob } = require("../shared/storage");
+const { parseTask, sortKey } = require("../shared/parsing");
+
+async function getLastHeadSha() {
+  return (await getTextBlob("state/lastHeadSha.txt"))?.trim() || "no-sha";
+}
+
+async function loadOrBuildTimeline(headSha, format) {
+  const artifactPath = `artifacts/timeline_${headSha}.json`;
+  const cached = await getTextBlob(artifactPath);
+  if (cached) return { json: JSON.parse(cached), etag: headSha };
+
+  // Build: Tasks lesen und gruppieren
+  const files = await list("raw/tasks/");
+  const tasks = [];
+  for (const name of files) {
+    if (!name.endsWith(".md")) continue;
+    const md = await getTextBlob(name);
+    if (!md) continue;
+    const t = parseTask(md);
+    if (t.typ === "task" && t.status === "offen") {
+      tasks.push({ file: name, ...t });
+    }
+  }
+
+  const groups = new Map();
+  for (const t of tasks) {
+    const d = t.fixedSlot?.datum || "ohne-datum";
+    const z = t.fixedSlot?.zeit || "ohne-slot";
+    const key = `${d}|${z}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(t);
+  }
+  const ordered = [...groups.entries()]
+    .sort(([a],[b]) => {
+      const [da, za] = a.split("|");
+      const [db, zb] = b.split("|");
+      return sortKey(da, za).localeCompare(sortKey(db, zb));
+    })
+    .map(([slot, items]) => ({ slot, items }));
+
+  const payload = { headSha, generatedAt: new Date().toISOString(), groups: ordered };
+  await putTextBlob(artifactPath, JSON.stringify(payload), "application/json");
+
+  return { json: payload, etag: headSha };
+}
+
+module.exports = async function (context, req) {
+  const format = (req.query.format || "json").toLowerCase();
+  const headSha = await getLastHeadSha();
+
+  // HTTP Caching
+  const inm = req.headers["if-none-match"];
+  if (inm && inm.replace(/"/g,"") === headSha) {
+    context.res = { status: 304, headers: { ETag: `"${headSha}"` } };
+    return;
+  }
+
+  const { json, etag } = await loadOrBuildTimeline(headSha, format);
+
+  if (format === "html") {
+    // simple HTML aus JSON bauen (wie zuvor)
+    // ...
+    context.res = { headers: { "content-type": "text/html; charset=utf-8", ETag: `"${etag}"` }, body: /* html */ "" };
+    return;
+  }
+
+  context.res = {
+    headers: { "content-type": "application/json; charset=utf-8", ETag: `"${etag}"` },
+    body: JSON.stringify(json, null, 2)
+  };
+};
+```
+
+---
+
+## Wann genügt „ohne Cache“?
+
+* < 300 Task-Files, seltene Aufrufe, kalte Schultern gegenüber Latenz.
+* Du magst CPU verheizen. Warum auch nicht, Strom ist ja… na gut, lassen wir das.
+
+## Wann Cache unbedingt?
+
+* > 500 Tasks oder häufige Aufrufe.
+* Mobile/Widget-Nutzung.
+* Du willst `304`-Responses und keine schwitzende Function.
+
+---
+
+## Fazit
+
+* **Immer live rechnen** ist okay, bis es nervt.
+* **Materialisierte Timeline pro `headSha`** ist billig, robust und exakt.
+* Mit **ETag = headSha** kriegst du Browser- und CDN-Caching fast geschenkt.
+  Schlicht, schnell, solide. Genau dein Stil.

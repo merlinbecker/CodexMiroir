@@ -1,15 +1,10 @@
-// Main entry point for Azure Functions v4 Programming Model
-import { app } from "@azure/functions";
 
-// Import all functions
-import "./assignToSlot.js";
-import "./autoFill.js";
-import "./createTask.js";
-import "./deleteTask.js";
-import "./getTask.js";
-import "./getTimeline.js";
-import "./prioritizeTask.js";
-import "./serveStatic.js";
-import "./updateTask.js";
-
-export default app;
+// Importiere alle Function-Definitionen
+// Diese Datei ist der Entry Point für Azure Functions v4 Programming Model
+import './githubWebhook.js';
+import './manualSync.js';
+import './renderCodex.js';
+import './serveStatic.js';
+import './createTask.js';
+import './updateTask.js';
+import './completeTask.js';

@@ -1,0 +1,244 @@
+
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task erstellen - Codex Miroir</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 20px;
+            max-width: 700px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        header { 
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #333;
+        }
+        h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        form { 
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        label { 
+            display: block;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+        label span { 
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+        }
+        input, select, textarea { 
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        textarea { resize: vertical; }
+        small { 
+            display: block;
+            margin-top: 0.25rem;
+            color: #666;
+            font-size: 0.8rem;
+        }
+        .checkbox-group { margin: 1rem 0; }
+        .checkbox-group label { 
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+        }
+        .checkbox-group input { 
+            width: auto;
+            margin-right: 0.5rem;
+        }
+        .fixed-slot { 
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .fixed-slot.visible { display: block; }
+        button { 
+            width: 100%;
+            padding: 0.75rem;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .result { 
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 4px;
+            display: none;
+        }
+        .result.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .result.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Task erstellen</h1>
+        <p><a href="/">← Zurück zur Timeline</a></p>
+    </header>
+
+    <form id="taskForm">
+        <label>
+            <span>Kategorie *</span>
+            <select name="kategorie" required>
+                <option value="">Bitte wählen</option>
+                <option value="geschäftlich">Geschäftlich</option>
+                <option value="privat">Privat</option>
+            </select>
+        </label>
+
+        <label>
+            <span>Titel / Beschreibung *</span>
+            <textarea name="body" rows="5" required placeholder="Z.B. Meeting mit Marina vorbereiten"></textarea>
+        </label>
+
+        <label>
+            <span>Tags (kommasepariert)</span>
+            <input type="text" name="tags" placeholder="meeting, wichtig, projekt-x">
+        </label>
+
+        <label>
+            <span>Deadline</span>
+            <input type="text" name="deadline" placeholder="31.12.2025" pattern="\d{2}\.\d{2}\.\d{4}">
+            <small>Format: dd.mm.yyyy</small>
+        </label>
+
+        <div class="checkbox-group">
+            <label>
+                <input type="checkbox" id="hasFixedSlot">
+                Fester Termin (fixedSlot)
+            </label>
+        </div>
+
+        <div id="fixedSlotFields" class="fixed-slot">
+            <h4>Fester Termin Details</h4>
+            <label>
+                <span>Datum *</span>
+                <input type="text" name="fixedSlotDatum" placeholder="15.10.2025" pattern="\d{2}\.\d{2}\.\d{4}">
+            </label>
+            <label>
+                <span>Tageszeit *</span>
+                <select name="fixedSlotZeit">
+                    <option value="">Bitte wählen</option>
+                    <option value="morgens">Morgens</option>
+                    <option value="nachmittags">Nachmittags</option>
+                    <option value="abends">Abends</option>
+                </select>
+            </label>
+        </div>
+
+        <button type="submit">Task erstellen</button>
+    </form>
+
+    <div id="result" class="result"></div>
+
+    <script>
+        const form = document.getElementById('taskForm');
+        const checkbox = document.getElementById('hasFixedSlot');
+        const fixedFields = document.getElementById('fixedSlotFields');
+        const resultDiv = document.getElementById('result');
+
+        // Extract function key from URL (if provided)
+        const urlParams = new URLSearchParams(window.location.search);
+        const functionKey = urlParams.get('code') || '';
+
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+                fixedFields.classList.add('visible');
+                form.fixedSlotDatum.required = true;
+                form.fixedSlotZeit.required = true;
+            } else {
+                fixedFields.classList.remove('visible');
+                form.fixedSlotDatum.required = false;
+                form.fixedSlotZeit.required = false;
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const btn = form.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.textContent = 'Wird erstellt...';
+            resultDiv.style.display = 'none';
+
+            const payload = {
+                kategorie: form.kategorie.value,
+                status: 'offen',
+                body: form.body.value.trim()
+            };
+
+            if (form.tags.value.trim()) {
+                payload.tags = form.tags.value.split(',').map(t => t.trim()).filter(t => t);
+            }
+
+            if (form.deadline.value.trim()) {
+                payload.deadline = form.deadline.value.trim();
+            }
+
+            if (checkbox.checked && form.fixedSlotDatum.value && form.fixedSlotZeit.value) {
+                payload.fixedSlot = {
+                    datum: form.fixedSlotDatum.value.trim(),
+                    zeit: form.fixedSlotZeit.value.trim()
+                };
+            }
+
+            try {
+                const apiUrl = functionKey ? `/api/tasks?code=${encodeURIComponent(functionKey)}` : '/api/tasks';
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Idempotency-Key': crypto.randomUUID()
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `
+                        <h4>✓ Task erfolgreich erstellt!</h4>
+                        <p><strong>ID:</strong> ${data.id}</p>
+                        <p><a href="/codex?format=html&nocache=true">Timeline neu laden →</a></p>
+                    `;
+                    form.reset();
+                } else {
+                    throw new Error(data.error || 'Unbekannter Fehler');
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `<h4>✗ Fehler</h4><p>${error.message}</p>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Task erstellen';
+            }
+        });
+    </script>
+</body>
+</html>

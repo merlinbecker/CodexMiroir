@@ -13,8 +13,10 @@
     "deploy:sprocs": "node database/infra/deploy-sprocs.js"
   },
   "dependencies": {
+    "@azure/cosmos": "^4.5.1",
     "@azure/functions": "^4.4.0",
-    "@azure/cosmos": "^4.5.1"
+    "@azure/storage-blob": "^12.28.0",
+    "gray-matter": "^4.0.3"
   },
   "engines": {
     "node": ">=18.0.0"

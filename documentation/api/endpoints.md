@@ -1,382 +1,194 @@
-# CodexMiroir API Documentation
+# CodexMiroir API
 
-## Base URL
+## Spartarégime: Git → Blob → Timeline
+
+**Keine Task-Management-API!** Tasks werden über Git verwaltet.
+
+Die API dient nur zum:
+- **Sync**: GitHub → Blob Storage
+- **Render**: Timeline aus Cache generieren
+
+## Datei-basiertes System
+
+- **Location**: GitHub Repo → `codex-miroir/tasks/####.md`
+- **Format**: Markdown mit YAML Frontmatter
+- **Cache**: Azure Blob Storage (`raw/tasks/`, `artifacts/`)
+
+### Task-Struktur
+
+```yaml
+---
+typ: task
+kategorie: geschäftlich | privat
+status: offen | abgeschlossen | abgebrochen
+tags: [optional]
+deadline: dd.mm.yyyy (optional)
+fixedSlot:
+  datum: dd.mm.yyyy
+  zeit: morgens | nachmittags | abends
+---
+
+# Task-Beschreibung
+
+Freier Markdown-Text für Details, Notizen, etc.
 ```
-https://your-function-app.azurewebsites.net/api/codex/{secure_token}
-```
 
-## Authentication
-All requests require a secure token in the URL path:
-- URL format: `/api/codex/{secure_token}?action=...`
-- The secure token serves as both user identification and access control
-- Minimum token length: 8 characters
+## Timeline-Regeln
 
-## Token-based User Separation
-Each token creates a separate user space with isolated markdown files:
-- Path structure: `users/{token}/codex-miroir/{list}/`
-- Example: `users/mySecureToken123/codex-miroir/pro/current.md`
+### Slots pro Tag
+- **morgens**: 09:00-12:30
+- **nachmittags**: 13:30-17:00
+- **abends**: 18:00-21:30 (nur per fixedSlot)
 
-## Endpoints
+### Auto-Fill Logik
+1. **Fixed first**: Tasks mit `fixedSlot` werden zuerst platziert
+2. **Automatische Planung**: Tasks ohne `fixedSlot` werden nach Dateinamen-Reihenfolge (0000-9999) zugewiesen
+3. **Kategorie-Regeln**:
+   - `geschäftlich`: Mo-Fr, morgens → nachmittags
+   - `privat`: Sa-So, morgens → nachmittags
+   - `abends`: nie auto-befüllbar
 
-### Core Task Management
+### Domino-Logik bei Konflikten
+- Fixed Tasks bleiben stehen
+- Nicht-fixe Tasks werden vorwärts geschoben (morgens → nachmittags → abends)
+- Überlauf geht in den nächsten passenden Tag
+
+## API Endpoints
 
 ### 1. Create Task
-**POST** `/api/codex/{secure_token}?action=createTask`
 
-Creates a new task in the specified list (pro/priv) for the user identified by the secure token.
+**POST** `/api/tasks`
 
-**Request Body:**
+Erstellt eine neue Task-Datei im GitHub Repository mit automatischer ID-Vergabe.
+
+#### Request Headers
+- `Content-Type: application/json`
+- `Idempotency-Key: <uuid>` (optional, empfohlen für Retry-Safety)
+
+#### Request Body
 ```json
 {
-  "list": "pro",                    // Required: "pro" or "priv"
-  "id": "T-001",                   // Required: Unique task ID
-  "title": "API Specification",    // Required: Task title
-  "created_at_iso": "2025-09-23T10:00:00Z",  // Required: ISO timestamp
-  "scheduled_slot": "2025-W39-Tue-AM",       // Required: Time slot
-  "category": "programmierung",     // Optional: Task category
-  "deadline_iso": "2025-09-30T16:00:00Z",   // Optional: Deadline
-  "project": "CodexMiroir",        // Optional: Project name
-  "azure_devops": "12345",         // Optional: Azure DevOps ID
-  "requester": "John Doe",         // Optional: Requester name
-  "duration_slots": 1              // Optional: Number of slots (default: 1)
+  "kategorie": "geschäftlich | privat",
+  "status": "offen",
+  "deadline": "dd.mm.yyyy",
+  "fixedSlot": {
+    "datum": "dd.mm.yyyy",
+    "zeit": "morgens | nachmittags | abends"
+  },
+  "tags": ["tag1", "tag2"],
+  "body": "Freitext-Beschreibung"
 }
 ```
 
-**Response:**
+**Pflichtfelder:**
+- `kategorie`: `geschäftlich` oder `privat`
+
+**Optionale Felder:**
+- `status`: Standard ist `offen`
+- `deadline`: Format `dd.mm.yyyy`
+- `fixedSlot`: Objekt mit `datum` und `zeit`
+- `tags`: Array von Strings
+- `body`: Markdown-Freitext
+
+#### Response
 ```json
 {
   "ok": true,
-  "taskPath": "users/mySecureToken123/codex-miroir/pro/tasks/2025/2025-09-23--T-001-api-specification.md",
-  "currentPath": "users/mySecureToken123/codex-miroir/pro/current.md"
+  "id": "0042",
+  "path": "codex-miroir/tasks/0042.md",
+  "commitSha": "abc123...",
+  "htmlUrl": "https://github.com/..."
 }
 ```
 
-### 2. Complete Task
-**POST** `/api/codex/{secure_token}?action=completeTask`
+#### Features
+- **Atomare ID-Vergabe**: Blob-Lease verhindert Doppel-IDs bei parallelen Requests
+- **Idempotenz**: Mit `Idempotency-Key` Header keine Doppel-Tasks bei Retries
+- **Sofortiger Cache**: Task wird direkt in Blob Storage geschrieben
+- **GitHub Integration**: Commit direkt oder via PR (ENV: `CREATE_VIA_PR=true`)
 
-Marks a task as completed and moves it to archive.
+#### Fehler-Responses
+- `400`: Validierungsfehler (z.B. ungültige Kategorie, ungültiges Datum-Format, ungültiger Slot)
+- `500`: Server-Fehler (GitHub API, Blob Storage, ID-Vergabe)
 
-**Request Body:**
-```json
-{
-  "list": "pro",                           // Required: "pro" or "priv"
-  "taskPathAbs": "users/mySecureToken123/codex-miroir/pro/tasks/2025/2025-09-23--T-001-api-specification.md",
-  "closed_at_iso": "2025-09-23T16:30:00Z"  // Required: Completion timestamp
-}
-```
+### 2. Manual Sync
+- **POST /sync?mode=full** - Vollständiger Sync von GitHub
+- **POST /sync?mode=diff&since=SHA** - Diff-basierter Sync
 
-**Response:**
-```json
-{
-  "ok": true
-}
-```
+### Render API
+- **GET /codex?format=json** - Timeline als JSON
+- **GET /codex?format=html** - Timeline als HTML
 
-### 3. Push to End
-**POST** `/api/codex/{secure_token}?action=pushToEnd`
+### GitHub Webhook
+- **POST /github/webhook** - Automatischer Sync bei Push
 
-Reschedules a task to a later time slot.
+## HTTP Caching
+- **ETag**: Basierend auf Git HEAD SHA
+- **304 Not Modified**: Bei unverändertem Content
 
-**Request Body:**
-```json
-{
-  "list": "pro",                           // Required: "pro" or "priv"
-  "taskPathAbs": "users/mySecureToken123/codex-miroir/pro/tasks/2025/2025-09-23--T-001-api-specification.md",
-  "new_scheduled_slot": "2025-W40-Wed-PM"  // Required: New time slot
-}
-```
+## Deployment
 
-**Response:**
-```json
-{
-  "ok": true
-}
-```
+Die API läuft als Azure Functions App und synchronisiert sich automatisch mit einem GitHub Repository.
 
-### 4. Report Tasks
-**GET** `/api/codex/{secure_token}?action=report`
+**Environment Variables:**
+- `GITHUB_OWNER` - GitHub Repository Owner
+- `GITHUB_REPO` - Repository Name
+- `GITHUB_BRANCH` - Branch (default: main)
+- `GITHUB_BASE_PATH` - Pfad im Repo (z.B. "codex-miroir")
+- `GITHUB_TOKEN` - GitHub Personal Access Token
+- `AZURE_BLOB_CONN` - Azure Blob Storage Connection String
+- `AZURE_BLOB_CONTAINER` - Container Name (z.B. "codex-cache")
 
-Returns current tasks for the specified list.
+## Beispiele
 
-**Request Body:**
-```json
-{
-  "list": "pro"  // Required: "pro" or "priv"
-}
-```
-
-**Response:**
-```json
-{
-  "tasks": [
-    {
-      "slot": "2025-W39-Tue-AM",
-      "task": "T-001: API Specification",
-      "category": "programmierung",
-      "deadline": "30.09.2025"
-    }
-  ],
-  "total": 1
-}
-```
-
-### 5. When Available
-**GET** `/api/codex/{secure_token}?action=when`
-
-Returns the next available time slot for new tasks.
-
-**Request Body:**
-```json
-{
-  "list": "pro"  // Required: "pro" or "priv"
-}
-```
-
-**Response:**
-```json
-{
-  "nextSlot": "2025-W39-Mon-AM",
-  "message": "Nächster verfügbarer Slot: Montag Vormittag"
-}
-```
-
-### Voice Command Processing
-
-### 6. Process Voice Command
-**POST** `/api/codex/{secure_token}?action=processCommand`
-
-Processes natural language voice commands and executes appropriate actions.
-
-**Request Body:**
-```json
-{
-  "text": "Erstelle eine neue Aufgabe: Meeting vorbereiten",  // Required: Voice command text
-  "list": "pro"                                          // Required: "pro" or "priv"
-}
-```
-
-**Response:**
-```json
-{
-  "intent": "create_task",
-  "parameters": {
-    "title": "Meeting vorbereiten",
-    "category": "meeting"
-  },
-  "response": "Ich erstelle die Aufgabe 'Meeting vorbereiten' für dich.",
-  "confidence": 0.95,
-  "executed": true,
-  "taskId": "T-001234567",
-  "fallback": false
-}
-```
-
-### 7. Decompose Task
-**POST** `/api/codex/{secure_token}?action=decomposeTask`
-
-Uses AI to break down large tasks into 3.5-hour chunks.
-
-**Request Body:**
-```json
-{
-  "list": "pro",                                         // Required: "pro" or "priv"
-  "title": "Neue Website entwickeln",                    // Required: Task title
-  "description": "Komplette Neuentwicklung der Website", // Optional: Task description
-  "estimated_hours": 14                                  // Optional: Estimated total hours
-}
-```
-
-**Response:**
-```json
-{
-  "subtasks": [
-    {
-      "title": "Konzept und Wireframes erstellen",
-      "estimated_hours": 3.5,
-      "order": 1
-    },
-    {
-      "title": "Design und Mockups entwickeln", 
-      "estimated_hours": 3.5,
-      "order": 2
-    }
-  ],
-  "total_slots": 4,
-  "notes": "Empfehlung: Zwischen Design und Entwicklung Feedback einholen",
-  "fallback": false
-}
-```
-
-### 8. Get Current Task (Voice-Optimized)
-**GET** `/api/codex/{secure_token}?action=getCurrentTask`
-
-Returns current task information optimized for voice responses.
-
-**Request Body:**
-```json
-{
-  "list": "pro"  // Required: "pro" or "priv"
-}
-```
-
-**Response:**
-```json
-{
-  "hasTask": true,
-  "currentTask": {
-    "slot": "2025-W39-Tue-AM",
-    "task": "T-001: API Specification",
-    "category": "programmierung",
-    "deadline": "30.09.2025"
-  },
-  "taskDetails": {
-    "id": "T-001",
-    "title": "API Specification",
-    "status": "geplant"
-  },
-  "message": "Aktuelle Aufgabe: T-001: API Specification",
-  "voiceResponse": "Deine aktuelle berufliche Aufgabe ist: T-001: API Specification. Geplant für 2025-W39-Tue-AM, Deadline 30.09.2025. Kategorie: programmierung.",
-  "slot": "2025-W39-Tue-AM",
-  "deadline": "30.09.2025"
-}
-```
-
-## Time Slots
-
-### Professional (pro)
-- **Monday-Friday**: 2 slots per day
-  - Morning (AM): 09:00-12:30
-  - Afternoon (PM): 13:30-17:00
-
-### Private (priv)
-- **Monday-Friday**: 1 evening slot
-  - Evening: 18:00-21:30
-- **Saturday-Sunday**: 2 slots per day
-  - Morning (AM): 09:00-12:30
-  - Afternoon (PM): 13:30-17:00
-
-### Slot Format
-```
-YYYY-Www-DDD-PP
-```
-- `YYYY`: Year
-- `Www`: Week number (W01-W53)
-- `DDD`: Day (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
-- `PP`: Period (AM, PM)
-
-Examples:
-- `2025-W39-Tue-AM`: Tuesday morning, week 39, 2025
-- `2025-W39-Fri-PM`: Friday afternoon, week 39, 2025
-
-## Date Formats
-
-### Input (API)
-- **ISO 8601**: `2025-09-23T10:00:00Z`
-- Used for: `created_at_iso`, `deadline_iso`, `closed_at_iso`
-
-### Output (Human-readable)
-- **European format**: `dd.mm.yyyy [HH:MM]`
-- Used for: All user-visible dates in responses and markdown files
-
-## Error Responses
-
-### 401 Unauthorized
-```json
-{
-  "error": "Unauthorized"
-}
-```
-
-### 400 Bad Request
-```json
-{
-  "error": "missing fields"
-}
-```
-
-### 404 Not Found
-```json
-{
-  "error": "task not found"
-}
-```
-
-### 500 Internal Server Error
-```json
-{
-  "error": "Detailed error message"
-}
-```
-
-## Data Storage Structure
-
-### Azure Blob Storage Container: `codex-miroir`
-```
-codex-miroir/
-└── users/
-    └── {secure_token}/
-        └── codex-miroir/
-            ├── pro/
-            │   ├── current.md      # Current professional tasks
-            │   ├── archive.md      # Completed professional tasks
-            │   └── tasks/
-            │       └── YYYY/
-            │           └── YYYY-MM-DD--ID-slug.md
-            └── priv/
-                ├── current.md      # Current private tasks
-                ├── archive.md      # Completed private tasks
-                └── tasks/
-                    └── YYYY/
-                        └── YYYY-MM-DD--ID-slug.md
-```
-
-### Token-Based User Isolation
-- Each secure token creates a separate user directory
-- Path format: `users/{secure_token}/codex-miroir/{list}/`
-- Example: `users/mySecureToken123/codex-miroir/pro/current.md`
-
-### Task File Naming Convention
-```
-YYYY-MM-DD--ID-slug.md
-```
-- `YYYY-MM-DD`: Creation date
-- `ID`: Task identifier (e.g., T-001)
-- `slug`: URL-friendly version of title
-
-Example: `2025-09-23--T-001-api-specification.md`
-
-## Usage Examples
-
-### Creating a Professional Task
+### Task erstellen (GitHub)
 ```bash
-curl -X POST "https://your-function.azurewebsites.net/api/codex/mySecureToken123?action=createTask" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "list": "pro",
-    "id": "T-001",
-    "title": "API Specification",
-    "created_at_iso": "2025-09-23T10:00:00Z",
-    "scheduled_slot": "2025-W39-Tue-AM",
-    "category": "programmierung",
-    "deadline_iso": "2025-09-30T16:00:00Z",
-    "project": "CodexMiroir"
-  }'
+# In codex-miroir/tasks/ eine neue Datei erstellen:
+echo '---
+typ: task
+kategorie: geschäftlich
+status: offen
+deadline: 15.10.2025
+---
+
+# Sprint Planning Meeting vorbereiten
+
+- Agenda erstellen
+- Team einladen
+- Raum buchen' > tasks/0042.md
+
+git add tasks/0042.md
+git commit -m "Add task 0042"
+git push
 ```
 
-### Getting Current Tasks
+### Timeline abrufen
 ```bash
-curl -X GET "https://your-function.azurewebsites.net/api/codex/mySecureToken123?action=report" \
-  -H "Content-Type: application/json" \
-  -d '{"list": "pro"}'
+# JSON Format
+curl https://your-app.azurewebsites.net/codex?format=json
+
+# HTML Format (Browser)
+https://your-app.azurewebsites.net/codex?format=html
 ```
 
-### Completing a Task
+### Manueller Sync triggern
 ```bash
-curl -X POST "https://your-function.azurewebsites.net/api/codex/mySecureToken123?action=completeTask" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "list": "pro",
-    "taskPathAbs": "users/mySecureToken123/codex-miroir/pro/tasks/2025/2025-09-23--T-001-api-specification.md",
-    "closed_at_iso": "2025-09-23T16:30:00Z"
-  }'
+# Full Sync
+curl -X POST https://your-app.azurewebsites.net/sync?mode=full
+
+# Diff Sync seit letztem SHA
+curl -X POST https://your-app.azurewebsites.net/sync?mode=diff&since=abc123def
 ```
+
+## Cache-Verwaltung
+
+- Timeline wird als JSON im Blob Storage gecacht
+- Cache-Key: `artifacts/timeline_{headSha}.json`
+- Bei GitHub Push: Webhook triggert neuen Build
+- ETag verhindert unnötigen Download
+
+## Fehlerbehandlung
+
+- **404**: Timeline nicht gefunden
+- **304**: Content nicht geändert (ETag Match)
+- **500**: Server-Fehler (GitHub/Blob Storage nicht erreichbar)

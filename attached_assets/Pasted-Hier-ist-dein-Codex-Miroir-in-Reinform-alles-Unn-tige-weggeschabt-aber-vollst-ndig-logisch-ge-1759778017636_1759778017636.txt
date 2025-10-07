@@ -1,0 +1,86 @@
+Hier ist dein **Codex Miroir in Reinform** – alles Unnötige weggeschabt, aber vollständig logisch geschlossen:
+
+---
+
+## **Codex Miroir – Regelwerk (Essenz)**
+
+### **Task-Struktur (Markdown)**
+
+```yaml
+typ: task
+kategorie: geschäftlich | privat
+status: offen | abgeschlossen | abgebrochen
+tags: [tag1, tag2, ...]
+deadline: dd.mm.yyyy | null
+fixedSlot:
+  datum: dd.mm.yyyy
+  zeit: morgens | nachmittags | abends
+```
+
+Body: freier Text (Beschreibung, Kommentare, Notizen).
+
+---
+
+### **Slot-Modell**
+
+* Jeder Tag hat **3 Slots**:
+  **morgens → nachmittags → abends**
+* Pro Slot **maximal 1 Task**.
+* **Auto-befüllbar:** morgens & nachmittags
+* **Nie auto-befüllbar:** abends (nur per `fixedSlot`)
+
+---
+
+### **Zuordnungslogik**
+
+1. **Nur offene Tasks**
+
+   * `status: offen` werden berücksichtigt.
+   * `abgeschlossen` oder `abgebrochen` bleiben unberührt.
+
+2. **Fixed first**
+
+   * Tasks mit `fixedSlot` werden **zuerst platziert**.
+   * Ist der Zielslot bereits belegt:
+
+     * **Nicht-fixe Tasks** desselben Tages werden **einen Slot später** verschoben (morgens → nachmittags → abends).
+     * **Fixed-Tasks** bewegen sich nie.
+     * Falls der Tag „überläuft“ (z. B. abends ist schon belegt), wandert die überlaufende Task in den **nächsten passenden Tag**, siehe Regel 4.
+
+3. **Automatische Platzierung**
+
+   * **geschäftlich:** finde den **nächsten freien Slot (morgens oder nachmittags)** an einem **Werktag (Mo–Fr)**.
+   * **privat:** finde den **nächsten freien Slot (morgens oder nachmittags)** an einem **Wochenendtag (Sa–So)**.
+   * Beginne immer mit **morgens**, danach **nachmittags**.
+
+4. **Domino-Logik**
+
+   * Wenn der Zielslot schon belegt ist:
+
+     * Ist der belegte Task **nicht fix**, schiebe ihn **einen Slot weiter** (morgens → nachmittags → abends).
+     * Ist der belegte Task **fix**, überspringe ihn und prüfe den **nächsten passenden Slot**.
+     * Wenn der Tag überläuft (abends besetzt): verschiebe die überlaufende Task in den **nächsten zulässigen Tag** (Werktag für geschäftlich, Wochenende für privat) und starte dort wieder bei **morgens**.
+
+5. **Abends ist heilig**
+
+   * Der **Abend-Slot** wird **nie automatisch** befüllt.
+   * Nur Tasks mit `fixedSlot.zeit: abends` dürfen dort erscheinen.
+
+6. **Deadline (optional)**
+
+   * Wird **nicht** erzwungen, dient nur der Priorisierung oder Anzeige.
+
+---
+
+### **Kurz gesagt**
+
+* 3 Slots pro Tag.
+* Auto nur morgens & nachmittags.
+* Abends ist reserviert.
+* Fixed kommt zuerst, verdrängt nur Nicht-Fixe.
+* Geschäftlich an Werktagen, privat am Wochenende.
+* Domino schiebt Tasks vorwärts, niemals rückwärts.
+
+---
+
+Das ist die **mechanisch simpelste**, aber **deterministisch stabile** Version deines Codex Miroir. Keine Widersprüche, keine Zufälle, kein Mittag.

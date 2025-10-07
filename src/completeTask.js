@@ -19,14 +19,6 @@ function b64(s) {
   return Buffer.from(s, "utf8").toString("base64");
 }
 
-function isDate(s) {
-  return /^\d{2}\.\d{2}\.\d{4}$/.test(s || "");
-}
-
-function slotOk(z) {
-  return ["morgens", "nachmittags", "abends"].includes((z || "").toLowerCase());
-}
-
 async function gh(url, method = "GET", body) {
   const r = await fetch(`https://api.github.com${url}`, {
     method,
@@ -71,7 +63,7 @@ async function openPr(fromBranch, toBranch, title, body) {
   });
 }
 
-function updateMarkdown(existingMd, updates) {
+function markAsCompleted(existingMd, completedDate, completedSlot) {
   const lines = existingMd.split('\n');
   const yamlStart = lines.indexOf('---');
   const yamlEnd = lines.indexOf('---', yamlStart + 1);
@@ -83,86 +75,48 @@ function updateMarkdown(existingMd, updates) {
   const yamlLines = lines.slice(yamlStart + 1, yamlEnd);
   const bodyLines = lines.slice(yamlEnd + 1);
   
-  // Update YAML fields
+  // Update status and add abgeschlossen_am
   const newYaml = yamlLines.map(line => {
-    if (updates.kategorie && line.startsWith('kategorie:')) {
-      return `kategorie: ${updates.kategorie}`;
-    }
-    if (updates.status && line.startsWith('status:')) {
-      return `status: ${updates.status}`;
-    }
-    if (updates.hasOwnProperty('deadline') && line.startsWith('deadline:')) {
-      return `deadline: ${updates.deadline || 'null'}`;
-    }
-    if (updates.tags && line.startsWith('tags:')) {
-      return `tags: [${updates.tags.join(', ')}]`;
+    if (line.startsWith('status:')) {
+      return 'status: abgeschlossen';
     }
     return line;
   });
   
-  // Handle fixedSlot updates
-  if (updates.fixedSlot !== undefined) {
-    const fixedSlotIndex = newYaml.findIndex(l => l.includes('fixedSlot:'));
-    if (updates.fixedSlot === null) {
-      // Remove fixedSlot
-      if (fixedSlotIndex !== -1) {
-        newYaml.splice(fixedSlotIndex, 3);
-      }
-      newYaml.push('fixedSlot: null');
-    } else {
-      // Update or add fixedSlot
-      if (fixedSlotIndex !== -1) {
-        newYaml.splice(fixedSlotIndex, 3);
-      }
-      newYaml.push(`fixedSlot:`);
-      newYaml.push(`  datum: ${updates.fixedSlot.datum}`);
-      newYaml.push(`  zeit: ${updates.fixedSlot.zeit}`);
-    }
+  // Add abgeschlossen_am after status
+  const statusIndex = newYaml.findIndex(l => l.startsWith('status:'));
+  if (statusIndex !== -1) {
+    newYaml.splice(statusIndex + 1, 0, `abgeschlossen_am:`);
+    newYaml.splice(statusIndex + 2, 0, `  datum: ${completedDate}`);
+    newYaml.splice(statusIndex + 3, 0, `  zeit: ${completedSlot}`);
   }
   
-  // Update body if provided
-  const finalBody = updates.body !== undefined ? updates.body : bodyLines.join('\n');
-  
-  return ['---', ...newYaml, '---', '', finalBody].join('\n');
+  return ['---', ...newYaml, '---', '', bodyLines.join('\n')].join('\n');
 }
 
-app.http("updateTask", {
-  methods: ["PUT", "PATCH"],
+app.http("completeTask", {
+  methods: ["POST"],
   authLevel: "function",
-  route: "api/tasks/{id}",
+  route: "api/tasks/{id}/complete",
   handler: async (request, context) => {
     try {
       const id = request.params.id;
-      const updates = await request.json();
+      const body = await request.json();
+      const { datum, zeit } = body || {};
       
-      // Validierung
-      if (updates.kategorie && !["geschäftlich", "privat"].includes(updates.kategorie)) {
+      if (!datum || !zeit) {
         return {
           status: 400,
-          jsonBody: { ok: false, error: "kategorie muss 'geschäftlich' oder 'privat' sein" }
+          jsonBody: { ok: false, error: "datum und zeit erforderlich" }
         };
       }
       
-      if (updates.deadline && !isDate(updates.deadline)) {
+      // Validate slot
+      if (!["morgens", "nachmittags", "abends"].includes(zeit)) {
         return {
           status: 400,
-          jsonBody: { ok: false, error: "deadline muss dd.mm.yyyy sein" }
+          jsonBody: { ok: false, error: "zeit muss morgens|nachmittags|abends sein" }
         };
-      }
-      
-      if (updates.fixedSlot) {
-        if (!isDate(updates.fixedSlot.datum)) {
-          return {
-            status: 400,
-            jsonBody: { ok: false, error: "fixedSlot.datum muss dd.mm.yyyy sein" }
-          };
-        }
-        if (!slotOk(updates.fixedSlot.zeit)) {
-          return {
-            status: 400,
-            jsonBody: { ok: false, error: "fixedSlot.zeit muss morgens|nachmittags|abends sein" }
-          };
-        }
       }
       
       const path = `${BASE}/tasks/${id}.md`;
@@ -171,15 +125,15 @@ app.http("updateTask", {
       const fileData = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}?ref=${BRANCH}`);
       const currentMd = Buffer.from(fileData.content, 'base64').toString('utf8');
       
-      // Update markdown
-      const newMd = updateMarkdown(currentMd, updates);
+      // Mark as completed
+      const newMd = markAsCompleted(currentMd, datum, zeit);
       
-      const message = `[codex] update task ${id}`;
+      const message = `[codex] complete task ${id}`;
       let result;
       
       if (VIA_PR) {
-        // Feature-Branch für Update erstellen
-        const feat = `${PR_PREFIX}/${id}-update`;
+        // Feature-Branch für Completion erstellen
+        const feat = `${PR_PREFIX}/${id}-complete`;
         await ensureBranch(BRANCH, feat);
         
         result = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}`, "PUT", {
@@ -190,7 +144,7 @@ app.http("updateTask", {
           committer: COMMITTER
         });
         
-        const pr = await openPr(feat, BRANCH, message, `Automatisch aktualisiert.\n\n${path}`);
+        const pr = await openPr(feat, BRANCH, message, `Task als abgeschlossen markiert.\n\n${path}`);
         result.prUrl = pr.html_url;
         result.prNumber = pr.number;
       } else {
