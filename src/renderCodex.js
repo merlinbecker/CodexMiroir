@@ -153,7 +153,7 @@ function findNextSuitableDay(timeline, fromDateStr, kategorie) {
     const dayDate = parseDateStr(day.datum);
     if (dayDate <= fromDate) continue;
 
-    if (kategorie === 'geschäftlich' && isWeekday(dayDate)) return day;
+    if (kategorie === 'arbeit' && isWeekday(dayDate)) return day;
     if (kategorie === 'privat' && isWeekend(dayDate)) return day;
   }
 
@@ -200,7 +200,7 @@ function autoFillTasks(timeline, tasks) {
       if (dayDate < today) continue; // Keine Vergangenheit
 
       // Kategorie-Regeln prüfen
-      if (kategorie === 'geschäftlich' && !isWeekday(dayDate)) continue;
+      if (kategorie === 'arbeit' && !isWeekday(dayDate)) continue;
       if (kategorie === 'privat' && !isWeekend(dayDate)) continue;
 
       if (placeTaskInDay(timeline, day, task)) {
