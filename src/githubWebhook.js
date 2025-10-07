@@ -7,6 +7,12 @@ const SECRET = process.env.GITHUB_WEBHOOK_SECRET;
 
 function verifySignature(body, signature) {
   if (!signature || !signature.startsWith("sha256=")) return false;
+  
+  // Ensure body is a string or buffer (defensive check)
+  if (typeof body !== 'string' && !Buffer.isBuffer(body)) {
+    throw new TypeError(`verifySignature expects string or Buffer, got ${typeof body}`);
+  }
+  
   const mac = crypto.createHmac("sha256", SECRET);
   mac.update(body || "");
   const digest = `sha256=${mac.digest("hex")}`;
@@ -26,8 +32,16 @@ app.http("githubWebhook", {
       context.log("[Webhook] Received request");
       
       // Read body as text first (can only read once)
+      // Note: request.text() returns a Promise<string>, not a ReadableStream
       const bodyText = await request.text();
-      context.log("[Webhook] Body length:", bodyText?.length || 0);
+      
+      // Ensure we have a string (defensive programming)
+      if (typeof bodyText !== 'string') {
+        context.log("[Webhook] Error: bodyText is not a string, got:", typeof bodyText);
+        return { status: 400, body: "Invalid request body type" };
+      }
+      
+      context.log("[Webhook] Body length:", bodyText.length);
       
       // Verify signature
       const signature = request.headers.get("x-hub-signature-256");
