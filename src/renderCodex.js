@@ -169,7 +169,12 @@ function placeTaskInDay(timeline, day, task) {
     const slotIndex = SLOTS.indexOf(slotName);
     const slot = day.slots[slotIndex];
 
-    console.log(`[placeTaskInDay]   Checking slot ${slotName}: has_task=${!!slot.task}, isFixed=${slot.isFixed}`);
+    console.log(`[placeTaskInDay]   Checking slot ${slotName}: has_task=${!!slot.task}, isFixed=${slot.isFixed}, isPast=${slot.isPast}`);
+
+    if (slot.isPast) {
+      console.log(`[placeTaskInDay]   ⏰ Slot ${slotName} is in the past, skipping`);
+      continue;
+    }
 
     if (!slot.task) {
       console.log(`[placeTaskInDay]   ✅ Empty slot found at ${slotName}, placing task`);
@@ -195,9 +200,16 @@ function placeTaskInDay(timeline, day, task) {
 }
 
 function autoFillTasks(timeline, tasks) {
-  // Sortiere ALLE übergebenen Tasks nach ID (aufsteigend)
+  // Sortiere ALLE übergebenen Tasks nach ID AUFSTEIGEND (kleinere ID zuerst!)
   const sortedTasks = tasks
-    .sort((a, b) => extractTaskNumber(a.file) - extractTaskNumber(b.file));
+    .slice() // Kopie erstellen für saubere Sortierung
+    .sort((a, b) => {
+      const idA = extractTaskNumber(a.file);
+      const idB = extractTaskNumber(b.file);
+      return idA - idB; // Aufsteigend: 0002 vor 0003 vor 0104
+    });
+
+  console.log(`[autoFillTasks] Sorted task IDs:`, sortedTasks.map(t => extractTaskNumber(t.file)));
 
   const unplacedTasks = [];
 
@@ -330,11 +342,31 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
 
   // Erstelle Timeline-Skeleton für 7 Tage ab heute
   const now = new Date();
+  const currentHour = now.getHours();
   now.setHours(0, 0, 0, 0); // Normalisiere auf Tagesbeginn
   const weekStart = new Date(now); // Speichere Start für Meta-Info
 
   // Beginne mit heute und zeige 7 Tage voraus
   const timeline = createWeekSkeleton(weekStart);
+  
+  // Markiere vergangene Slots als nicht verfügbar (heute vor aktueller Uhrzeit)
+  const today = timeline[0];
+  if (today) {
+    // Morgens (9:00) = bis 14:00 verfügbar
+    // Nachmittags (14:00) = bis 19:00 verfügbar  
+    // Abends (19:00) = bis Mitternacht verfügbar
+    if (currentHour >= 19) {
+      // Alle Slots heute sind vorbei
+      today.slots.forEach(slot => slot.isPast = true);
+    } else if (currentHour >= 14) {
+      // Morgens und Nachmittags sind vorbei
+      today.slots[0].isPast = true; // morgens
+      today.slots[1].isPast = true; // nachmittags
+    } else if (currentHour >= 9) {
+      // Nur Morgens ist vorbei
+      today.slots[0].isPast = true; // morgens
+    }
+  }
 
   // Platziere Tasks
   context.log(`[renderCodex] ========================================`);
@@ -410,17 +442,13 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
   const nextId = nextIdText ? parseInt(nextIdText.trim(), 10) : 0;
   const nextIdFormatted = String(nextId).padStart(4, '0');
   
-  // Payload erstellen
-  const payload = {
-    headSha,
-    generatedAt: new Date().toISOString(),
-    cacheCreatedAt: new Date().toISOString(), // Explizite Cache-Erstellungszeit
-    nextAvailableId: nextIdFormatted, // Nächste verfügbare ID für neue Tasks
-    weekStart: formatDateStr(weekStart),
-    timeline: timeline.map(day => ({
-      datum: day.datum,
-      dayOfWeek: day.dayOfWeek,
-      slots: day.slots.map(slot => ({
+  // Payload erstellen - NUR zukünftige Slots zeigen
+  const filteredTimeline = timeline.map(day => ({
+    datum: day.datum,
+    dayOfWeek: day.dayOfWeek,
+    slots: day.slots
+      .filter(slot => !slot.isPast) // Vergangene Slots ausfiltern
+      .map(slot => ({
         zeit: slot.zeit,
         task: slot.task ? {
           file: slot.task.file,
@@ -431,7 +459,15 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
           isFixed: slot.isFixed
         } : null
       }))
-    }))
+  })).filter(day => day.slots.length > 0); // Tage ohne verfügbare Slots entfernen
+
+  const payload = {
+    headSha,
+    generatedAt: new Date().toISOString(),
+    cacheCreatedAt: new Date().toISOString(),
+    nextAvailableId: nextIdFormatted,
+    weekStart: formatDateStr(weekStart),
+    timeline: filteredTimeline
   };
 
   // Cache speichern
