@@ -478,7 +478,7 @@ async function loadOrBuildTimeline(cacheVersion, context, nocache = false) {
   // Cache speichern
   await putTextBlob(artifactPath, JSON.stringify(payload), "application/json");
 
-  return { json: payload, etag: headSha };
+  return { json: payload, etag: cacheVersion };
 }
 
 // ============================================================================
