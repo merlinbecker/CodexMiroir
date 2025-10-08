@@ -92,18 +92,18 @@ app.http("githubWebhook", {
 
       for (const c of payload.commits || []) {
         for (const p of c.added || []) {
-          // Match both 0000.md and 0000-Title.md formats
-          if (p.startsWith(`${BASE}/tasks/`) && p.match(/\d{4}(-[^/]+)?\.md$/)) {
+          // Match NNNN-Title.md format (mit Titel ist Pflicht)
+          if (p.startsWith(`${BASE}/tasks/`) && p.match(/\d{4}-[^/]+\.md$/)) {
             addedOrModified.push(p);
           }
         }
         for (const p of c.modified || []) {
-          if (p.startsWith(`${BASE}/tasks/`) && p.match(/\d{4}(-[^/]+)?\.md$/)) {
+          if (p.startsWith(`${BASE}/tasks/`) && p.match(/\d{4}-[^/]+\.md$/)) {
             addedOrModified.push(p);
           }
         }
         for (const p of c.removed || []) {
-          if (p.startsWith(`${BASE}/tasks/`) && p.match(/\d{4}(-[^/]+)?\.md$/)) {
+          if (p.startsWith(`${BASE}/tasks/`) && p.match(/\d{4}-[^/]+\.md$/)) {
             removed.push(p);
           }
         }
