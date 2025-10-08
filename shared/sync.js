@@ -46,13 +46,22 @@ async function fetchFileAtRef(repoPath, ref) {
 async function listMdUnderTasks(ref) {
   const path = `${BASE}/tasks`;
   // Don't encode the path slashes - GitHub API expects them as-is
-  const r = await gh(
-    `/repos/${OWNER}/${REPO}/contents/${path}?ref=${ref}`,
-  );
-  const arr = await r.json();
-  return arr
-    .filter((x) => x.type === "file" && x.name.endsWith(".md"))
-    .map((x) => ({ repoPath: `${path}/${x.name}` }));
+  try {
+    const r = await gh(
+      `/repos/${OWNER}/${REPO}/contents/${path}?ref=${ref}`,
+    );
+    const arr = await r.json();
+    return arr
+      .filter((x) => x.type === "file" && x.name.endsWith(".md"))
+      .map((x) => ({ repoPath: `${path}/${x.name}` }));
+  } catch (error) {
+    // If directory doesn't exist, return empty array instead of throwing
+    if (error.message.includes('404')) {
+      console.warn(`Directory ${path} not found in ${OWNER}/${REPO}@${ref}. Create it with: mkdir -p ${path} && git push`);
+      return [];
+    }
+    throw error;
+  }
 }
 
 async function fullSync(ref = BRANCH, clean = false) {
