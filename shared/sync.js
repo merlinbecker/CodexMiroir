@@ -28,8 +28,9 @@ function toBlobPath(repoPath) {
 }
 
 async function fetchFileAtRef(repoPath, ref) {
+  // Don't encode the path slashes - GitHub API expects them as-is
   const r = await gh(
-    `/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(repoPath)}?ref=${ref}`,
+    `/repos/${OWNER}/${REPO}/contents/${repoPath}?ref=${ref}`,
   );
   const j = await r.json();
   if (j.type !== "file") return null;
@@ -44,8 +45,9 @@ async function fetchFileAtRef(repoPath, ref) {
 
 async function listMdUnderTasks(ref) {
   const path = `${BASE}/tasks`;
+  // Don't encode the path slashes - GitHub API expects them as-is
   const r = await gh(
-    `/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}?ref=${ref}`,
+    `/repos/${OWNER}/${REPO}/contents/${path}?ref=${ref}`,
   );
   const arr = await r.json();
   return arr
