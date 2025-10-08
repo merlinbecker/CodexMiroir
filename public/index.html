@@ -275,9 +275,64 @@
 
                 const result = await response.json();
                 console.log('[FullSync] Result:', result);
-                alert(`Full Sync erfolgreich! ${result.changed} Tasks synchronisiert.`);
-                // Reload timeline to reflect changes
-                loadTimeline();
+                
+                // Reload timeline with nocache=true to force rebuild
+                console.log('[FullSync] Reloading timeline with cache bypass...');
+                const container = document.getElementById('timeline');
+                try {
+                    let timelineUrl = '/codex?format=json&nocache=true';
+                    if (functionKey) {
+                        timelineUrl += `&code=${encodeURIComponent(functionKey)}`;
+                    }
+                    const timelineResponse = await fetch(timelineUrl);
+                    const data = await timelineResponse.json();
+                    
+                    // Render timeline
+                    let html = '';
+                    for (const day of data.timeline || []) {
+                        const dayName = dayNames[day.dayOfWeek];
+                        html += `<div class="day">
+                            <div class="day-header">${dayName} ${day.datum}</div>`;
+
+                        for (const slot of day.slots) {
+                            html += `<div class="slot ${slot.zeit}">
+                                <div class="slot-label">${slot.zeit}</div>`;
+
+                            if (slot.task) {
+                                const title = slot.task.file.split('/').pop().replace(/^\d{4}/, '').replace(/\.md$/, '').replace(/-/g, ' ');
+                                const num = extractTaskNumber(slot.task.file);
+
+                                html += `<div class="task">[${num}] ${title}
+                                    <span class="badge">${slot.task.kategorie || '?'}</span>`;
+
+                                if (slot.task.isFixed) {
+                                    html += `<span class="badge fixed">FIX</span>`;
+                                }
+
+                                if (slot.task.deadline) {
+                                    html += `<span class="badge">DL: ${slot.task.deadline}</span>`;
+                                }
+
+                                const taskFile = slot.task.file.split('/').pop().replace('.md', '');
+                                html += `<button class="complete-btn" onclick="completeTask('${taskFile}', '${day.datum}', '${slot.zeit}')">✓ Erledigt</button>`;
+
+                                html += `</div>`;
+                            } else {
+                                html += `<div class="empty">– leer –</div>`;
+                            }
+
+                            html += `</div>`;
+                        }
+
+                        html += `</div>`;
+                    }
+
+                    container.innerHTML = html;
+                    alert(`Full Sync erfolgreich! ${result.changed} Tasks synchronisiert und Timeline neu aufgebaut.`);
+                } catch (timelineError) {
+                    console.error('[FullSync] Timeline reload error:', timelineError);
+                    alert(`Full Sync erfolgreich (${result.changed} Tasks), aber Timeline-Reload fehlgeschlagen: ${timelineError.message}`);
+                }
             } catch (error) {
                 console.error('[FullSync] Error:', error);
                 alert(`Fehler beim Full Sync: ${error.message}`);
