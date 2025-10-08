@@ -225,7 +225,7 @@ app.http("updateTask", {
       };
       
     } catch (e) {
-      context.error(e);
+      context.log("Error:", e);
       return {
         status: 500,
         jsonBody: { ok: false, error: String(e.message || e) }

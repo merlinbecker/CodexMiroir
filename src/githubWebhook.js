@@ -100,8 +100,8 @@ app.http("githubWebhook", {
         jsonBody: { ok: true, head, ...res }
       };
     } catch (error) {
-      context.log.error("[Webhook] Error:", error.message);
-      context.log.error("[Webhook] Stack:", error.stack);
+      context.log("[Webhook] Error:", error.message);
+      context.log("[Webhook] Stack:", error.stack);
       return {
         status: 500,
         body: `Webhook error: ${error.message}`

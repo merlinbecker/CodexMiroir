@@ -77,7 +77,7 @@ app.http("manualSync", {
         body: "invalid mode (use full|diff)",
       };
     } catch (e) {
-      context.error(e);
+      context.log("Error:", e);
       return {
         status: 500,
         body: String(e.message || e),
