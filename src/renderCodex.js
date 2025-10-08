@@ -15,16 +15,6 @@ const WEEKENDS = [0, 6]; // Sa-So
 // HELPER FUNCTIONS
 // ============================================================================
 
-function htmlEscape(s) {
-  return (s || "").replace(/[&<>"']/g, c => ({
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    "\"":"&quot;",
-    "'":"&#39;"
-  }[c]));
-}
-
 function parseDateStr(dateStr) {
   // dd.mm.yyyy -> Date object
   const [dd, mm, yyyy] = dateStr.split('.');
@@ -311,80 +301,6 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
 }
 
 // ============================================================================
-// HTML RENDERING
-// ============================================================================
-
-function buildHtmlFromTimeline(data) {
-  const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
-  const timeline = data.timeline || [];
-
-  let html = `<!doctype html><meta charset="utf-8"><title>Codex Miroir Timeline</title>
-<style>
-body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:20px;background:#fafafa}
-h1{font-size:22px;margin:0 0 8px;color:#333}
-.meta{color:#666;font-size:13px;margin-bottom:20px}
-.timeline{display:flex;flex-direction:column;gap:16px;margin-top:16px;max-width:900px}
-.day{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:16px}
-.day-header{font-weight:600;font-size:14px;margin-bottom:10px;color:#444}
-.slot{margin:8px 0;padding:8px;border-left:3px solid #ddd;background:#f9f9f9}
-.slot.morgens{border-left-color:#4CAF50}
-.slot.nachmittags{border-left-color:#2196F3}
-.slot.abends{border-left-color:#FF9800}
-.slot-label{font-size:11px;font-weight:600;color:#666;text-transform:uppercase;margin-bottom:4px}
-.task-title{font-size:13px;color:#222}
-.badge{display:inline-block;font-size:11px;padding:2px 6px;border-radius:4px;background:#e0e0e0;margin-left:4px}
-.badge.fixed{background:#ff5722;color:#fff}
-.tag{font-size:11px;color:#666;margin-left:4px}
-.empty{color:#aaa;font-size:12px}
-</style>
-<h1>Codex Miroir – Wochenansicht</h1>
-<div class="meta">Woche ab ${htmlEscape(data.weekStart)} | Stand: ${htmlEscape(data.generatedAt)}</div>
-<div class="timeline">`;
-
-  for (const day of timeline) {
-    const dayName = dayNames[day.dayOfWeek];
-    html += `<div class="day">
-      <div class="day-header">${htmlEscape(dayName)} ${htmlEscape(day.datum)}</div>`;
-
-    for (const slot of day.slots) {
-      html += `<div class="slot ${htmlEscape(slot.zeit)}">
-        <div class="slot-label">${htmlEscape(slot.zeit)}</div>`;
-
-      if (slot.task) {
-        const title = slot.task.file.split('/').pop().replace(/^\d{4}\.md$/, '').replace(/-/g, ' ');
-        const num = extractTaskNumber(slot.task.file);
-
-        html += `<div class="task-title">[${num}] ${htmlEscape(title)}
-          <span class="badge">${htmlEscape(slot.task.kategorie || '?')}</span>`;
-
-        if (slot.task.isFixed) {
-          html += `<span class="badge fixed">FIX</span>`;
-        }
-
-        if (slot.task.deadline) {
-          html += `<span class="badge">DL: ${htmlEscape(slot.task.deadline)}</span>`;
-        }
-
-        (slot.task.tags || []).forEach(t => {
-          html += `<span class="tag">#${htmlEscape(t)}</span>`;
-        });
-
-        html += `</div>`;
-      } else {
-        html += `<div class="empty">– leer –</div>`;
-      }
-
-      html += `</div>`;
-    }
-
-    html += `</div>`; // close .day
-  }
-
-  html += `</div>`; // close .timeline
-  return html;
-}
-
-// ============================================================================
 // HTTP HANDLER
 // ============================================================================
 
@@ -396,9 +312,8 @@ app.http('renderCodex', {
     context.log('[renderCodex] Request received');
     const url = new URL(request.url);
     context.log('[renderCodex] URL:', url.toString());
-    const format = (url.searchParams.get('format') || process.env.RENDER_DEFAULT_FORMAT || "json").toLowerCase();
     const nocache = url.searchParams.get('nocache') === 'true';
-    context.log('[renderCodex] Format:', format, 'NoCache:', nocache);
+    context.log('[renderCodex] NoCache:', nocache);
 
     const headSha = await getLastHeadSha();
     context.log('[renderCodex] HeadSha:', headSha);
@@ -417,20 +332,7 @@ app.http('renderCodex', {
     const { json, etag } = await loadOrBuildTimeline(headSha, context, nocache);
     context.log('[renderCodex] Timeline loaded, timeline has', json?.timeline?.length || 0, 'days');
 
-    if (format === "html") {
-      context.log('[renderCodex] Rendering HTML');
-      const html = buildHtmlFromTimeline(json);
-      context.log('[renderCodex] HTML length:', html.length);
-      return {
-        headers: { 
-          "content-type": "text/html; charset=utf-8",
-          "ETag": `"${etag}"`
-        },
-        body: html
-      };
-    }
-
-    // JSON
+    // Return JSON
     context.log('[renderCodex] Returning JSON');
     return {
       headers: { 
