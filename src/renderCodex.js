@@ -45,8 +45,8 @@ function isWeekend(date) {
 }
 
 function extractTaskNumber(filename) {
-  // Match pattern: 0000-something.md or just 0000.md
-  const match = filename.match(/(\d{4})/);
+  // Match pattern: 0000-Titel.md or just 0000.md
+  const match = filename.match(/(\d{4})(-[^/]+)?\.md$/);
   return match ? parseInt(match[1], 10) : 9999;
 }
 
@@ -272,10 +272,17 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
     sum + day.slots.filter(s => s.task).length, 0);
   context.log(`[renderCodex] Placed ${placedCount} tasks in timeline`);
 
+  // Nächste verfügbare ID laden
+  const nextIdText = await getTextBlob("state/nextId.txt");
+  const nextId = nextIdText ? parseInt(nextIdText.trim(), 10) : 0;
+  const nextIdFormatted = String(nextId).padStart(4, '0');
+  
   // Payload erstellen
   const payload = {
     headSha,
     generatedAt: new Date().toISOString(),
+    cacheCreatedAt: new Date().toISOString(), // Explizite Cache-Erstellungszeit
+    nextAvailableId: nextIdFormatted, // Nächste verfügbare ID für neue Tasks
     weekStart: formatDateStr(weekStart),
     timeline: timeline.map(day => ({
       datum: day.datum,

@@ -64,8 +64,8 @@ async function fullSync(ref = BRANCH, clean = false) {
     await putTextBlob(toBlobPath(f.repoPath), text, "text/markdown");
     changed++;
     
-    // Extrahiere ID aus Dateinamen (z.B. 0005.md -> 5)
-    const match = f.repoPath.match(/(\d{4})\.md$/);
+    // Extrahiere ID aus Dateinamen (z.B. 0005-Titel.md -> 5 oder 0005.md -> 5)
+    const match = f.repoPath.match(/(\d{4})(-[^/]+)?\.md$/);
     if (match) {
       const id = parseInt(match[1], 10);
       if (id > maxId) maxId = id;
@@ -149,8 +149,8 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH) {
     await putTextBlob(toBlobPath(p), text, "text/markdown");
     changed++;
     
-    // Extrahiere ID aus Pfad (z.B. codex-miroir/tasks/0005.md -> 5)
-    const match = p.match(/(\d{4})\.md$/);
+    // Extrahiere ID aus Pfad (z.B. codex-miroir/tasks/0005-Titel.md -> 5 oder 0005.md -> 5)
+    const match = p.match(/(\d{4})(-[^/]+)?\.md$/);
     if (match) {
       const id = parseInt(match[1], 10);
       if (id > maxId) maxId = id;

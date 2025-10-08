@@ -133,6 +133,7 @@
             <a href="/create-task.html">+ Neue Task erstellen</a>
             <button id="fullSyncBtn" style="margin-left: 10px; padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 Full Sync</button>
         </div>
+        <p id="nextIdDisplay" style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;"></p>
     </header>
 
     <div id="timeline">
@@ -163,7 +164,7 @@
         // Extract function key from URL (query parameter or fragment)
         const urlParams = new URLSearchParams(window.location.search);
         let functionKey = urlParams.get('code') || '';
-        
+
         // If not in query, check fragment
         if (!functionKey && window.location.hash) {
             const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -191,6 +192,18 @@
                 const data = await response.json();
                 console.log('[Timeline] Data received:', data);
 
+                // Zeige nächste verfügbare ID und Cache-Zeit an
+                const nextIdDisplay = document.getElementById('nextIdDisplay');
+                if (data.nextAvailableId) {
+                    const cacheTime = data.cacheCreatedAt ? new Date(data.cacheCreatedAt).toLocaleString('de-DE') : 'unbekannt';
+                    nextIdDisplay.textContent = `Nächste Task-ID: ${data.nextAvailableId} | Cache erstellt: ${cacheTime}`;
+                }
+
+                if (!data.timeline || !Array.isArray(data.timeline)) {
+                    container.innerHTML = '<div class="empty">Keine Zeitachsen-Daten gefunden.</div>';
+                    return;
+                }
+
                 let html = '';
                 for (const day of data.timeline || []) {
                     const dayName = dayNames[day.dayOfWeek];
@@ -206,7 +219,7 @@
                         const yyyy = now.getFullYear();
                         const today = `${dd}.${mm}.${yyyy}`;
                         const currentHour = now.getHours();
-                        
+
                         let isCurrent = false;
                         if (day.datum === today) {
                             if (slot.zeit === 'morgens' && currentHour >= 8 && currentHour < 12) {
@@ -217,16 +230,19 @@
                                 isCurrent = true;
                             }
                         }
-                        
+
                         const currentClass = isCurrent ? ' current-slot' : '';
                         const currentLabel = isCurrent ? ' <span class="current-badge">AKTUELL</span>' : '';
-                        
+
                         html += `<div class="slot ${slot.zeit}${currentClass}">
                             <div class="slot-label">${slot.zeit}${currentLabel}</div>`;
 
                         if (slot.task) {
-                            const title = slot.task.file.split('/').pop().replace(/^\d{4}/, '').replace(/\.md$/, '').replace(/-/g, ' ');
-                            const num = extractTaskNumber(slot.task.file);
+                            // Extract title, removing prefix number and .md extension
+                            const filename = slot.task.file.split('/').pop(); // Get only the filename
+                            const titleMatch = filename.match(/^\d{4}-(.*)\.md$/);
+                            const title = titleMatch ? titleMatch[1].replace(/-/g, ' ') : filename.replace(/^\d{4}/, '').replace(/\.md$/, '').replace(/-/g, ' ');
+                            const num = extractTaskNumber(filename);
 
                             html += `<div class="task">[${num}] ${title}
                                 <span class="badge">${slot.task.kategorie || '?'}</span>`;
@@ -240,7 +256,7 @@
                             }
 
                             // Add complete button
-                            const taskFile = slot.task.file.split('/').pop().replace('.md', '');
+                            const taskFile = filename.replace('.md', '');
                             html += `<button class="complete-btn" onclick="completeTask('${taskFile}', '${day.datum}', '${slot.zeit}')">✓ Erledigt</button>`;
 
                             html += `</div>`;
@@ -305,7 +321,7 @@
                 if (functionKey) {
                     apiUrl += `&code=${encodeURIComponent(functionKey)}`;
                 }
-                
+
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
@@ -319,35 +335,45 @@
 
                 const result = await response.json();
                 console.log('[FullSync] Result:', result);
-                
+
                 // Reload timeline with nocache=true to force rebuild
                 console.log('[FullSync] Reloading timeline with cache bypass...');
-                const container = document.getElementById('timeline');
-                try {
-                    let timelineUrl = '/codex?format=json&nocache=true';
-                    if (functionKey) {
-                        timelineUrl += `&code=${encodeURIComponent(functionKey)}`;
-                    }
-                    const timelineResponse = await fetch(timelineUrl);
-                    const data = await timelineResponse.json();
-                    
-                    // Render timeline
-                    let html = '';
-                    for (const day of data.timeline || []) {
+                let timelineUrl = '/codex?format=json&nocache=true';
+                if (functionKey) {
+                    timelineUrl += `&code=${encodeURIComponent(functionKey)}`;
+                }
+                const newResponse = await fetch(timelineUrl);
+                if (!newResponse.ok) {
+                    throw new Error(`HTTP error fetching timeline after sync! status: ${newResponse.status}`);
+                }
+                const newData = await newResponse.json();
+                console.log('Reloaded timeline after sync:', newData);
+
+                // Update nächste ID Anzeige
+                const nextIdDisplay = document.getElementById('nextIdDisplay');
+                if (newData.nextAvailableId) {
+                    const cacheTime = newData.cacheCreatedAt ? new Date(newData.cacheCreatedAt).toLocaleString('de-DE') : 'unbekannt';
+                    nextIdDisplay.textContent = `Nächste Task-ID: ${newData.nextAvailableId} | Cache erstellt: ${cacheTime}`;
+                }
+
+                // Render Timeline neu
+                let html = '';
+                if (!newData.timeline || !Array.isArray(newData.timeline)) {
+                    html = '<div class="empty">Keine Zeitachsen-Daten gefunden nach Sync.</div>';
+                } else {
+                    for (const day of newData.timeline || []) {
                         const dayName = dayNames[day.dayOfWeek];
                         html += `<div class="day">
                             <div class="day-header">${dayName} ${day.datum}</div>`;
 
                         for (const slot of day.slots) {
-                            // Determine if this is the current slot
                             const now = new Date();
-                            // Convert today to dd.mm.yyyy format to match backend data
                             const dd = String(now.getDate()).padStart(2, '0');
                             const mm = String(now.getMonth() + 1).padStart(2, '0');
                             const yyyy = now.getFullYear();
                             const today = `${dd}.${mm}.${yyyy}`;
                             const currentHour = now.getHours();
-                            
+
                             let isCurrent = false;
                             if (day.datum === today) {
                                 if (slot.zeit === 'morgens' && currentHour >= 8 && currentHour < 12) {
@@ -358,16 +384,18 @@
                                     isCurrent = true;
                                 }
                             }
-                            
+
                             const currentClass = isCurrent ? ' current-slot' : '';
                             const currentLabel = isCurrent ? ' <span class="current-badge">AKTUELL</span>' : '';
-                            
+
                             html += `<div class="slot ${slot.zeit}${currentClass}">
                                 <div class="slot-label">${slot.zeit}${currentLabel}</div>`;
 
                             if (slot.task) {
-                                const title = slot.task.file.split('/').pop().replace(/^\d{4}/, '').replace(/\.md$/, '').replace(/-/g, ' ');
-                                const num = extractTaskNumber(slot.task.file);
+                                const filename = slot.task.file.split('/').pop();
+                                const titleMatch = filename.match(/^\d{4}-(.*)\.md$/);
+                                const title = titleMatch ? titleMatch[1].replace(/-/g, ' ') : filename.replace(/^\d{4}/, '').replace(/\.md$/, '').replace(/-/g, ' ');
+                                const num = extractTaskNumber(filename);
 
                                 html += `<div class="task">[${num}] ${title}
                                     <span class="badge">${slot.task.kategorie || '?'}</span>`;
@@ -380,7 +408,7 @@
                                     html += `<span class="badge">DL: ${slot.task.deadline}</span>`;
                                 }
 
-                                const taskFile = slot.task.file.split('/').pop().replace('.md', '');
+                                const taskFile = filename.replace('.md', '');
                                 html += `<button class="complete-btn" onclick="completeTask('${taskFile}', '${day.datum}', '${slot.zeit}')">✓ Erledigt</button>`;
 
                                 html += `</div>`;
@@ -390,16 +418,13 @@
 
                             html += `</div>`;
                         }
-
                         html += `</div>`;
                     }
-
-                    container.innerHTML = html;
-                    alert(`Full Sync erfolgreich! ${result.changed} Tasks synchronisiert und Timeline neu aufgebaut.`);
-                } catch (timelineError) {
-                    console.error('[FullSync] Timeline reload error:', timelineError);
-                    alert(`Full Sync erfolgreich (${result.changed} Tasks), aber Timeline-Reload fehlgeschlagen: ${timelineError.message}`);
                 }
+
+                document.getElementById('timeline').innerHTML = html;
+                alert(`Full Sync erfolgreich! ${result.changed} Tasks synchronisiert. Timeline neu aufgebaut.`);
+
             } catch (error) {
                 console.error('[FullSync] Error:', error);
                 alert(`Fehler beim Full Sync: ${error.message}`);

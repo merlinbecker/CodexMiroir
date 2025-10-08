@@ -175,7 +175,21 @@ app.http("createTask", {
 
       // ID vergeben
       const id = await withIdLock();
-      const path = `${BASE}/tasks/${id}.md`;
+      
+      // Extrahiere Titel aus dem Body (erste Zeile oder ersten 50 Zeichen)
+      const bodyLines = (p.body || "").trim().split('\n');
+      let title = bodyLines[0] || "untitled";
+      
+      // Bereinige Titel für Dateinamen (entferne Sonderzeichen, ersetze Leerzeichen)
+      title = title
+        .replace(/^#*\s*/, '') // Entferne führende # für Markdown-Überschriften
+        .replace(/[^a-zA-Z0-9äöüÄÖÜß\s-]/g, '') // Nur Buchstaben, Zahlen, Umlaute, Leerzeichen, Bindestriche
+        .replace(/\s+/g, '-') // Ersetze Leerzeichen durch Bindestriche
+        .substring(0, 50) // Maximal 50 Zeichen
+        .replace(/-+$/, ''); // Entferne trailing Bindestriche
+      
+      const filename = `${id}-${title}.md`;
+      const path = `${BASE}/tasks/${filename}`;
       
       // Safety check: Prüfe ob diese ID bereits in GitHub existiert
       try {
@@ -214,7 +228,7 @@ app.http("createTask", {
       }
 
       // Sofortiger Cache-Update (optional, aber empfohlen)
-      await putTextBlob(`raw/tasks/${id}.md`, md, "text/markdown");
+      await putTextBlob(`raw/tasks/${filename}`, md, "text/markdown");
 
       const response = {
         ok: true,
