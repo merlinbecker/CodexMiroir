@@ -185,12 +185,17 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, c
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
 
   // nextId.txt aktualisieren, wenn neue Tasks hinzugefügt wurden
+  let finalNextId = null;
   if (maxId >= 0) {
     // Prüfe aktuelle nextId und nimm das Maximum
     const current = await getTextBlob("state/nextId.txt");
     const currentId = current ? parseInt(current.trim(), 10) : 0;
-    const nextId = Math.max(currentId, maxId + 1);
-    await putTextBlob("state/nextId.txt", String(nextId), "text/plain");
+    finalNextId = Math.max(currentId, maxId + 1);
+    await putTextBlob("state/nextId.txt", String(finalNextId), "text/plain");
+  } else {
+    // Wenn keine IDs gefunden wurden, behalte die aktuelle nextId
+    const current = await getTextBlob("state/nextId.txt");
+    finalNextId = current ? parseInt(current.trim(), 10) : 0;
   }
 
   // Lösche bestehenden Timeline-Cache, damit er beim nächsten Request neu gebaut wird
@@ -199,7 +204,7 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, c
     await deleteBlob(blob);
   }
 
-  return { scope: "tasks", mode: "diff", changed, deleted, skipped, ref, nextId: maxId >= 0 ? maxId + 1 : null };
+  return { scope: "tasks", mode: "diff", changed, deleted, skipped, ref, nextId: finalNextId, cacheCleared: artifactBlobs.length };
 }
 
 export { fullSync, applyDiff };
