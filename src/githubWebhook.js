@@ -54,6 +54,16 @@ app.http("githubWebhook", {
       
       context.log("[Webhook] Signature verified");
 
+      // Validate content type
+      const contentType = request.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        context.log("[Webhook] Invalid content-type:", contentType);
+        return { 
+          status: 400, 
+          body: "Expected application/json content-type" 
+        };
+      }
+
       // Check event type
       const eventType = request.headers.get("x-github-event");
       context.log("[Webhook] Event type:", eventType);
@@ -63,7 +73,17 @@ app.http("githubWebhook", {
       }
 
       // Parse JSON from text
-      const payload = JSON.parse(bodyText);
+      let payload;
+      try {
+        payload = JSON.parse(bodyText);
+      } catch (parseError) {
+        context.log("[Webhook] Failed to parse JSON, body starts with:", bodyText.substring(0, 50));
+        return { 
+          status: 400, 
+          body: "Invalid JSON payload" 
+        };
+      }
+      
       const head = payload.after;
       context.log("[Webhook] Processing push to:", head);
 
