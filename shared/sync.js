@@ -66,17 +66,14 @@ async function listMdUnderTasks(ref) {
 
 async function fullSync(ref = BRANCH, clean = false, context = null) { // Added context parameter
   console.log(`[fullSync] Starting full sync from ref: ${ref}, clean: ${clean}`);
-  console.log(`[fullSync] GitHub path: ${BASE}/tasks`);
 
   const files = await listMdUnderTasks(ref);
   console.log(`[fullSync] Found ${files.length} files in GitHub`);
-  console.log(`[fullSync] Files:`, JSON.stringify(files, null, 2));
 
   let changed = 0;
   let maxId = -1;
 
   for (const f of files) {
-    console.log(`[fullSync] Fetching file: ${f.repoPath}`);
     const text = await fetchFileAtRef(f.repoPath, ref);
     if (!text) {
       console.log(`[fullSync] WARNING: Empty content for ${f.repoPath}`);
@@ -84,7 +81,6 @@ async function fullSync(ref = BRANCH, clean = false, context = null) { // Added 
     }
 
     const blobPath = toBlobPath(f.repoPath);
-    console.log(`[fullSync] Writing to blob: ${blobPath} (${text.length} chars)`);
     await putTextBlob(blobPath, text, "text/markdown");
     changed++;
 
@@ -104,11 +100,11 @@ async function fullSync(ref = BRANCH, clean = false, context = null) { // Added 
     const blobs = await listBlobs(`raw/tasks/`);
     for (const b of blobs) {
       if (!existing.has(b)) {
-        console.log(`[fullSync] Deleting orphaned blob: ${b}`);
         await deleteBlob(b);
         removed++;
       }
     }
+    console.log(`[fullSync] Removed ${removed} orphaned blobs`);
   }
 
   // State komplett neu aufbauen
