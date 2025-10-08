@@ -207,7 +207,7 @@ function autoFillTasks(timeline, tasks) {
     const kategorie = task.kategorie;
     let placed = false;
 
-    console.log(`[autoFillTasks] Task ${idx + 1}/${openTasks.length}: ${task.file} (kategorie=${kategorie})`);
+    console.log(`[autoFillTasks] Task ${idx + 1}/${sortedTasks.length}: ${task.file} (kategorie=${kategorie})`);
 
     for (const day of timeline) {
       const dayDate = parseDateStr(day.datum);
