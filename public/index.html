@@ -196,7 +196,9 @@
                 const nextIdDisplay = document.getElementById('nextIdDisplay');
                 if (data.nextAvailableId) {
                     const cacheTime = data.cacheCreatedAt ? new Date(data.cacheCreatedAt).toLocaleString('de-DE') : 'unbekannt';
-                    nextIdDisplay.textContent = `Nächste Task-ID: ${data.nextAvailableId} | Cache erstellt: ${cacheTime}`;
+                    nextIdDisplay.innerHTML = `<strong>Nächste Task-ID:</strong> ${data.nextAvailableId} | <strong>Cache erstellt:</strong> ${cacheTime}`;
+                } else {
+                    nextIdDisplay.innerHTML = '<em style="color: #999;">Lade Informationen...</em>';
                 }
 
                 if (!data.timeline || !Array.isArray(data.timeline)) {
