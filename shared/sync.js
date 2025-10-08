@@ -84,17 +84,31 @@ async function fullSync(ref = BRANCH, clean = false) {
     }
   }
   
-  // headSha speichern für Timeline-Cache-Invalidierung
+  // State komplett neu aufbauen
+  
+  // 1. headSha speichern (wichtig für Timeline-Cache-Invalidierung)
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
   
-  // nextId.txt aktualisieren: höchste ID + 1
-  if (maxId >= 0) {
-    const nextId = maxId + 1;
-    await putTextBlob("state/nextId.txt", String(nextId), "text/plain");
+  // 2. nextId.txt aktualisieren: höchste ID + 1
+  const nextId = maxId >= 0 ? maxId + 1 : 0;
+  await putTextBlob("state/nextId.txt", String(nextId), "text/plain");
+  
+  // 3. Timeline-Cache löschen, damit er beim nächsten Request neu aufgebaut wird
+  // Alle cached timeline artifacts entfernen
+  const artifactBlobs = await listBlobs("artifacts/timeline_");
+  for (const blob of artifactBlobs) {
+    await deleteBlob(blob);
   }
-
+  
   // Erfolgsmeldung
-  return { scope: "tasks", mode: "full", changed, removed, nextId: maxId >= 0 ? maxId + 1 : 0 };
+  return { 
+    scope: "tasks", 
+    mode: "full", 
+    changed, 
+    removed, 
+    nextId,
+    cacheCleared: artifactBlobs.length
+  };
 }
 
 async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH) {
