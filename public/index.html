@@ -91,6 +91,27 @@
         .complete-btn:hover {
             background-color: #218838;
         }
+        .current-slot {
+            border-left: 4px solid #007bff !important;
+            background: linear-gradient(90deg, rgba(0, 123, 255, 0.1) 0%, #fafafa 100%);
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        .current-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: #007bff;
+            color: white;
+            margin-left: 8px;
+            text-transform: uppercase;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2); }
+            50% { box-shadow: 0 4px 16px rgba(0, 123, 255, 0.4); }
+        }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -177,8 +198,27 @@
                         <div class="day-header">${dayName} ${day.datum}</div>`;
 
                     for (const slot of day.slots) {
-                        html += `<div class="slot ${slot.zeit}">
-                            <div class="slot-label">${slot.zeit}</div>`;
+                        // Determine if this is the current slot
+                        const now = new Date();
+                        const today = now.toISOString().split('T')[0];
+                        const currentHour = now.getHours();
+                        
+                        let isCurrent = false;
+                        if (day.datum === today) {
+                            if (slot.zeit === 'morgens' && currentHour >= 8 && currentHour < 12) {
+                                isCurrent = true;
+                            } else if (slot.zeit === 'nachmittags' && currentHour >= 13 && currentHour < 17) {
+                                isCurrent = true;
+                            } else if (slot.zeit === 'abends' && currentHour >= 19 && currentHour < 22) {
+                                isCurrent = true;
+                            }
+                        }
+                        
+                        const currentClass = isCurrent ? ' current-slot' : '';
+                        const currentLabel = isCurrent ? ' <span class="current-badge">AKTUELL</span>' : '';
+                        
+                        html += `<div class="slot ${slot.zeit}${currentClass}">
+                            <div class="slot-label">${slot.zeit}${currentLabel}</div>`;
 
                         if (slot.task) {
                             const title = slot.task.file.split('/').pop().replace(/^\d{4}/, '').replace(/\.md$/, '').replace(/-/g, ' ');
@@ -295,8 +335,27 @@
                             <div class="day-header">${dayName} ${day.datum}</div>`;
 
                         for (const slot of day.slots) {
-                            html += `<div class="slot ${slot.zeit}">
-                                <div class="slot-label">${slot.zeit}</div>`;
+                            // Determine if this is the current slot
+                            const now = new Date();
+                            const today = now.toISOString().split('T')[0];
+                            const currentHour = now.getHours();
+                            
+                            let isCurrent = false;
+                            if (day.datum === today) {
+                                if (slot.zeit === 'morgens' && currentHour >= 8 && currentHour < 12) {
+                                    isCurrent = true;
+                                } else if (slot.zeit === 'nachmittags' && currentHour >= 13 && currentHour < 17) {
+                                    isCurrent = true;
+                                } else if (slot.zeit === 'abends' && currentHour >= 19 && currentHour < 22) {
+                                    isCurrent = true;
+                                }
+                            }
+                            
+                            const currentClass = isCurrent ? ' current-slot' : '';
+                            const currentLabel = isCurrent ? ' <span class="current-badge">AKTUELL</span>' : '';
+                            
+                            html += `<div class="slot ${slot.zeit}${currentClass}">
+                                <div class="slot-label">${slot.zeit}${currentLabel}</div>`;
 
                             if (slot.task) {
                                 const title = slot.task.file.split('/').pop().replace(/^\d{4}/, '').replace(/\.md$/, '').replace(/-/g, ' ');
