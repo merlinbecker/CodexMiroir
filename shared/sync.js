@@ -64,17 +64,17 @@ async function listMdUnderTasks(ref) {
   }
 }
 
-async function fullSync(ref = BRANCH, clean = false) {
+async function fullSync(ref = BRANCH, clean = false, context = null) { // Added context parameter
   console.log(`[fullSync] Starting full sync from ref: ${ref}, clean: ${clean}`);
   console.log(`[fullSync] GitHub path: ${BASE}/tasks`);
-  
+
   const files = await listMdUnderTasks(ref);
   console.log(`[fullSync] Found ${files.length} files in GitHub`);
   console.log(`[fullSync] Files:`, JSON.stringify(files, null, 2));
-  
+
   let changed = 0;
   let maxId = -1;
-  
+
   for (const f of files) {
     console.log(`[fullSync] Fetching file: ${f.repoPath}`);
     const text = await fetchFileAtRef(f.repoPath, ref);
@@ -82,12 +82,12 @@ async function fullSync(ref = BRANCH, clean = false) {
       console.log(`[fullSync] WARNING: Empty content for ${f.repoPath}`);
       continue;
     }
-    
+
     const blobPath = toBlobPath(f.repoPath);
     console.log(`[fullSync] Writing to blob: ${blobPath} (${text.length} chars)`);
     await putTextBlob(blobPath, text, "text/markdown");
     changed++;
-    
+
     // Extrahiere ID aus Dateinamen (z.B. 0005-Titel.md -> 5 oder 0005.md -> 5)
     const match = f.repoPath.match(/(\d{4})(-[^/]+)?\.md$/);
     if (match) {
@@ -95,9 +95,9 @@ async function fullSync(ref = BRANCH, clean = false) {
       if (id > maxId) maxId = id;
     }
   }
-  
+
   console.log(`[fullSync] Changed ${changed} files, maxId: ${maxId}`);
-  
+
   let removed = 0;
   if (clean) {
     const existing = new Set(files.map((f) => toBlobPath(f.repoPath)));
@@ -110,39 +110,39 @@ async function fullSync(ref = BRANCH, clean = false) {
       }
     }
   }
-  
+
   // State komplett neu aufbauen
-  
+
   // 1. headSha speichern (wichtig für Timeline-Cache-Invalidierung)
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
-  
+
   // 2. nextId.txt aktualisieren: höchste ID + 1
   const nextId = maxId >= 0 ? maxId + 1 : 0;
   await putTextBlob("state/nextId.txt", String(nextId), "text/plain");
-  
+
   // 3. Timeline-Cache komplett löschen
   const artifactBlobs = await listBlobs("artifacts/");
   for (const blob of artifactBlobs) {
     await deleteBlob(blob);
   }
-  
+
   // Erfolgsmeldung
-  return { 
-    scope: "tasks", 
-    mode: "full", 
-    changed, 
-    removed, 
+  return {
+    scope: "tasks",
+    mode: "full",
+    changed,
+    removed,
     nextId,
     cacheCleared: artifactBlobs.length
   };
 }
 
-async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH) {
+async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, context = null) { // Added context parameter
   let changed = 0,
     deleted = 0,
     skipped = 0,
     maxId = -1;
-    
+
   for (const p of removed) {
     if (!p.endsWith(".md")) {
       skipped++;
@@ -151,7 +151,7 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH) {
     await deleteBlob(toBlobPath(p));
     deleted++;
   }
-  
+
   for (const p of addedOrModified) {
     if (!p.endsWith(".md")) {
       skipped++;
@@ -164,7 +164,7 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH) {
     }
     await putTextBlob(toBlobPath(p), text, "text/markdown");
     changed++;
-    
+
     // Extrahiere ID aus Pfad (z.B. codex-miroir/tasks/0005-Titel.md -> 5 oder 0005.md -> 5)
     const match = p.match(/(\d{4})(-[^/]+)?\.md$/);
     if (match) {
@@ -175,7 +175,7 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH) {
 
   // headSha speichern für Timeline-Cache-Invalidierung
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
-  
+
   // nextId.txt aktualisieren, wenn neue Tasks hinzugefügt wurden
   if (maxId >= 0) {
     // Prüfe aktuelle nextId und nimm das Maximum
