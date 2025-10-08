@@ -151,26 +151,35 @@ function findNextSuitableDay(timeline, fromDateStr, kategorie) {
 }
 
 function placeTaskInDay(timeline, day, task) {
+  console.log(`[placeTaskInDay] Attempting to place ${task.file} in ${day.datum}`);
+  
   for (let i = 0; i < AUTO_FILLABLE_SLOTS.length; i++) {
     const slotName = AUTO_FILLABLE_SLOTS[i];
     const slotIndex = SLOTS.indexOf(slotName);
     const slot = day.slots[slotIndex];
 
+    console.log(`[placeTaskInDay]   Checking slot ${slotName}: has_task=${!!slot.task}, isFixed=${slot.isFixed}`);
+
     if (!slot.task) {
+      console.log(`[placeTaskInDay]   ✅ Empty slot found at ${slotName}, placing task`);
       slot.task = task;
       slot.isFixed = false;
       return true;
     }
 
     if (!slot.isFixed) {
+      console.log(`[placeTaskInDay]   ↻ Non-fixed task in ${slotName}, displacing it`);
       const displaced = slot.task;
       slot.task = task;
       slot.isFixed = false;
       shiftTaskForward(timeline, day, slotIndex, displaced);
       return true;
     }
+    
+    console.log(`[placeTaskInDay]   ❌ Slot ${slotName} occupied by fixed task`);
   }
 
+  console.log(`[placeTaskInDay]   ❌ No available slots in ${day.datum}`);
   return false;
 }
 
@@ -181,34 +190,53 @@ function autoFillTasks(timeline, tasks) {
 
   const unplacedTasks = [];
 
-  openTasks.forEach(task => {
+  console.log(`[autoFillTasks] Processing ${openTasks.length} open tasks`);
+
+  openTasks.forEach((task, idx) => {
     const kategorie = task.kategorie;
     let placed = false;
+
+    console.log(`[autoFillTasks] Task ${idx + 1}/${openTasks.length}: ${task.file} (kategorie=${kategorie})`);
 
     for (const day of timeline) {
       const dayDate = parseDateStr(day.datum);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      if (dayDate < today) continue; // Keine Vergangenheit
+      if (dayDate < today) {
+        console.log(`[autoFillTasks]   ❌ Skip day ${day.datum}: in the past`);
+        continue;
+      }
 
       // Kategorie-Regeln prüfen
-      if (kategorie === 'arbeit' && !isWeekday(dayDate)) continue;
-      if (kategorie === 'privat' && !isWeekend(dayDate)) continue;
+      if (kategorie === 'arbeit' && !isWeekday(dayDate)) {
+        console.log(`[autoFillTasks]   ❌ Skip day ${day.datum}: arbeit task needs weekday`);
+        continue;
+      }
+      if (kategorie === 'privat' && !isWeekend(dayDate)) {
+        console.log(`[autoFillTasks]   ❌ Skip day ${day.datum}: privat task needs weekend`);
+        continue;
+      }
 
+      console.log(`[autoFillTasks]   ✓ Trying to place in day ${day.datum}`);
+      
       if (placeTaskInDay(timeline, day, task)) {
+        console.log(`[autoFillTasks]   ✅ Successfully placed ${task.file} in ${day.datum}`);
         placed = true;
         break; // Task platziert
+      } else {
+        console.log(`[autoFillTasks]   ❌ Could not place in ${day.datum} - no free slots`);
       }
     }
 
     if (!placed) {
+      console.warn(`[autoFillTasks] ⚠️ Task ${task.file} could not be placed anywhere`);
       unplacedTasks.push(task.file);
     }
   });
 
   if (unplacedTasks.length > 0) {
-    console.warn(`[renderCodex] ${unplacedTasks.length} tasks could not be placed: ${unplacedTasks.join(', ')}`);
+    console.warn(`[renderCodex] ⚠️ ${unplacedTasks.length} tasks could not be placed: ${unplacedTasks.join(', ')}`);
   }
 }
 
@@ -236,35 +264,58 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
   }
 
   // Build Timeline
+  context.log(`[renderCodex] Listing files from: raw/tasks/`);
   const files = await list("raw/tasks/");
   const tasks = [];
 
   context.log(`[renderCodex] Found ${files.length} files in raw/tasks/`);
+  context.log(`[renderCodex] File list:`, JSON.stringify(files));
 
   for (const name of files) {
-    if (!name.endsWith(".md")) continue;
-    const md = await getTextBlob(name);
-    if (!md) {
-      context.log(`[renderCodex] Empty file: ${name}`);
-      continue;
-    }
-    const t = parseTask(md);
-    context.log(`[renderCodex] Parsed ${name}:`, JSON.stringify(t));
-
-    if (t.typ !== "task" || t.status !== "offen") {
-      context.log(`[renderCodex] Skipped ${name}: typ=${t.typ}, status=${t.status}`);
+    context.log(`[renderCodex] Processing file: ${name}`);
+    
+    if (!name.endsWith(".md")) {
+      context.log(`[renderCodex] Skipped non-md file: ${name}`);
       continue;
     }
     
-    // Skip completed tasks
-    if (t.status === "abgeschlossen") {
-      context.log(`[renderCodex] Skipped completed task ${name}`);
+    context.log(`[renderCodex] Reading content of: ${name}`);
+    const md = await getTextBlob(name);
+    
+    if (!md) {
+      context.log(`[renderCodex] WARNING: Empty or missing content for file: ${name}`);
       continue;
     }
+    
+    context.log(`[renderCodex] File content length: ${md.length} characters`);
+    context.log(`[renderCodex] File content preview:`, md.substring(0, 200));
+    
+    const t = parseTask(md);
+    context.log(`[renderCodex] Parsed task from ${name}:`, JSON.stringify(t, null, 2));
+
+    if (t.typ !== "task") {
+      context.log(`[renderCodex] ❌ Skipped ${name}: typ='${t.typ}' (expected 'task')`);
+      continue;
+    }
+    
+    if (t.status === "abgeschlossen") {
+      context.log(`[renderCodex] ❌ Skipped ${name}: status='abgeschlossen'`);
+      continue;
+    }
+    
+    if (t.status !== "offen") {
+      context.log(`[renderCodex] ❌ Skipped ${name}: status='${t.status}' (expected 'offen')`);
+      continue;
+    }
+    
+    context.log(`[renderCodex] ✅ Adding valid task from ${name}`);
     tasks.push({ file: name, ...t });
   }
 
+  context.log(`[renderCodex] ========================================`);
   context.log(`[renderCodex] Total valid tasks: ${tasks.length}`);
+  context.log(`[renderCodex] Task details:`, JSON.stringify(tasks, null, 2));
+  context.log(`[renderCodex] ========================================`);
 
   // Erstelle Timeline-Skeleton für 7 Tage ab heute
   const now = new Date();
@@ -275,14 +326,45 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
   const timeline = createWeekSkeleton(weekStart);
 
   // Platziere Tasks
-  context.log(`[renderCodex] Placing ${tasks.length} tasks in timeline`);
+  context.log(`[renderCodex] ========================================`);
+  context.log(`[renderCodex] Starting task placement for ${tasks.length} tasks`);
+  context.log(`[renderCodex] ========================================`);
+  
+  const fixedTasks = tasks.filter(t => t.fixedSlot);
+  const openTasks = tasks.filter(t => !t.fixedSlot);
+  
+  context.log(`[renderCodex] Fixed tasks: ${fixedTasks.length}`, JSON.stringify(fixedTasks.map(t => ({file: t.file, fixedSlot: t.fixedSlot})), null, 2));
+  context.log(`[renderCodex] Open tasks: ${openTasks.length}`, JSON.stringify(openTasks.map(t => ({file: t.file, kategorie: t.kategorie})), null, 2));
+  
   placeFixedTasks(timeline, tasks);
+  context.log(`[renderCodex] Fixed tasks placed`);
+  
   autoFillTasks(timeline, tasks);
+  context.log(`[renderCodex] Auto-fill completed`);
 
   // Count placed tasks
   const placedCount = timeline.reduce((sum, day) => 
     sum + day.slots.filter(s => s.task).length, 0);
-  context.log(`[renderCodex] Placed ${placedCount} tasks in timeline`);
+  
+  context.log(`[renderCodex] ========================================`);
+  context.log(`[renderCodex] Placement summary:`);
+  context.log(`[renderCodex] - Total tasks: ${tasks.length}`);
+  context.log(`[renderCodex] - Placed tasks: ${placedCount}`);
+  context.log(`[renderCodex] - Unplaced tasks: ${tasks.length - placedCount}`);
+  context.log(`[renderCodex] ========================================`);
+  
+  // Log timeline state
+  timeline.forEach((day, dayIdx) => {
+    const dayTasks = day.slots.filter(s => s.task).length;
+    if (dayTasks > 0) {
+      context.log(`[renderCodex] Day ${dayIdx} (${day.datum}): ${dayTasks} tasks`);
+      day.slots.forEach(slot => {
+        if (slot.task) {
+          context.log(`[renderCodex]   - ${slot.zeit}: ${slot.task.file} (${slot.task.kategorie}, fixed=${slot.isFixed})`);
+        }
+      });
+    }
+  });
 
   // Nächste verfügbare ID laden
   const nextIdText = await getTextBlob("state/nextId.txt");
