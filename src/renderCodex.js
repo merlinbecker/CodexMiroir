@@ -229,17 +229,17 @@ function autoFillTasks(timeline, tasks) {
       return idA - idB; // Aufsteigend: 0002 vor 0003 vor 0104
     });
 
-  console.log(`[autoFillTasks] Sorted task IDs:`, sortedTasks.map(t => extractTaskNumber(t.file)));
+  console.log(`[autoFillTasks] Sorted task IDs (ascending):`, sortedTasks.map(t => extractTaskNumber(t.file)));
 
   const unplacedTasks = [];
 
-  console.log(`[autoFillTasks] Processing ${sortedTasks.length} open tasks`);
+  console.log(`[autoFillTasks] Processing ${sortedTasks.length} open tasks in ASCENDING order`);
 
   sortedTasks.forEach((task, idx) => {
     const kategorie = task.kategorie;
     let placed = false;
 
-    console.log(`[autoFillTasks] Task ${idx + 1}/${sortedTasks.length}: ${task.file} (kategorie=${kategorie})`);
+    console.log(`[autoFillTasks] Task ${idx + 1}/${sortedTasks.length}: ${task.file} (ID=${extractTaskNumber(task.file)}, kategorie=${kategorie})`);
 
     for (const day of timeline) {
       const dayDate = parseDateStr(day.datum);
@@ -263,17 +263,25 @@ function autoFillTasks(timeline, tasks) {
 
       console.log(`[autoFillTasks]   ✓ Trying to place in day ${day.datum}`);
       
-      if (placeTaskInDay(timeline, day, task)) {
-        console.log(`[autoFillTasks]   ✅ Successfully placed ${task.file} in ${day.datum}`);
+      // WICHTIG: Nur leere Slots verwenden, KEINE Verdrängung mehr
+      // Dadurch bleibt die aufsteigende Reihenfolge erhalten
+      const emptySlot = day.slots.find(s => 
+        !s.task && AUTO_FILLABLE_SLOTS.includes(s.zeit)
+      );
+      
+      if (emptySlot) {
+        emptySlot.task = task;
+        emptySlot.isFixed = false;
+        console.log(`[autoFillTasks]   ✅ Placed ${task.file} (ID=${extractTaskNumber(task.file)}) in ${day.datum} ${emptySlot.zeit}`);
         placed = true;
-        break; // Task platziert
+        break;
       } else {
-        console.log(`[autoFillTasks]   ❌ Could not place in ${day.datum} - no free slots`);
+        console.log(`[autoFillTasks]   ❌ No free slots in ${day.datum}`);
       }
     }
 
     if (!placed) {
-      console.warn(`[autoFillTasks] ⚠️ Task ${task.file} could not be placed anywhere`);
+      console.warn(`[autoFillTasks] ⚠️ Task ${task.file} (ID=${extractTaskNumber(task.file)}) could not be placed anywhere`);
       unplacedTasks.push(task.file);
     }
   });
