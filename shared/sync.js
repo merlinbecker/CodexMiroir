@@ -65,14 +65,27 @@ async function listMdUnderTasks(ref) {
 }
 
 async function fullSync(ref = BRANCH, clean = false) {
+  console.log(`[fullSync] Starting full sync from ref: ${ref}, clean: ${clean}`);
+  console.log(`[fullSync] GitHub path: ${BASE}/tasks`);
+  
   const files = await listMdUnderTasks(ref);
+  console.log(`[fullSync] Found ${files.length} files in GitHub`);
+  console.log(`[fullSync] Files:`, JSON.stringify(files, null, 2));
+  
   let changed = 0;
   let maxId = -1;
   
   for (const f of files) {
+    console.log(`[fullSync] Fetching file: ${f.repoPath}`);
     const text = await fetchFileAtRef(f.repoPath, ref);
-    if (!text) continue;
-    await putTextBlob(toBlobPath(f.repoPath), text, "text/markdown");
+    if (!text) {
+      console.log(`[fullSync] WARNING: Empty content for ${f.repoPath}`);
+      continue;
+    }
+    
+    const blobPath = toBlobPath(f.repoPath);
+    console.log(`[fullSync] Writing to blob: ${blobPath} (${text.length} chars)`);
+    await putTextBlob(blobPath, text, "text/markdown");
     changed++;
     
     // Extrahiere ID aus Dateinamen (z.B. 0005-Titel.md -> 5 oder 0005.md -> 5)
@@ -82,6 +95,8 @@ async function fullSync(ref = BRANCH, clean = false) {
       if (id > maxId) maxId = id;
     }
   }
+  
+  console.log(`[fullSync] Changed ${changed} files, maxId: ${maxId}`);
   
   let removed = 0;
   if (clean) {
