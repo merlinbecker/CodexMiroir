@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task erstellen - Codex Miroir</title>
+    <title>Neue Task erstellen - Codex Miroir</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             padding: 20px;
-            max-width: 700px;
+            max-width: 600px;
             margin: 0 auto;
             background: #f5f5f5;
         }
@@ -20,223 +20,208 @@
             border-bottom: 2px solid #333;
         }
         h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
-        a { color: #007bff; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        form { 
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        .nav { margin-top: 1rem; }
+        .nav a { 
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: #6c757d;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
         }
-        label { 
-            display: block;
+        .nav a:hover { background: #545b62; }
+        .form-group {
             margin-bottom: 1rem;
-            font-weight: 500;
         }
-        label span { 
+        label {
             display: block;
-            margin-bottom: 0.25rem;
-            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
         }
-        input, select, textarea { 
+        input, textarea, select {
             width: 100%;
             padding: 0.5rem;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 1rem;
         }
-        textarea { resize: vertical; }
-        small { 
-            display: block;
-            margin-top: 0.25rem;
-            color: #666;
-            font-size: 0.8rem;
+        textarea {
+            min-height: 100px;
+            resize: vertical;
         }
-        .checkbox-group { margin: 1rem 0; }
-        .checkbox-group label { 
-            display: flex;
-            align-items: center;
-            font-weight: normal;
-        }
-        .checkbox-group input { 
-            width: auto;
-            margin-right: 0.5rem;
-        }
-        .fixed-slot { 
-            display: none;
-            margin-top: 1rem;
-            padding: 1rem;
-            background: #f8f9fa;
-            border-radius: 4px;
-        }
-        .fixed-slot.visible { display: block; }
-        button { 
-            width: 100%;
-            padding: 0.75rem;
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
             background: #007bff;
             color: white;
             border: none;
             border-radius: 4px;
-            font-size: 1rem;
             cursor: pointer;
-            margin-top: 1rem;
+            font-size: 1rem;
         }
-        button:hover { background: #0056b3; }
-        button:disabled { background: #6c757d; cursor: not-allowed; }
-        .result { 
-            margin-top: 1.5rem;
+        .btn:hover { background: #0056b3; }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
             padding: 1rem;
             border-radius: 4px;
-            display: none;
+            margin: 1rem 0;
         }
-        .result.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .result.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+        .key-status {
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+        }
+        .key-status.ok { background: #d4edda; color: #155724; }
+        .key-status.missing { background: #fff3cd; color: #856404; }
     </style>
 </head>
 <body>
     <header>
-        <h1>Task erstellen</h1>
-        <p><a href="/">← Zurück zur Timeline</a></p>
+        <h1>Neue Task erstellen</h1>
+        <div class="nav">
+            <a href="javascript:history.back()">← Zurück zur Timeline</a>
+        </div>
+        <div id="keyStatus" class="key-status"></div>
     </header>
 
+    <div id="message"></div>
+
     <form id="taskForm">
-        <label>
-            <span>Kategorie *</span>
+        <div class="form-group">
+            <label>Kategorie*</label>
             <select name="kategorie" required>
-                <option value="">Bitte wählen</option>
-                <option value="geschäftlich">Geschäftlich</option>
+                <option value="arbeit">Arbeit</option>
                 <option value="privat">Privat</option>
             </select>
-        </label>
+        </div>
 
-        <label>
-            <span>Titel / Beschreibung *</span>
-            <textarea name="body" rows="5" required placeholder="Z.B. Meeting mit Marina vorbereiten"></textarea>
-        </label>
+        <div class="form-group">
+            <label>Titel/Beschreibung*</label>
+            <textarea name="body" required placeholder="Was muss erledigt werden?"></textarea>
+        </div>
 
-        <label>
-            <span>Tags (kommasepariert)</span>
-            <input type="text" name="tags" placeholder="meeting, wichtig, projekt-x">
-        </label>
+        <div class="form-group">
+            <label>Tags (kommagetrennt)</label>
+            <input type="text" name="tags" placeholder="z.B. dringend, projekt-x">
+        </div>
 
-        <label>
-            <span>Deadline</span>
-            <input type="text" name="deadline" placeholder="31.12.2025" pattern="\d{2}\.\d{2}\.\d{4}">
-            <small>Format: dd.mm.yyyy</small>
-        </label>
+        <div class="form-group">
+            <label>Deadline (optional)</label>
+            <input type="text" name="deadline" placeholder="dd.mm.yyyy">
+        </div>
 
-        <div class="checkbox-group">
+        <div class="form-group">
             <label>
-                <input type="checkbox" id="hasFixedSlot">
-                Fester Termin (fixedSlot)
+                <input type="checkbox" name="fixed" id="fixedCheckbox">
+                Fester Termin
             </label>
         </div>
 
-        <div id="fixedSlotFields" class="fixed-slot">
-            <h4>Fester Termin Details</h4>
-            <label>
-                <span>Datum *</span>
-                <input type="text" name="fixedSlotDatum" placeholder="15.10.2025" pattern="\d{2}\.\d{2}\.\d{4}">
-            </label>
-            <label>
-                <span>Tageszeit *</span>
-                <select name="fixedSlotZeit">
-                    <option value="">Bitte wählen</option>
+        <div id="fixedSlotFields" style="display: none;">
+            <div class="form-group">
+                <label>Datum*</label>
+                <input type="text" name="fixedDatum" placeholder="dd.mm.yyyy">
+            </div>
+            <div class="form-group">
+                <label>Zeit*</label>
+                <select name="fixedZeit">
                     <option value="morgens">Morgens</option>
                     <option value="nachmittags">Nachmittags</option>
                     <option value="abends">Abends</option>
                 </select>
-            </label>
+            </div>
         </div>
 
-        <button type="submit">Task erstellen</button>
+        <button type="submit" class="btn">Task erstellen</button>
     </form>
 
-    <div id="result" class="result"></div>
-
     <script>
-        const form = document.getElementById('taskForm');
-        const checkbox = document.getElementById('hasFixedSlot');
-        const fixedFields = document.getElementById('fixedSlotFields');
-        const resultDiv = document.getElementById('result');
-
-        // Extract function key from URL (if provided)
+        // Extract function key from URL
         const urlParams = new URLSearchParams(window.location.search);
-        const functionKey = urlParams.get('code') || '';
+        let functionKey = urlParams.get('code') || '';
+        
+        if (!functionKey && window.location.hash) {
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            functionKey = hashParams.get('code') || '';
+        }
 
-        checkbox.addEventListener('change', () => {
-            if (checkbox.checked) {
-                fixedFields.classList.add('visible');
-                form.fixedSlotDatum.required = true;
-                form.fixedSlotZeit.required = true;
-            } else {
-                fixedFields.classList.remove('visible');
-                form.fixedSlotDatum.required = false;
-                form.fixedSlotZeit.required = false;
-            }
+        // Show key status
+        const keyStatus = document.getElementById('keyStatus');
+        if (functionKey) {
+            keyStatus.className = 'key-status ok';
+            keyStatus.textContent = '✓ Function Key vorhanden';
+        } else {
+            keyStatus.className = 'key-status missing';
+            keyStatus.textContent = '⚠ Kein Function Key - API-Aufrufe können fehlschlagen';
+        }
+
+        // Toggle fixed slot fields
+        document.getElementById('fixedCheckbox').addEventListener('change', (e) => {
+            document.getElementById('fixedSlotFields').style.display = 
+                e.target.checked ? 'block' : 'none';
         });
 
-        form.addEventListener('submit', async (e) => {
+        // Handle form submission
+        document.getElementById('taskForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const btn = form.querySelector('button[type="submit"]');
-            btn.disabled = true;
-            btn.textContent = 'Wird erstellt...';
-            resultDiv.style.display = 'none';
-
+            const formData = new FormData(e.target);
             const payload = {
-                kategorie: form.kategorie.value,
-                status: 'offen',
-                body: form.body.value.trim()
+                kategorie: formData.get('kategorie'),
+                body: formData.get('body'),
+                tags: formData.get('tags') ? formData.get('tags').split(',').map(t => t.trim()) : []
             };
 
-            if (form.tags.value.trim()) {
-                payload.tags = form.tags.value.split(',').map(t => t.trim()).filter(t => t);
+            if (formData.get('deadline')) {
+                payload.deadline = formData.get('deadline');
             }
 
-            if (form.deadline.value.trim()) {
-                payload.deadline = form.deadline.value.trim();
-            }
-
-            if (checkbox.checked && form.fixedSlotDatum.value && form.fixedSlotZeit.value) {
+            if (formData.get('fixed')) {
                 payload.fixedSlot = {
-                    datum: form.fixedSlotDatum.value.trim(),
-                    zeit: form.fixedSlotZeit.value.trim()
+                    datum: formData.get('fixedDatum'),
+                    zeit: formData.get('fixedZeit')
                 };
             }
 
             try {
-                const apiUrl = functionKey ? `/api/tasks?code=${encodeURIComponent(functionKey)}` : '/api/tasks';
+                let apiUrl = '/api/tasks';
+                if (functionKey) {
+                    apiUrl += `?code=${encodeURIComponent(functionKey)}`;
+                }
+
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Idempotency-Key': crypto.randomUUID()
+                        'Idempotency-Key': Date.now().toString()
                     },
                     body: JSON.stringify(payload)
                 });
 
-                const data = await response.json();
+                const result = await response.json();
 
-                if (response.ok && data.ok) {
-                    resultDiv.className = 'result success';
-                    resultDiv.style.display = 'block';
-                    resultDiv.innerHTML = `
-                        <h4>✓ Task erfolgreich erstellt!</h4>
-                        <p><strong>ID:</strong> ${data.id}</p>
-                        <p><a href="/codex?format=html&nocache=true">Timeline neu laden →</a></p>
-                    `;
-                    form.reset();
+                const messageDiv = document.getElementById('message');
+                if (result.ok) {
+                    messageDiv.innerHTML = `<div class="success">✓ Task ${result.id} erfolgreich erstellt!</div>`;
+                    e.target.reset();
+                    setTimeout(() => {
+                        window.location.href = functionKey ? `/?code=${encodeURIComponent(functionKey)}` : '/';
+                    }, 2000);
                 } else {
-                    throw new Error(data.error || 'Unbekannter Fehler');
+                    messageDiv.innerHTML = `<div class="error">Fehler: ${result.error}</div>`;
                 }
             } catch (error) {
-                resultDiv.className = 'result error';
-                resultDiv.style.display = 'block';
-                resultDiv.innerHTML = `<h4>✗ Fehler</h4><p>${error.message}</p>`;
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Task erstellen';
+                document.getElementById('message').innerHTML = 
+                    `<div class="error">Fehler: ${error.message}</div>`;
             }
         });
     </script>

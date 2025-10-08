@@ -111,9 +111,15 @@
         const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
         console.log('[DEBUG] dayNames defined');
 
-        // Extract function key from URL (if provided)
+        // Extract function key from URL (query parameter or fragment)
         const urlParams = new URLSearchParams(window.location.search);
-        const functionKey = urlParams.get('code') || '';
+        let functionKey = urlParams.get('code') || '';
+        
+        // If not in query, check fragment
+        if (!functionKey && window.location.hash) {
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            functionKey = hashParams.get('code') || '';
+        }
         console.log('[DEBUG] functionKey extracted:', functionKey ? 'YES' : 'NO');
 
         function extractTaskNumber(filename) {
@@ -125,7 +131,10 @@
             const container = document.getElementById('timeline');
             try {
                 console.log('[Timeline] Starting load...');
-                const apiUrl = functionKey ? `/codex?format=json&code=${encodeURIComponent(functionKey)}` : '/codex?format=json';
+                let apiUrl = '/codex?format=json';
+                if (functionKey) {
+                    apiUrl += `&code=${encodeURIComponent(functionKey)}`;
+                }
                 console.log('[Timeline] API URL:', apiUrl);
                 const response = await fetch(apiUrl);
                 console.log('[Timeline] Response status:', response.status);
@@ -183,9 +192,10 @@
         async function completeTask(taskFile, date, slotTime) {
             console.log(`[CompleteTask] Completing task: ${taskFile} on ${date} in slot ${slotTime}`);
             try {
-                const apiUrl = functionKey 
-                    ? `/api/tasks/${taskFile}/complete?code=${encodeURIComponent(functionKey)}`
-                    : `/api/tasks/${taskFile}/complete`;
+                let apiUrl = `/api/tasks/${taskFile}/complete`;
+                if (functionKey) {
+                    apiUrl += `?code=${encodeURIComponent(functionKey)}`;
+                }
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
