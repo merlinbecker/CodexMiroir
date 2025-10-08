@@ -44,7 +44,8 @@ app.http("manualSync", {
     const mode = (url.searchParams.get("mode") || "full").toLowerCase();
     const ref = url.searchParams.get("ref") || BRANCH;
     const since = url.searchParams.get("since") || "";
-    const clean = url.searchParams.get("clean") === "true";
+    // Clean mode standardmäßig auf true für full sync (kann mit ?clean=false überschrieben werden)
+    const clean = url.searchParams.get("clean") !== "false";
 
     try {
       if (mode === "full") {
