@@ -179,8 +179,11 @@ function autoFillTasks(timeline, tasks) {
     .filter(t => !t.fixedSlot)
     .sort((a, b) => extractTaskNumber(a.file) - extractTaskNumber(b.file));
 
+  const unplacedTasks = [];
+
   openTasks.forEach(task => {
     const kategorie = task.kategorie;
+    let placed = false;
 
     for (const day of timeline) {
       const dayDate = parseDateStr(day.datum);
@@ -194,10 +197,19 @@ function autoFillTasks(timeline, tasks) {
       if (kategorie === 'privat' && !isWeekend(dayDate)) continue;
 
       if (placeTaskInDay(timeline, day, task)) {
+        placed = true;
         break; // Task platziert
       }
     }
+
+    if (!placed) {
+      unplacedTasks.push(task.file);
+    }
   });
+
+  if (unplacedTasks.length > 0) {
+    console.warn(`[renderCodex] ${unplacedTasks.length} tasks could not be placed: ${unplacedTasks.join(', ')}`);
+  }
 }
 
 // ============================================================================
