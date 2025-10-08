@@ -98,6 +98,7 @@
         <h1>Codex Miroir</h1>
         <div class="nav">
             <a href="/create-task.html">+ Neue Task erstellen</a>
+            <button id="fullSyncBtn" style="margin-left: 10px; padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 Full Sync</button>
         </div>
     </header>
 
@@ -218,6 +219,44 @@
                 alert(`Fehler beim Abschließen des Tasks: ${error.message}`);
             }
         }
+
+        async function triggerFullSync() {
+            console.log('[FullSync] Starting full sync...');
+            try {
+                let apiUrl = '/sync?mode=full';
+                if (functionKey) {
+                    apiUrl += `&code=${encodeURIComponent(functionKey)}`;
+                }
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('[FullSync] Result:', result);
+                alert(`Full Sync erfolgreich! ${result.changed} Tasks synchronisiert.`);
+                // Reload timeline to reflect changes
+                loadTimeline();
+            } catch (error) {
+                console.error('[FullSync] Error:', error);
+                alert(`Fehler beim Full Sync: ${error.message}`);
+            }
+        }
+
+        // Setup Full Sync button
+        document.addEventListener('DOMContentLoaded', () => {
+            const fullSyncBtn = document.getElementById('fullSyncBtn');
+            if (fullSyncBtn) {
+                fullSyncBtn.addEventListener('click', triggerFullSync);
+            }
+        });
 
         console.log('[Timeline] Initializing...');
         try {
