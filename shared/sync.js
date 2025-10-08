@@ -113,14 +113,18 @@ async function fullSync(ref = BRANCH, clean = false, context = null) { // Added 
 
   // State komplett neu aufbauen
 
-  // 1. headSha speichern (wichtig für Timeline-Cache-Invalidierung)
+  // 1. Timestamp für Cache-Invalidierung generieren
+  const timestamp = Date.now().toString();
+  await putTextBlob("state/cacheVersion.txt", timestamp, "text/plain");
+
+  // 2. headSha speichern (für Webhook-Vergleich)
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
 
-  // 2. nextId.txt aktualisieren: höchste ID + 1
+  // 3. nextId.txt aktualisieren: höchste ID + 1
   const nextId = maxId >= 0 ? maxId + 1 : 0;
   await putTextBlob("state/nextId.txt", String(nextId), "text/plain");
 
-  // 3. Timeline-Cache komplett löschen
+  // 4. Timeline-Cache komplett löschen
   const artifactBlobs = await listBlobs("artifacts/");
   for (const blob of artifactBlobs) {
     await deleteBlob(blob);
@@ -173,7 +177,11 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, c
     }
   }
 
-  // headSha speichern für Timeline-Cache-Invalidierung
+  // Cache-Version aktualisieren für Timeline-Invalidierung
+  const timestamp = Date.now().toString();
+  await putTextBlob("state/cacheVersion.txt", timestamp, "text/plain");
+
+  // headSha speichern für Webhook-Vergleich
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
 
   // nextId.txt aktualisieren, wenn neue Tasks hinzugefügt wurden

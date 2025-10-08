@@ -295,20 +295,20 @@ function autoFillTasks(timeline, tasks) {
 // CACHE & BUILD
 // ============================================================================
 
-async function getLastHeadSha() {
-  const sha = await getTextBlob("state/lastHeadSha.txt");
-  return sha?.trim() || "no-sha";
+async function getCacheVersion() {
+  const version = await getTextBlob("state/cacheVersion.txt");
+  return version?.trim() || Date.now().toString();
 }
 
-async function loadOrBuildTimeline(headSha, context, nocache = false) {
-  const artifactPath = `artifacts/timeline_${headSha}.json`;
+async function loadOrBuildTimeline(cacheVersion, context, nocache = false) {
+  const artifactPath = `artifacts/timeline_${cacheVersion}.json`;
 
   // Cache Check
   if (!nocache) {
     const cached = await getTextBlob(artifactPath);
     if (cached) {
-      context.log(`[renderCodex] Cache HIT for ${headSha}`);
-      return { json: JSON.parse(cached), etag: headSha };
+      context.log(`[renderCodex] Cache HIT for version ${cacheVersion}`);
+      return { json: JSON.parse(cached), etag: cacheVersion };
     }
   } else {
     context.log(`[renderCodex] Cache BYPASS requested`);
@@ -453,7 +453,7 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
   
   // Payload erstellen - Timeline enthält bereits nur zukünftige Slots
   const payload = {
-    headSha,
+    cacheVersion,
     generatedAt: new Date().toISOString(),
     cacheCreatedAt: new Date().toISOString(),
     nextAvailableId: nextIdFormatted,
@@ -496,21 +496,21 @@ app.http('renderCodex', {
     const nocache = url.searchParams.get('nocache') === 'true';
     context.log('[renderCodex] NoCache:', nocache);
 
-    const headSha = await getLastHeadSha();
-    context.log('[renderCodex] HeadSha:', headSha);
+    const cacheVersion = await getCacheVersion();
+    context.log('[renderCodex] Cache Version:', cacheVersion);
 
     // HTTP Caching: ETag Check
     const ifNoneMatch = request.headers.get("if-none-match");
-    if (!nocache && ifNoneMatch && ifNoneMatch.replace(/"/g, "") === headSha) {
+    if (!nocache && ifNoneMatch && ifNoneMatch.replace(/"/g, "") === cacheVersion) {
       return {
         status: 304,
-        headers: { "ETag": `"${headSha}"` }
+        headers: { "ETag": `"${cacheVersion}"` }
       };
     }
 
     // Lade oder baue Timeline
     context.log('[renderCodex] Loading timeline...');
-    const { json, etag } = await loadOrBuildTimeline(headSha, context, nocache);
+    const { json, etag } = await loadOrBuildTimeline(cacheVersion, context, nocache);
     context.log('[renderCodex] Timeline loaded, timeline has', json?.timeline?.length || 0, 'days');
 
     // Return JSON
