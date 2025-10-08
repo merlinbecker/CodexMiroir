@@ -177,9 +177,9 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, c
     }
   }
 
-  // Cache-Version aktualisieren für Timeline-Invalidierung
-  const timestamp = Date.now().toString();
-  await putTextBlob("state/cacheVersion.txt", timestamp, "text/plain");
+  // WICHTIG: Bei Diff Sync wird der Cache NICHT invalidiert!
+  // Cache-Invalidierung erfolgt nur bei Full Sync
+  // Dadurch wird die Timeline beim Reload nicht neu gebaut
 
   // headSha speichern für Webhook-Vergleich
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
@@ -191,6 +191,12 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, c
     const currentId = current ? parseInt(current.trim(), 10) : 0;
     const nextId = Math.max(currentId, maxId + 1);
     await putTextBlob("state/nextId.txt", String(nextId), "text/plain");
+  }
+
+  // Lösche bestehenden Timeline-Cache, damit er beim nächsten Request neu gebaut wird
+  const artifactBlobs = await listBlobs("artifacts/");
+  for (const blob of artifactBlobs) {
+    await deleteBlob(blob);
   }
 
   return { scope: "tasks", mode: "diff", changed, deleted, skipped, ref, nextId: maxId >= 0 ? maxId + 1 : null };

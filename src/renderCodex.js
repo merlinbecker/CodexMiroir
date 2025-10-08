@@ -303,13 +303,23 @@ async function getCacheVersion() {
 async function loadOrBuildTimeline(cacheVersion, context, nocache = false) {
   const artifactPath = `artifacts/timeline_${cacheVersion}.json`;
 
-  // Cache Check
+  // Cache Check - suche ALLE Timeline-Caches
   if (!nocache) {
-    const cached = await getTextBlob(artifactPath);
-    if (cached) {
-      context.log(`[renderCodex] Cache HIT for version ${cacheVersion}`);
-      return { json: JSON.parse(cached), etag: cacheVersion };
+    // Suche nach existierenden Timeline-Caches (egal welche Version)
+    const artifactBlobs = await listBlobs("artifacts/");
+    const timelineCaches = artifactBlobs.filter(b => b.startsWith("artifacts/timeline_"));
+    
+    if (timelineCaches.length > 0) {
+      // Nutze den ersten gefundenen Cache
+      const cachedPath = timelineCaches[0];
+      const cached = await getTextBlob(cachedPath);
+      if (cached) {
+        context.log(`[renderCodex] Cache HIT: ${cachedPath}`);
+        return { json: JSON.parse(cached), etag: cacheVersion };
+      }
     }
+    
+    context.log(`[renderCodex] No cache found, building timeline...`);
   } else {
     context.log(`[renderCodex] Cache BYPASS requested`);
   }
