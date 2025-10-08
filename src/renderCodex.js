@@ -83,11 +83,22 @@ function createWeekSkeleton(startDate) {
 // ============================================================================
 
 function placeFixedTasks(timeline, tasks) {
-  const fixedTasks = tasks.filter(t => t.fixedSlot);
-
-  fixedTasks.forEach(task => {
-    const targetDateStr = task.fixedSlot.datum;
-    const targetSlot = task.fixedSlot.zeit;
+  tasks.forEach(task => {
+    // Normalisiere fixedSlot zu Objekt-Format
+    let datum, zeit;
+    
+    if (Array.isArray(task.fixedSlot)) {
+      const datumObj = task.fixedSlot.find(obj => obj.datum !== undefined);
+      const zeitObj = task.fixedSlot.find(obj => obj.zeit !== undefined);
+      datum = datumObj?.datum;
+      zeit = zeitObj?.zeit;
+    } else {
+      datum = task.fixedSlot.datum;
+      zeit = task.fixedSlot.zeit;
+    }
+    
+    const targetDateStr = datum;
+    const targetSlot = zeit;
     const targetDay = timeline.find(d => d.datum === targetDateStr);
 
     if (!targetDay) return; // Datum außerhalb der Timeline
@@ -184,15 +195,15 @@ function placeTaskInDay(timeline, day, task) {
 }
 
 function autoFillTasks(timeline, tasks) {
-  const openTasks = tasks
-    .filter(t => !t.fixedSlot)
+  // Sortiere ALLE übergebenen Tasks nach ID (aufsteigend)
+  const sortedTasks = tasks
     .sort((a, b) => extractTaskNumber(a.file) - extractTaskNumber(b.file));
 
   const unplacedTasks = [];
 
-  console.log(`[autoFillTasks] Processing ${openTasks.length} open tasks`);
+  console.log(`[autoFillTasks] Processing ${sortedTasks.length} open tasks`);
 
-  openTasks.forEach((task, idx) => {
+  sortedTasks.forEach((task, idx) => {
     const kategorie = task.kategorie;
     let placed = false;
 
@@ -330,16 +341,44 @@ async function loadOrBuildTimeline(headSha, context, nocache = false) {
   context.log(`[renderCodex] Starting task placement for ${tasks.length} tasks`);
   context.log(`[renderCodex] ========================================`);
   
-  const fixedTasks = tasks.filter(t => t.fixedSlot);
-  const openTasks = tasks.filter(t => !t.fixedSlot);
+  // Separiere Fixed vs Open Tasks
+  // Fixed = hat fixedSlot UND gültiges Datum (nicht null, nicht undefined)
+  const fixedTasks = tasks.filter(t => {
+    if (!t.fixedSlot) return false;
+    
+    // Array-Format: [{ datum: "..." }, { zeit: "..." }]
+    if (Array.isArray(t.fixedSlot)) {
+      const datumObj = t.fixedSlot.find(obj => obj.datum !== undefined);
+      return datumObj && datumObj.datum && datumObj.datum !== null;
+    }
+    
+    // Objekt-Format: { datum: "...", zeit: "..." }
+    return t.fixedSlot.datum && t.fixedSlot.datum !== null;
+  });
   
-  context.log(`[renderCodex] Fixed tasks: ${fixedTasks.length}`, JSON.stringify(fixedTasks.map(t => ({file: t.file, fixedSlot: t.fixedSlot})), null, 2));
-  context.log(`[renderCodex] Open tasks: ${openTasks.length}`, JSON.stringify(openTasks.map(t => ({file: t.file, kategorie: t.kategorie})), null, 2));
+  // Open = alle anderen (kein fixedSlot ODER fixedSlot ohne gültiges Datum)
+  const openTasks = tasks.filter(t => {
+    if (!t.fixedSlot) return true;
+    
+    // Array-Format
+    if (Array.isArray(t.fixedSlot)) {
+      const datumObj = t.fixedSlot.find(obj => obj.datum !== undefined);
+      return !datumObj || !datumObj.datum || datumObj.datum === null;
+    }
+    
+    // Objekt-Format
+    return !t.fixedSlot.datum || t.fixedSlot.datum === null;
+  });
   
-  placeFixedTasks(timeline, tasks);
+  context.log(`[renderCodex] Fixed tasks (valid date): ${fixedTasks.length}`, JSON.stringify(fixedTasks.map(t => ({file: t.file, fixedSlot: t.fixedSlot})), null, 2));
+  context.log(`[renderCodex] Open tasks (no fixed slot or invalid date): ${openTasks.length}`, JSON.stringify(openTasks.map(t => ({file: t.file, kategorie: t.kategorie})), null, 2));
+  
+  // Platziere Fixed Tasks zuerst
+  placeFixedTasks(timeline, fixedTasks);
   context.log(`[renderCodex] Fixed tasks placed`);
   
-  autoFillTasks(timeline, tasks);
+  // Platziere Open Tasks (aufsteigend nach ID sortiert)
+  autoFillTasks(timeline, openTasks);
   context.log(`[renderCodex] Auto-fill completed`);
 
   // Count placed tasks
