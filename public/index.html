@@ -200,7 +200,11 @@
                     for (const slot of day.slots) {
                         // Determine if this is the current slot
                         const now = new Date();
-                        const today = now.toISOString().split('T')[0];
+                        // Convert today to dd.mm.yyyy format to match backend data
+                        const dd = String(now.getDate()).padStart(2, '0');
+                        const mm = String(now.getMonth() + 1).padStart(2, '0');
+                        const yyyy = now.getFullYear();
+                        const today = `${dd}.${mm}.${yyyy}`;
                         const currentHour = now.getHours();
                         
                         let isCurrent = false;
@@ -337,7 +341,11 @@
                         for (const slot of day.slots) {
                             // Determine if this is the current slot
                             const now = new Date();
-                            const today = now.toISOString().split('T')[0];
+                            // Convert today to dd.mm.yyyy format to match backend data
+                            const dd = String(now.getDate()).padStart(2, '0');
+                            const mm = String(now.getMonth() + 1).padStart(2, '0');
+                            const yyyy = now.getFullYear();
+                            const today = `${dd}.${mm}.${yyyy}`;
                             const currentHour = now.getHours();
                             
                             let isCurrent = false;
