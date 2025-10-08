@@ -182,9 +182,9 @@
             showLoading();
             try {
                 console.log('[Timeline] Starting load...');
-                let apiUrl = '/codex?format=json';
+                let apiUrl = '/codex';
                 if (functionKey) {
-                    apiUrl += `&code=${encodeURIComponent(functionKey)}`;
+                    apiUrl += `?code=${encodeURIComponent(functionKey)}`;
                 }
                 console.log('[Timeline] API URL:', apiUrl);
                 const response = await fetch(apiUrl);
@@ -340,7 +340,7 @@
 
                 // Reload timeline with nocache=true to force rebuild
                 console.log('[FullSync] Reloading timeline with cache bypass...');
-                let timelineUrl = '/codex?format=json&nocache=true';
+                let timelineUrl = '/codex?nocache=true';
                 if (functionKey) {
                     timelineUrl += `&code=${encodeURIComponent(functionKey)}`;
                 }
