@@ -91,9 +91,21 @@
         .complete-btn:hover {
             background-color: #218838;
         }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
+    <!-- Loading Spinner Overlay -->
+    <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.5); z-index: 9999; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 2rem; border-radius: 8px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+            <div class="spinner" style="width: 50px; height: 50px; border: 4px solid #f3f3f3; border-top: 4px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+            <p style="margin: 0; color: #333; font-weight: 500;">Wird geladen...</p>
+        </div>
+    </div>
+
     <header>
         <h1>Codex Miroir</h1>
         <div class="nav">
@@ -111,6 +123,21 @@
 
         const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
         console.log('[DEBUG] dayNames defined');
+
+        // Loading spinner functions
+        function showLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.style.display = 'flex';
+            }
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
+        }
 
         // Extract function key from URL (query parameter or fragment)
         const urlParams = new URLSearchParams(window.location.search);
@@ -130,6 +157,7 @@
 
         async function loadTimeline() {
             const container = document.getElementById('timeline');
+            showLoading();
             try {
                 console.log('[Timeline] Starting load...');
                 let apiUrl = '/codex?format=json';
@@ -187,11 +215,14 @@
             } catch (error) {
                 console.error('[Timeline] Error:', error);
                 container.innerHTML = `<div class="error">Fehler beim Laden: ${error.message}</div>`;
+            } finally {
+                hideLoading();
             }
         }
 
         async function completeTask(taskFile, date, slotTime) {
             console.log(`[CompleteTask] Completing task: ${taskFile} on ${date} in slot ${slotTime}`);
+            showLoading();
             try {
                 let apiUrl = `/api/tasks/${taskFile}/complete`;
                 if (functionKey) {
@@ -217,11 +248,14 @@
             } catch (error) {
                 console.error('[CompleteTask] Error:', error);
                 alert(`Fehler beim Abschließen des Tasks: ${error.message}`);
+            } finally {
+                hideLoading();
             }
         }
 
         async function triggerFullSync() {
             console.log('[FullSync] Starting full sync...');
+            showLoading();
             try {
                 let apiUrl = '/sync?mode=full';
                 if (functionKey) {
@@ -247,6 +281,8 @@
             } catch (error) {
                 console.error('[FullSync] Error:', error);
                 alert(`Fehler beim Full Sync: ${error.message}`);
+            } finally {
+                hideLoading();
             }
         }
 
