@@ -104,6 +104,7 @@ async function fullSync(ref = BRANCH, clean = false) {
     const blobs = await listBlobs(`raw/tasks/`);
     for (const b of blobs) {
       if (!existing.has(b)) {
+        console.log(`[fullSync] Deleting orphaned blob: ${b}`);
         await deleteBlob(b);
         removed++;
       }
@@ -112,25 +113,14 @@ async function fullSync(ref = BRANCH, clean = false) {
   
   // State komplett neu aufbauen
   
-  // 1. WICHTIG: Alle alten raw/tasks/*.md Blobs löschen VOR dem Schreiben der neuen
-  if (clean) {
-    const oldRawBlobs = await listBlobs("raw/tasks/");
-    for (const blob of oldRawBlobs) {
-      await deleteBlob(blob);
-      removed++;
-    }
-  }
-  
-  // 2. Neue Tasks aus GitHub schreiben (wurde oben schon gemacht)
-  
-  // 3. headSha speichern (wichtig für Timeline-Cache-Invalidierung)
+  // 1. headSha speichern (wichtig für Timeline-Cache-Invalidierung)
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
   
-  // 4. nextId.txt aktualisieren: höchste ID + 1
+  // 2. nextId.txt aktualisieren: höchste ID + 1
   const nextId = maxId >= 0 ? maxId + 1 : 0;
   await putTextBlob("state/nextId.txt", String(nextId), "text/plain");
   
-  // 5. Timeline-Cache komplett löschen
+  // 3. Timeline-Cache komplett löschen
   const artifactBlobs = await listBlobs("artifacts/");
   for (const blob of artifactBlobs) {
     await deleteBlob(blob);
