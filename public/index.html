@@ -130,7 +130,7 @@
     <header>
         <h1>Codex Miroir</h1>
         <div class="nav">
-            <a href="/create-task.html">+ Neue Task erstellen</a>
+            <a href="#" id="createTaskLink">+ Neue Task erstellen</a>
             <button id="fullSyncBtn" style="margin-left: 10px; padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 Full Sync</button>
         </div>
         <p id="nextIdDisplay" style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;"></p>
@@ -435,11 +435,21 @@
             }
         }
 
-        // Setup Full Sync button
+        // Setup Full Sync button and Create Task link
         document.addEventListener('DOMContentLoaded', () => {
             const fullSyncBtn = document.getElementById('fullSyncBtn');
             if (fullSyncBtn) {
                 fullSyncBtn.addEventListener('click', triggerFullSync);
+            }
+
+            // Set create task link with function key if present
+            const createTaskLink = document.getElementById('createTaskLink');
+            if (createTaskLink) {
+                let createTaskUrl = '/create-task.html';
+                if (functionKey) {
+                    createTaskUrl += `?code=${encodeURIComponent(functionKey)}`;
+                }
+                createTaskLink.href = createTaskUrl;
             }
         });
 

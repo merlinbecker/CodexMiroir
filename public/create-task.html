@@ -88,7 +88,7 @@
     <header>
         <h1>Neue Task erstellen</h1>
         <div class="nav">
-            <a href="javascript:history.back()">← Zurück zur Timeline</a>
+            <a href="#" id="backLink">← Zurück zur Timeline</a>
         </div>
         <div id="keyStatus" class="key-status"></div>
     </header>
@@ -152,6 +152,16 @@
         if (!functionKey && window.location.hash) {
             const hashParams = new URLSearchParams(window.location.hash.substring(1));
             functionKey = hashParams.get('code') || '';
+        }
+
+        // Set back link with function key if present
+        const backLink = document.getElementById('backLink');
+        if (backLink) {
+            let backUrl = '/';
+            if (functionKey) {
+                backUrl += `?code=${encodeURIComponent(functionKey)}`;
+            }
+            backLink.href = backUrl;
         }
 
         // Show key status
