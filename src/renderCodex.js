@@ -1,5 +1,5 @@
 import { app } from '@azure/functions';
-import { list, getTextBlob, putTextBlob } from "../shared/storage.js";
+import { list, list as listBlobs, getTextBlob, putTextBlob } from "../shared/storage.js";
 import { parseTask } from "../shared/parsing.js";
 
 // ============================================================================
