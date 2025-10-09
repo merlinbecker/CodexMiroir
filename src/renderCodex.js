@@ -273,8 +273,23 @@ function autoFillTasks(timeline, tasks) {
 // ============================================================================
 
 async function getCacheVersion() {
-  const version = await getTextBlob("state/cacheVersion.txt");
-  return version?.trim() || Date.now().toString();
+  // Cache-Version basiert auf:
+  // 1. cacheVersion.txt (wird bei Actions/Sync invalidiert)
+  // 2. Aktuelle Stunde (für automatische Slot-Invalidierung)
+  const storedVersion = await getTextBlob("state/cacheVersion.txt");
+  const baseVersion = storedVersion?.trim() || Date.now().toString();
+  
+  // Füge aktuelle Stunde hinzu, damit Cache bei Slot-Wechsel automatisch invalidiert wird
+  const now = new Date();
+  const currentHour = now.getHours();
+  
+  // Cache-Version Format: baseVersion_YYYYMMDD_HH
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hour = String(currentHour).padStart(2, '0');
+  
+  return `${baseVersion}_${year}${month}${day}_${hour}`;
 }
 
 async function loadOrBuildTimeline(cacheVersion, context, nocache = false) {

@@ -5,12 +5,14 @@ const mockPutTextBlob = jest.fn();
 const mockDeleteBlob = jest.fn();
 const mockListBlobs = jest.fn();
 const mockGetTextBlob = jest.fn();
+const mockInvalidateCache = jest.fn();
 
 jest.unstable_mockModule('../../shared/storage.js', () => ({
   putTextBlob: mockPutTextBlob,
   deleteBlob: mockDeleteBlob,
   list: mockListBlobs,
-  getTextBlob: mockGetTextBlob
+  getTextBlob: mockGetTextBlob,
+  invalidateCache: mockInvalidateCache
 }));
 
 // Mock fetch for GitHub API
@@ -61,13 +63,14 @@ describe('sync.js', () => {
 
       mockPutTextBlob.mockResolvedValue(undefined);
       mockListBlobs.mockResolvedValue([]); // Mock artifacts listing
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
       const result = await fullSync('main', false);
 
       expect(result.changed).toBe(2);
       expect(result.mode).toBe('full');
       expect(result.scope).toBe('tasks');
-      expect(mockPutTextBlob).toHaveBeenCalledTimes(5); // 2 tasks + cacheVersion + lastHeadSha + nextId
+      expect(mockPutTextBlob).toHaveBeenCalledTimes(4); // 2 tasks + lastHeadSha + nextId (cacheVersion is set by invalidateCache)
       expect(mockPutTextBlob).toHaveBeenCalledWith(
         'raw/tasks/0001.md',
         'Task 1 content',
@@ -87,6 +90,7 @@ describe('sync.js', () => {
 
     test('should extract and update nextId from filenames', async () => {
       mockListBlobs.mockResolvedValue([]); // Mock artifacts listing
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
       
       global.fetch.mockResolvedValueOnce({
         ok: true,
@@ -162,6 +166,7 @@ describe('sync.js', () => {
 
       mockPutTextBlob.mockResolvedValue(undefined);
       mockDeleteBlob.mockResolvedValue(undefined);
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
       const result = await fullSync('main', true);
 
@@ -201,6 +206,7 @@ describe('sync.js', () => {
 
       mockPutTextBlob.mockResolvedValue(undefined);
       mockGetTextBlob.mockResolvedValue('5'); // Current nextId
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
       const result = await applyDiff(paths, 'abc123');
 
@@ -230,6 +236,7 @@ describe('sync.js', () => {
 
       mockDeleteBlob.mockResolvedValue(undefined);
       mockPutTextBlob.mockResolvedValue(undefined);
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
       const result = await applyDiff(paths, 'abc123');
 
@@ -262,6 +269,7 @@ describe('sync.js', () => {
       mockPutTextBlob.mockResolvedValue(undefined);
       mockDeleteBlob.mockResolvedValue(undefined);
       mockGetTextBlob.mockResolvedValue('5');
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
       const result = await applyDiff(paths, 'abc123');
 
@@ -289,6 +297,7 @@ describe('sync.js', () => {
 
       mockPutTextBlob.mockResolvedValue(undefined);
       mockGetTextBlob.mockResolvedValue('5'); // Current nextId
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
       const result = await applyDiff(paths, 'abc123');
 

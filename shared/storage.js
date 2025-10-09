@@ -58,4 +58,19 @@ async function list(prefix) {
   return out;
 }
 
-export { putTextBlob, putBufferBlob, getTextBlob, deleteBlob, list };
+async function invalidateCache() {
+  // Invalidiere Timeline-Cache durch:
+  // 1. Setze neue cacheVersion (Timestamp)
+  // 2. Lösche alle Timeline-Artefakte
+  const timestamp = Date.now().toString();
+  await putTextBlob("state/cacheVersion.txt", timestamp, "text/plain");
+  
+  const artifactBlobs = await list("artifacts/");
+  for (const blob of artifactBlobs) {
+    await deleteBlob(blob);
+  }
+  
+  return { cacheVersion: timestamp, cacheCleared: artifactBlobs.length };
+}
+
+export { putTextBlob, putBufferBlob, getTextBlob, deleteBlob, list, invalidateCache };
