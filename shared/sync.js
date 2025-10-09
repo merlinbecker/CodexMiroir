@@ -1,5 +1,5 @@
 // shared/sync.js
-import { putTextBlob, deleteBlob, list as listBlobs, getTextBlob } from "./storage.js";
+import { putTextBlob, deleteBlob, list as listBlobs, getTextBlob, invalidateCache } from "./storage.js";
 
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
@@ -109,9 +109,8 @@ async function fullSync(ref = BRANCH, clean = false, context = null) { // Added 
 
   // State komplett neu aufbauen
 
-  // 1. Timestamp für Cache-Invalidierung generieren
-  const timestamp = Date.now().toString();
-  await putTextBlob("state/cacheVersion.txt", timestamp, "text/plain");
+  // 1. Invalidiere Cache (setzt neue cacheVersion und löscht Timeline-Artefakte)
+  const cacheInvalidation = await invalidateCache();
 
   // 2. headSha speichern (für Webhook-Vergleich)
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
@@ -120,12 +119,6 @@ async function fullSync(ref = BRANCH, clean = false, context = null) { // Added 
   const nextId = maxId >= 0 ? maxId + 1 : 0;
   await putTextBlob("state/nextId.txt", String(nextId), "text/plain");
 
-  // 4. Timeline-Cache komplett löschen
-  const artifactBlobs = await listBlobs("artifacts/");
-  for (const blob of artifactBlobs) {
-    await deleteBlob(blob);
-  }
-
   // Erfolgsmeldung
   return {
     scope: "tasks",
@@ -133,7 +126,7 @@ async function fullSync(ref = BRANCH, clean = false, context = null) { // Added 
     changed,
     removed,
     nextId,
-    cacheCleared: artifactBlobs.length
+    cacheCleared: cacheInvalidation.cacheCleared
   };
 }
 
@@ -173,9 +166,9 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, c
     }
   }
 
-  // WICHTIG: Bei Diff Sync wird der Cache NICHT invalidiert!
-  // Cache-Invalidierung erfolgt nur bei Full Sync
-  // Dadurch wird die Timeline beim Reload nicht neu gebaut
+  // WICHTIG: Bei Diff Sync wird der Cache INVALIDIERT!
+  // Dadurch wird die Timeline beim Reload neu gebaut
+  const cacheInvalidation = await invalidateCache();
 
   // headSha speichern für Webhook-Vergleich
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
@@ -194,13 +187,7 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, c
     finalNextId = current ? parseInt(current.trim(), 10) : 0;
   }
 
-  // Lösche bestehenden Timeline-Cache, damit er beim nächsten Request neu gebaut wird
-  const artifactBlobs = await listBlobs("artifacts/");
-  for (const blob of artifactBlobs) {
-    await deleteBlob(blob);
-  }
-
-  return { scope: "tasks", mode: "diff", changed, deleted, skipped, ref, nextId: finalNextId, cacheCleared: artifactBlobs.length };
+  return { scope: "tasks", mode: "diff", changed, deleted, skipped, ref, nextId: finalNextId, cacheCleared: cacheInvalidation.cacheCleared };
 }
 
 export { fullSync, applyDiff };

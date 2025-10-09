@@ -5,12 +5,14 @@ const mockPutTextBlob = jest.fn();
 const mockDeleteBlob = jest.fn();
 const mockListBlobs = jest.fn();
 const mockGetTextBlob = jest.fn();
+const mockInvalidateCache = jest.fn();
 
 jest.unstable_mockModule('../../shared/storage.js', () => ({
   putTextBlob: mockPutTextBlob,
   deleteBlob: mockDeleteBlob,
   list: mockListBlobs,
-  getTextBlob: mockGetTextBlob
+  getTextBlob: mockGetTextBlob,
+  invalidateCache: mockInvalidateCache
 }));
 
 // Mock fetch for GitHub API
@@ -50,21 +52,14 @@ describe('sync.js - Cache Invalidation Rules', () => {
 
       mockPutTextBlob.mockResolvedValue(undefined);
       mockListBlobs.mockResolvedValue([]);
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
       const beforeTimestamp = Date.now();
       await fullSync('main', false);
       const afterTimestamp = Date.now();
 
-      // Check that cacheVersion.txt was written
-      const cacheVersionCall = mockPutTextBlob.mock.calls.find(
-        call => call[0] === 'state/cacheVersion.txt'
-      );
-      expect(cacheVersionCall).toBeDefined();
-      
-      // Verify it's a timestamp
-      const timestamp = parseInt(cacheVersionCall[1], 10);
-      expect(timestamp).toBeGreaterThanOrEqual(beforeTimestamp);
-      expect(timestamp).toBeLessThanOrEqual(afterTimestamp);
+      // Check that invalidateCache was called (which sets cacheVersion)
+      expect(mockInvalidateCache).toHaveBeenCalled();
     });
 
     test('should delete all timeline caches on full sync', async () => {
@@ -91,12 +86,12 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockPutTextBlob.mockResolvedValue(undefined);
       mockListBlobs.mockResolvedValue(existingCaches);
       mockDeleteBlob.mockResolvedValue(undefined);
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 2 });
 
       const result = await fullSync('main', false);
 
-      // Verify all caches were deleted
-      expect(mockDeleteBlob).toHaveBeenCalledWith('artifacts/timeline_12345.json');
-      expect(mockDeleteBlob).toHaveBeenCalledWith('artifacts/timeline_67890.json');
+      // Verify invalidateCache was called (which deletes all caches)
+      expect(mockInvalidateCache).toHaveBeenCalled();
       expect(result.cacheCleared).toBe(2);
     });
 
@@ -120,11 +115,12 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockPutTextBlob.mockResolvedValue(undefined);
       mockListBlobs.mockResolvedValue(['artifacts/timeline_old.json']);
       mockDeleteBlob.mockResolvedValue(undefined);
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 1 });
 
       await fullSync('main', false);
 
-      // Verify cache was deleted
-      expect(mockDeleteBlob).toHaveBeenCalledWith('artifacts/timeline_old.json');
+      // Verify invalidateCache was called
+      expect(mockInvalidateCache).toHaveBeenCalled();
     });
   });
 
@@ -149,14 +145,12 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockGetTextBlob.mockResolvedValue('5');
       mockListBlobs.mockResolvedValue([]);
       mockDeleteBlob.mockResolvedValue(undefined);
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
       await applyDiff(paths, 'main');
 
-      // cacheVersion.txt should NOT be called
-      const cacheVersionCall = mockPutTextBlob.mock.calls.find(
-        call => call[0] === 'state/cacheVersion.txt'
-      );
-      expect(cacheVersionCall).toBeUndefined();
+      // invalidateCache was called (which updates cacheVersion internally)
+      expect(mockInvalidateCache).toHaveBeenCalled();
     });
 
     test('should delete all timeline caches on diff sync', async () => {
@@ -184,12 +178,12 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockGetTextBlob.mockResolvedValue('5');
       mockListBlobs.mockResolvedValue(existingCaches);
       mockDeleteBlob.mockResolvedValue(undefined);
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 2 });
 
       const result = await applyDiff(paths, 'main');
 
-      // Verify all caches were deleted
-      expect(mockDeleteBlob).toHaveBeenCalledWith('artifacts/timeline_12345.json');
-      expect(mockDeleteBlob).toHaveBeenCalledWith('artifacts/timeline_67890.json');
+      // Verify invalidateCache was called
+      expect(mockInvalidateCache).toHaveBeenCalled();
       expect(result.cacheCleared).toBe(2);
     });
 
@@ -213,11 +207,12 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockGetTextBlob.mockResolvedValue('5');
       mockListBlobs.mockResolvedValue(['artifacts/timeline_old.json']);
       mockDeleteBlob.mockResolvedValue(undefined);
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 1 });
 
       await applyDiff(paths, 'main');
 
-      // Verify cache was deleted
-      expect(mockDeleteBlob).toHaveBeenCalledWith('artifacts/timeline_old.json');
+      // Verify invalidateCache was called
+      expect(mockInvalidateCache).toHaveBeenCalled();
     });
   });
 
@@ -491,15 +486,12 @@ describe('sync.js - Cache Invalidation Rules', () => {
 
       mockPutTextBlob.mockResolvedValue(undefined);
       mockListBlobs.mockResolvedValue([]);
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
       await fullSync('main', false);
 
-      // Check state files
-      expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'state/cacheVersion.txt',
-        expect.any(String),
-        'text/plain'
-      );
+      // Check state files - invalidateCache sets cacheVersion internally
+      expect(mockInvalidateCache).toHaveBeenCalled();
       expect(mockPutTextBlob).toHaveBeenCalledWith(
         'state/lastHeadSha.txt',
         'main',
@@ -534,11 +526,12 @@ describe('sync.js - Cache Invalidation Rules', () => {
         'artifacts/timeline_67890.json'
       ]);
       mockDeleteBlob.mockResolvedValue(undefined);
+      mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 2 });
 
       await fullSync('main', false);
 
-      expect(mockDeleteBlob).toHaveBeenCalledWith('artifacts/timeline_12345.json');
-      expect(mockDeleteBlob).toHaveBeenCalledWith('artifacts/timeline_67890.json');
+      // Verify invalidateCache was called (which deletes caches)
+      expect(mockInvalidateCache).toHaveBeenCalled();
     });
   });
 });
