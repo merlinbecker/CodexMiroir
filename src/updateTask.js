@@ -1,6 +1,6 @@
 
 import { app } from "@azure/functions";
-import { getTextBlob, putTextBlob } from "../shared/storage.js";
+import { getTextBlob, putTextBlob, invalidateCache } from "../shared/storage.js";
 
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
@@ -206,6 +206,10 @@ app.http("updateTask", {
       
       // Update cache
       await putTextBlob(`raw/tasks/${id}.md`, newMd, "text/markdown");
+      
+      // Invalidiere Timeline-Cache, da sich Task geändert hat
+      const cacheInvalidation = await invalidateCache();
+      context.log(`[updateTask] Cache invalidated: ${JSON.stringify(cacheInvalidation)}`);
       
       const response = {
         ok: true,
