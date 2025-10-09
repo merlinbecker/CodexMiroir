@@ -60,13 +60,14 @@ describe('sync.js', () => {
         });
 
       mockPutTextBlob.mockResolvedValue(undefined);
+      mockListBlobs.mockResolvedValue([]); // Mock artifacts listing
 
       const result = await fullSync('main', false);
 
       expect(result.changed).toBe(2);
       expect(result.mode).toBe('full');
       expect(result.scope).toBe('tasks');
-      expect(mockPutTextBlob).toHaveBeenCalledTimes(4); // 2 tasks + lastHeadSha + nextId
+      expect(mockPutTextBlob).toHaveBeenCalledTimes(5); // 2 tasks + cacheVersion + lastHeadSha + nextId
       expect(mockPutTextBlob).toHaveBeenCalledWith(
         'raw/tasks/0001.md',
         'Task 1 content',
@@ -85,6 +86,8 @@ describe('sync.js', () => {
     });
 
     test('should extract and update nextId from filenames', async () => {
+      mockListBlobs.mockResolvedValue([]); // Mock artifacts listing
+      
       global.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ([
@@ -149,11 +152,13 @@ describe('sync.js', () => {
         })
       });
 
-      mockListBlobs.mockResolvedValue([
-        'raw/tasks/0001.md',
-        'raw/tasks/0002.md', // This one should be deleted
-        'raw/tasks/0003.md'  // This one should be deleted
-      ]);
+      mockListBlobs
+        .mockResolvedValueOnce([
+          'raw/tasks/0001.md',
+          'raw/tasks/0002.md', // This one should be deleted
+          'raw/tasks/0003.md'  // This one should be deleted
+        ])
+        .mockResolvedValueOnce([]); // artifacts listing
 
       mockPutTextBlob.mockResolvedValue(undefined);
       mockDeleteBlob.mockResolvedValue(undefined);

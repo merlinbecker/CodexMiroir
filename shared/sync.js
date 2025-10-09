@@ -66,17 +66,14 @@ async function listMdUnderTasks(ref) {
 
 async function fullSync(ref = BRANCH, clean = false, context = null) { // Added context parameter
   console.log(`[fullSync] Starting full sync from ref: ${ref}, clean: ${clean}`);
-  console.log(`[fullSync] GitHub path: ${BASE}/tasks`);
 
   const files = await listMdUnderTasks(ref);
   console.log(`[fullSync] Found ${files.length} files in GitHub`);
-  console.log(`[fullSync] Files:`, JSON.stringify(files, null, 2));
 
   let changed = 0;
   let maxId = -1;
 
   for (const f of files) {
-    console.log(`[fullSync] Fetching file: ${f.repoPath}`);
     const text = await fetchFileAtRef(f.repoPath, ref);
     if (!text) {
       console.log(`[fullSync] WARNING: Empty content for ${f.repoPath}`);
@@ -84,7 +81,6 @@ async function fullSync(ref = BRANCH, clean = false, context = null) { // Added 
     }
 
     const blobPath = toBlobPath(f.repoPath);
-    console.log(`[fullSync] Writing to blob: ${blobPath} (${text.length} chars)`);
     await putTextBlob(blobPath, text, "text/markdown");
     changed++;
 
@@ -104,11 +100,11 @@ async function fullSync(ref = BRANCH, clean = false, context = null) { // Added 
     const blobs = await listBlobs(`raw/tasks/`);
     for (const b of blobs) {
       if (!existing.has(b)) {
-        console.log(`[fullSync] Deleting orphaned blob: ${b}`);
         await deleteBlob(b);
         removed++;
       }
     }
+    console.log(`[fullSync] Removed ${removed} orphaned blobs`);
   }
 
   // State komplett neu aufbauen
@@ -185,12 +181,17 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, c
   await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
 
   // nextId.txt aktualisieren, wenn neue Tasks hinzugefügt wurden
+  let finalNextId = null;
   if (maxId >= 0) {
     // Prüfe aktuelle nextId und nimm das Maximum
     const current = await getTextBlob("state/nextId.txt");
     const currentId = current ? parseInt(current.trim(), 10) : 0;
-    const nextId = Math.max(currentId, maxId + 1);
-    await putTextBlob("state/nextId.txt", String(nextId), "text/plain");
+    finalNextId = Math.max(currentId, maxId + 1);
+    await putTextBlob("state/nextId.txt", String(finalNextId), "text/plain");
+  } else {
+    // Wenn keine IDs gefunden wurden, behalte die aktuelle nextId
+    const current = await getTextBlob("state/nextId.txt");
+    finalNextId = current ? parseInt(current.trim(), 10) : 0;
   }
 
   // Lösche bestehenden Timeline-Cache, damit er beim nächsten Request neu gebaut wird
@@ -199,7 +200,7 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, c
     await deleteBlob(blob);
   }
 
-  return { scope: "tasks", mode: "diff", changed, deleted, skipped, ref, nextId: maxId >= 0 ? maxId + 1 : null };
+  return { scope: "tasks", mode: "diff", changed, deleted, skipped, ref, nextId: finalNextId, cacheCleared: artifactBlobs.length };
 }
 
 export { fullSync, applyDiff };
