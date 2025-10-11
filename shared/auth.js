@@ -14,13 +14,13 @@
 export async function extractUserId(request) {
   let token;
 
-  // 1. Versuch: Authorization header
+  // 1st attempt: Extract token from Authorization header
   const authHeader = request.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
     token = authHeader.slice("Bearer ".length).trim();
   }
 
-  // 2. Versuch: Cookie (falls vorhanden)
+  // 2nd attempt: Extract token from session cookie (fallback)
   if (!token) {
     const cookieHeader = request.headers.get("cookie");
     if (cookieHeader) {
