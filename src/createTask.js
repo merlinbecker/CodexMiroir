@@ -58,7 +58,6 @@ function buildMarkdown(payload) {
     kategorie: payload.kategorie,
     status: payload.status || "offen",
     tags: payload.tags || [],
-    deadline: payload.deadline || null,
     fixedSlot: payload.fixedSlot || null
   };
   
@@ -68,7 +67,6 @@ function buildMarkdown(payload) {
     `kategorie: ${fm.kategorie}`,
     `status: ${fm.status}`,
     `tags: ${Array.isArray(fm.tags) ? `[${fm.tags.join(", ")}]` : "[]"}`,
-    `deadline: ${fm.deadline ? fm.deadline : "null"}`,
     fm.fixedSlot 
       ? `fixedSlot:\n  datum: ${fm.fixedSlot.datum}\n  zeit: ${fm.fixedSlot.zeit}` 
       : "fixedSlot: null",
@@ -138,13 +136,6 @@ app.http("createTask", {
         return {
           status: 400,
           jsonBody: { ok: false, error: "kategorie muss 'arbeit' oder 'privat' sein" }
-        };
-      }
-      
-      if (p.deadline && !isDate(p.deadline)) {
-        return {
-          status: 400,
-          jsonBody: { ok: false, error: "deadline muss dd.mm.yyyy sein" }
         };
       }
       

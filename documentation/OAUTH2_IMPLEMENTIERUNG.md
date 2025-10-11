@@ -140,7 +140,7 @@ Enthält:
 
 1. GitHub Personal Access Token erstellen:
    - GitHub → Settings → Developer settings → Personal access tokens
-   - Scopes: `repo`, `read:user`
+   - Scopes: `read:user`, `public_repo`
 
 2. Token bereitstellen (zwei Möglichkeiten):
    

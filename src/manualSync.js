@@ -55,7 +55,6 @@ app.http("manualSync", {
       // Clean mode standardmäßig auf true für full sync (kann mit ?clean=false überschrieben werden)
       const clean = url.searchParams.get("clean") !== "false";
 
-    try {
       if (mode === "full") {
         const res = await fullSync(ref, clean, userId);
         return {

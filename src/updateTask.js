@@ -92,9 +92,6 @@ function updateMarkdown(existingMd, updates) {
     if (updates.status && line.startsWith('status:')) {
       return `status: ${updates.status}`;
     }
-    if (updates.hasOwnProperty('deadline') && line.startsWith('deadline:')) {
-      return `deadline: ${updates.deadline || 'null'}`;
-    }
     if (updates.tags && line.startsWith('tags:')) {
       return `tags: [${updates.tags.join(', ')}]`;
     }
@@ -147,13 +144,6 @@ app.http("updateTask", {
         return {
           status: 400,
           jsonBody: { ok: false, error: "kategorie muss 'arbeit' oder 'privat' sein" }
-        };
-      }
-      
-      if (updates.deadline && !isDate(updates.deadline)) {
-        return {
-          status: 400,
-          jsonBody: { ok: false, error: "deadline muss dd.mm.yyyy sein" }
         };
       }
       

@@ -1,0 +1,18 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    
+    "COSMOS_CONNECTION_STRING": "AccountEndpoint=https://your-account.documents.azure.com:443/;AccountKey=YOUR_KEY;",
+    "COSMOS_DB": "merlinshelper",
+    "COSMOS_TIMELINE": "cm_timeline",
+    "COSMOS_TASKS": "cm_tasks",
+    "DAY_BUFFER": "7",
+    "AUTOFILL_HORIZON": "30",
+    
+    "GITHUB_OAUTH_CLIENT_ID": "your-github-oauth-client-id-here",
+    "GITHUB_OAUTH_CLIENT_SECRET": "your-github-oauth-client-secret-here",
+    "GITHUB_OAUTH_REDIRECT_URI": "http://localhost:7071/auth/github/callback"
+  }
+}

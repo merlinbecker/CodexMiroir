@@ -2,12 +2,24 @@
 
 ## Overview
 
-CodexMiroir now uses GitHub OAuth2 authentication instead of Azure Function Keys. This means:
+CodexMiroir uses GitHub OAuth2 authentication instead of Azure Function Keys. This means:
 
 1. All Azure Function endpoints are set to `authLevel: "anonymous"`
 2. Authentication is handled via GitHub OAuth2 tokens sent in the `Authorization` header or session cookie
 3. User identity is extracted from the GitHub token
 4. Tasks are stored in user-specific folders: `<GITHUB_BASE_PATH>/<userId>/tasks/`
+
+## Authentication Method
+
+CodexMiroir uses the **OAuth2 Authorization Code Flow** for all authentication.
+
+Users click "Login with GitHub" and are redirected to GitHub's OAuth authorization page. After granting access, they are redirected back with an access token.
+
+**Callback URL**: `https://your-app.azurewebsites.net/auth/github/callback`
+
+**Endpoints**:
+- `/auth/github` - Initiates OAuth flow, redirects to GitHub
+- `/auth/github/callback` - Handles callback from GitHub, exchanges code for token
 
 ## How It Works
 
@@ -49,23 +61,31 @@ app.http("createTask", {
 ### Frontend (Web App)
 
 The frontend now:
-1. Accepts OAuth token via URL parameter `?token=YOUR_TOKEN` or hash `#token=YOUR_TOKEN`
-2. Stores the token in localStorage
-3. Sends the token in the `Authorization: Bearer <token>` header with every API request
-4. The userId is automatically extracted from the token by the backend
-
-Alternatively, the token can be provided via a session cookie, which is useful for browser-based flows.
+1. Shows a "Login with GitHub" button if no token is present
+2. Redirects to `/auth/github` when user clicks login
+3. Receives token via URL parameter after successful OAuth flow
+4. Stores the token in localStorage
+5. Sends the token in the `Authorization: Bearer <token>` header with every API request
+6. The userId is automatically extracted from the token by the backend
 
 Example from `app.js`:
 ```javascript
-// Initialize with token from URL
+// Initialize with token from URL (after OAuth callback)
 init() {
     const urlParams = new URLSearchParams(window.location.search);
     this.functionKey = urlParams.get('token') || '';
     
-    if (this.functionKey) {
-        localStorage.setItem('codexmiroir_token', this.functionKey);
+    if (!this.functionKey) {
+        this.functionKey = localStorage.getItem('codexmiroir_token') || '';
     }
+    
+    if (!this.functionKey) {
+        // Show login button
+        document.getElementById('loginBtn').style.display = 'inline-block';
+        return;
+    }
+    
+    localStorage.setItem('codexmiroir_token', this.functionKey);
     // ...
 }
 
@@ -91,54 +111,34 @@ apiRequest(path, options = {}) {
 3. Fill in:
    - **Application name**: CodexMiroir
    - **Homepage URL**: `https://your-app.azurewebsites.net`
-   - **Authorization callback URL**: `https://your-app.azurewebsites.net`
+   - **Authorization callback URL**: `https://your-app.azurewebsites.net/auth/github/callback`
 4. Click "Register application"
 5. Save the **Client ID** and generate a **Client Secret**
+6. Configure environment variables in Azure:
+   ```bash
+   az functionapp config appsettings set \
+     --name your-function-app \
+     --resource-group your-resource-group \
+     --settings \
+       "GITHUB_OAUTH_CLIENT_ID=your_client_id" \
+       "GITHUB_OAUTH_CLIENT_SECRET=your_client_secret" \
+       "GITHUB_OAUTH_REDIRECT_URI=https://your-app.azurewebsites.net/auth/github/callback"
+   ```
 
-### 2. Generate a Personal Access Token (PAT)
-
-For development/testing, you can use a Personal Access Token:
-
-1. Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Click "Generate new token (classic)"
-3. Give it a name (e.g., "CodexMiroir Dev")
-4. Select scopes:
-   - ✅ `repo` (Full control of private repositories)
-   - ✅ `read:user` (Read user profile data)
-5. Click "Generate token"
-6. **Copy the token immediately** (you won't be able to see it again)
-
-### 3. Use the Token
-
-There are two ways to provide the token:
-
-#### Option A: Authorization Header (recommended)
-
-Access the app with the token in the URL:
-```
-https://your-app.azurewebsites.net/?token=ghp_YOUR_TOKEN_HERE
+**For local development**, add to `local.settings.json`:
+```json
+{
+  "Values": {
+    "GITHUB_OAUTH_CLIENT_ID": "your-github-oauth-client-id",
+    "GITHUB_OAUTH_CLIENT_SECRET": "your-github-oauth-client-secret",
+    "GITHUB_OAUTH_REDIRECT_URI": "http://localhost:7071/auth/github/callback"
+  }
+}
 ```
 
-Or use the hash format:
-```
-https://your-app.azurewebsites.net/#token=ghp_YOUR_TOKEN_HERE
-```
-
-The app will store the token in localStorage and send it via the `Authorization: Bearer` header with all API requests.
-
-#### Option B: Session Cookie
-
-Alternatively, you can set a session cookie:
-```javascript
-document.cookie = "session=ghp_YOUR_TOKEN_HERE; path=/; secure; samesite=strict";
-```
-
-The backend will automatically extract the token from the `session` cookie if no Authorization header is present. This is useful for:
-- OAuth flows that set cookies automatically
-- Browser-based authentication flows
-- Integration with existing session management systems
-
-**Note**: The Authorization header takes priority if both are present.
+**Callback URLs to register in GitHub OAuth App**:
+- Production: `https://your-app.azurewebsites.net/auth/github/callback`
+- Local development: `http://localhost:7071/auth/github/callback`
 
 ## Storage Structure
 
@@ -186,8 +186,8 @@ Azure Blob Storage Cache:
 1. **Token Storage**: Tokens are stored in localStorage. This is acceptable for development but consider using more secure storage for production.
 
 2. **Token Scope**: Use tokens with minimal necessary scopes. For CodexMiroir:
-   - `repo` scope for accessing repository
-   - `read:user` scope for reading user profile
+   - `read:user` scope for reading GitHub username
+   - `public_repo` scope for writing to public repositories (or `repo` for private repos)
 
 3. **HTTPS Only**: Always use HTTPS in production to protect tokens in transit.
 
@@ -211,7 +211,7 @@ Azure Blob Storage Cache:
 
 ### Tasks Not Loading
 - Check browser console for errors
-- Verify the token has the correct scopes (`repo`, `read:user`)
+- Verify the token has the correct scopes (`read:user`, `public_repo` or `repo`)
 - Ensure the GitHub repository path is configured correctly in Azure Function App settings
 
 ## Migration from Function Keys

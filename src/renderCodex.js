@@ -433,7 +433,6 @@ async function loadOrBuildTimeline(cacheVersion, context, userId, nocache = fals
           file: slot.task.file,
           kategorie: slot.task.kategorie,
           status: slot.task.status,
-          deadline: slot.task.deadline || null,
           tags: slot.task.tags || [],
           isFixed: slot.isFixed
         } : null

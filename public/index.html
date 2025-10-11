@@ -2,128 +2,16 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=240, height=282, user-scalable=no, initial-scale=1.0">
     <title>Codex Miroir - Timeline</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            padding: 20px;
-            max-width: 900px;
-            margin: 0 auto;
-            background: #f5f5f5;
-        }
-        header { 
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid #333;
-        }
-        h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
-        .nav { margin-top: 1rem; }
-        .nav a { 
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            background: #007bff;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-        }
-        .nav a:hover { background: #0056b3; }
-        #timeline { margin-top: 2rem; }
-        .day { 
-            background: white;
-            margin-bottom: 1.5rem;
-            padding: 1rem;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .day-header { 
-            font-weight: 600;
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-            color: #333;
-        }
-        .slot { 
-            padding: 0.75rem;
-            margin: 0.5rem 0;
-            border-left: 3px solid #ddd;
-            background: #fafafa;
-        }
-        .slot.morgens { border-left-color: #28a745; }
-        .slot.nachmittags { border-left-color: #007bff; }
-        .slot.abends { border-left-color: #fd7e14; }
-        .slot-label { 
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #666;
-            text-transform: uppercase;
-            margin-bottom: 0.25rem;
-        }
-        .task { font-size: 0.9rem; color: #222; }
-        .badge { 
-            display: inline-block;
-            font-size: 0.7rem;
-            padding: 2px 6px;
-            border-radius: 3px;
-            background: #e0e0e0;
-            margin-left: 4px;
-        }
-        .badge.fixed { background: #dc3545; color: white; }
-        .empty { color: #999; font-size: 0.85rem; }
-        .loading { text-align: center; padding: 2rem; color: #666; }
-        .error { 
-            background: #f8d7da;
-            color: #721c24;
-            padding: 1rem;
-            border-radius: 4px;
-            margin: 1rem 0;
-        }
-        .complete-btn {
-            margin-left: 10px;
-            padding: 4px 8px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-        }
-        .complete-btn:hover {
-            background-color: #218838;
-        }
-        .current-slot {
-            border-left: 4px solid #007bff !important;
-            background: linear-gradient(90deg, rgba(0, 123, 255, 0.1) 0%, #fafafa 100%);
-            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
-            animation: pulse 2s ease-in-out infinite;
-        }
-        .current-badge {
-            display: inline-block;
-            font-size: 0.65rem;
-            font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 3px;
-            background: #007bff;
-            color: white;
-            margin-left: 8px;
-            text-transform: uppercase;
-        }
-        @keyframes pulse {
-            0%, 100% { box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2); }
-            50% { box-shadow: 0 4px 16px rgba(0, 123, 255, 0.4); }
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
+    <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
+<body class="timeline-page">
     <!-- Loading Spinner Overlay -->
-    <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.5); z-index: 9999; justify-content: center; align-items: center;">
-        <div style="background: white; padding: 2rem; border-radius: 8px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-            <div class="spinner" style="width: 50px; height: 50px; border: 4px solid #f3f3f3; border-top: 4px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
-            <p style="margin: 0; color: #333; font-weight: 500;">Wird geladen...</p>
+    <div id="loadingOverlay">
+        <div>
+            <div class="spinner"></div>
+            <p>Wird geladen...</p>
         </div>
     </div>
 
@@ -131,9 +19,10 @@
         <h1>Codex Miroir</h1>
         <div class="nav">
             <a href="#" id="createTaskLink">+ Neue Task erstellen</a>
-            <button id="fullSyncBtn" style="margin-left: 10px; padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 Full Sync</button>
+            <button id="fullSyncBtn">🔄 Full Sync</button>
+            <button id="logoutBtn">Abmelden</button>
         </div>
-        <p id="nextIdDisplay" style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;"></p>
+        <p id="nextIdDisplay"></p>
     </header>
 
     <div id="timeline">
@@ -161,17 +50,6 @@
             }
         }
 
-        // Extract function key from URL (query parameter or fragment)
-        const urlParams = new URLSearchParams(window.location.search);
-        let functionKey = urlParams.get('code') || '';
-
-        // If not in query, check fragment
-        if (!functionKey && window.location.hash) {
-            const hashParams = new URLSearchParams(window.location.hash.substring(1));
-            functionKey = hashParams.get('code') || '';
-        }
-        console.log('[DEBUG] functionKey extracted:', functionKey ? 'YES' : 'NO');
-
         function extractTaskNumber(filename) {
             const match = filename.match(/(\d{4})/);
             return match ? parseInt(match[1], 10) : 9999;
@@ -182,10 +60,7 @@
             showLoading();
             try {
                 console.log('[Timeline] Starting load...');
-                let apiUrl = '/codex';
-                if (functionKey) {
-                    apiUrl += `?code=${encodeURIComponent(functionKey)}`;
-                }
+                const apiUrl = '/codex';
                 console.log('[Timeline] API URL:', apiUrl);
                 const response = await fetch(apiUrl);
                 console.log('[Timeline] Response status:', response.status);
@@ -253,10 +128,6 @@
                                 html += `<span class="badge fixed">FIX</span>`;
                             }
 
-                            if (slot.task.deadline) {
-                                html += `<span class="badge">DL: ${slot.task.deadline}</span>`;
-                            }
-
                             // Add complete button
                             const taskFile = filename.replace('.md', '');
                             html += `<button class="complete-btn" onclick="completeTask('${taskFile}', '${day.datum}', '${slot.zeit}')">✓ Erledigt</button>`;
@@ -286,14 +157,11 @@
             console.log(`[CompleteTask] Completing task: ${taskFile} on ${date} in slot ${slotTime}`);
             showLoading();
             try {
-                let apiUrl = `/api/tasks/${taskFile}/complete`;
-                if (functionKey) {
-                    apiUrl += `?code=${encodeURIComponent(functionKey)}`;
-                }
+                const apiUrl = `/api/tasks/${taskFile}/complete`;
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ datum: date, zeit: slotTime }),
                 });
@@ -319,15 +187,12 @@
             console.log('[FullSync] Starting full sync...');
             showLoading();
             try {
-                let apiUrl = '/sync?mode=full';
-                if (functionKey) {
-                    apiUrl += `&code=${encodeURIComponent(functionKey)}`;
-                }
+                const apiUrl = '/sync?mode=full';
 
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     }
                 });
 
@@ -340,10 +205,7 @@
 
                 // Reload timeline with nocache=true to force rebuild
                 console.log('[FullSync] Reloading timeline with cache bypass...');
-                let timelineUrl = '/codex?nocache=true';
-                if (functionKey) {
-                    timelineUrl += `&code=${encodeURIComponent(functionKey)}`;
-                }
+                const timelineUrl = '/codex?nocache=true';
                 const newResponse = await fetch(timelineUrl);
                 if (!newResponse.ok) {
                     throw new Error(`HTTP error fetching timeline after sync! status: ${newResponse.status}`);
@@ -406,10 +268,6 @@
                                     html += `<span class="badge fixed">FIX</span>`;
                                 }
 
-                                if (slot.task.deadline) {
-                                    html += `<span class="badge">DL: ${slot.task.deadline}</span>`;
-                                }
-
                                 const taskFile = filename.replace('.md', '');
                                 html += `<button class="complete-btn" onclick="completeTask('${taskFile}', '${day.datum}', '${slot.zeit}')">✓ Erledigt</button>`;
 
@@ -441,15 +299,20 @@
             if (fullSyncBtn) {
                 fullSyncBtn.addEventListener('click', triggerFullSync);
             }
+            
+            // Setup Logout button
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    // Redirect to login page
+                    window.location.href = '/login.html';
+                });
+            }
 
-            // Set create task link with function key if present
+            // Set create task link
             const createTaskLink = document.getElementById('createTaskLink');
             if (createTaskLink) {
-                let createTaskUrl = '/create-task.html';
-                if (functionKey) {
-                    createTaskUrl += `?code=${encodeURIComponent(functionKey)}`;
-                }
-                createTaskLink.href = createTaskUrl;
+                createTaskLink.href = '/create-task.html';
             }
         });
 
