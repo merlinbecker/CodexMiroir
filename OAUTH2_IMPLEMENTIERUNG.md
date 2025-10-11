@@ -27,8 +27,14 @@ Zwei Hauptfunktionen:
 1. `extractUserId(request)` - Extrahiert die userId (GitHub Username) aus dem OAuth2 Token
 2. `validateAuth(request)` - Validiert den Token und gibt entweder userId oder Fehler zurück
 
+Das Modul unterstützt zwei Methoden zur Token-Übermittlung:
+- **Authorization Header**: `Authorization: Bearer <token>` (bevorzugt)
+- **Session Cookie**: `session=<token>` (Fallback)
+
+Der Authorization Header hat Vorrang, wenn beide vorhanden sind.
+
 Das Modul:
-- Liest den `Authorization: Bearer <token>` Header
+- Liest den Token aus Header oder Cookie
 - Ruft die GitHub API auf (`/user` Endpoint) mit dem Token
 - Extrahiert den `login` (Username) aus der Antwort
 - Gibt einen 401-Fehler zurück bei ungültigen Tokens
@@ -113,10 +119,12 @@ Enthält:
 
 **Neue Datei**: `__tests__/shared/auth.test.js`
 
-8 Tests für die OAuth2-Authentifizierung:
-- ✓ Erfolgreiche Token-Validierung
-- ✓ Fehlende Authorization Header
-- ✓ Ungültiges Header-Format
+10 Tests für die OAuth2-Authentifizierung:
+- ✓ Erfolgreiche Token-Validierung via Authorization Header
+- ✓ Erfolgreiche Token-Validierung via Session Cookie
+- ✓ Priorisierung des Authorization Headers über Cookie
+- ✓ Fehlende Token (weder Header noch Cookie)
+- ✓ Ungültiges Header-Format ohne Cookie
 - ✓ GitHub API-Fehler
 - ✓ Ungültige Benutzerdaten
 
@@ -124,7 +132,7 @@ Enthält:
 - `__tests__/shared/sync.test.js` - Alle Sync-Tests mit userId-Parameter
 - `__tests__/shared/sync.cache.test.js` - Alle Cache-Tests mit userId-Parameter
 
-**Ergebnis**: Alle 187 Tests bestehen ✓
+**Ergebnis**: Alle 189 Tests bestehen ✓
 
 ## Verwendung
 
@@ -134,9 +142,16 @@ Enthält:
    - GitHub → Settings → Developer settings → Personal access tokens
    - Scopes: `repo`, `read:user`
 
-2. App mit Token im URL aufrufen:
+2. Token bereitstellen (zwei Möglichkeiten):
+   
+   **Option A: URL-Parameter (empfohlen)**
    ```
    https://your-app.azurewebsites.net/?token=ghp_YOUR_TOKEN
+   ```
+   
+   **Option B: Session Cookie**
+   ```javascript
+   document.cookie = "session=ghp_YOUR_TOKEN; path=/; secure; samesite=strict";
    ```
 
 3. Token wird automatisch gespeichert und bei allen API-Anfragen verwendet
@@ -145,6 +160,7 @@ Enthält:
 
 Die App funktioniert genauso wie vorher, aber:
 - Statt Function Key (`?code=...`) wird OAuth Token (`?token=...`) verwendet
+- Alternativ kann der Token über ein Session Cookie bereitgestellt werden
 - Username wird automatisch aus dem Token extrahiert
 - Jeder Benutzer sieht nur seine eigenen Tasks
 
@@ -171,29 +187,30 @@ Die App funktioniert genauso wie vorher, aber:
 
 ### Authentifizierungs-Flow
 
-1. Benutzer öffnet App mit `?token=ghp_xxx` im URL
-2. Frontend speichert Token in localStorage
-3. Bei jeder API-Anfrage sendet Frontend `Authorization: Bearer ghp_xxx` Header
+1. Benutzer öffnet App mit `?token=ghp_xxx` im URL oder setzt Session Cookie
+2. Frontend speichert Token in localStorage (bei URL-Methode)
+3. Bei jeder API-Anfrage sendet Frontend `Authorization: Bearer ghp_xxx` Header oder Cookie
 4. Backend-Function ruft `validateAuth(request)` auf
-5. Auth-Modul verifiziert Token mit GitHub API
-6. GitHub API gibt User-Daten zurück (inklusive `login`)
-7. Function verwendet `login` als `userId`
-8. Tasks werden in `codex-miroir/{userId}/tasks/` gespeichert
+5. Auth-Modul extrahiert Token aus Header oder Cookie (Header hat Vorrang)
+6. Auth-Modul verifiziert Token mit GitHub API
+7. GitHub API gibt User-Daten zurück (inklusive `login`)
+8. Function verwendet `login` als `userId`
+9. Tasks werden in `codex-miroir/{userId}/tasks/` gespeichert
 
 ### Fehlerbehandlung
 
-- 401 Unauthorized: Token fehlt oder ungültig
+- 401 Unauthorized: Token fehlt (weder Header noch Cookie) oder ungültig
 - GitHub API-Fehler werden an Frontend weitergegeben
 - Klare Fehlermeldungen für Debugging
 
 ## Zusammenfassung
 
 ✅ Alle Functions auf `anonymous` umgestellt
-✅ OAuth2-Validierung implementiert
+✅ OAuth2-Validierung implementiert (Header + Cookie-Support)
 ✅ UserId aus Token extrahiert
 ✅ Speicherstruktur mit userId-Unterordnern
 ✅ Frontend auf Token-Authentifizierung umgestellt
-✅ Umfassende Tests (187/187 bestehen)
+✅ Umfassende Tests (189/189 bestehen)
 ✅ Dokumentation erstellt
 
 Die Implementierung ist vollständig und einsatzbereit!

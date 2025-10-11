@@ -6,25 +6,32 @@
  */
 
 /**
- * Extract userId from Authorization header
+ * Extract userId from Authorization header or session cookie
  * @param {HttpRequest} request - Azure Functions HTTP request object
  * @returns {Promise<string>} - GitHub username (login)
  * @throws {Error} - If token is missing or invalid
  */
 export async function extractUserId(request) {
+  let token;
+
+  // 1. Versuch: Authorization header
   const authHeader = request.headers.get("authorization");
-  
-  if (!authHeader) {
-    throw new Error("Missing Authorization header");
+  if (authHeader?.startsWith("Bearer ")) {
+    token = authHeader.slice("Bearer ".length).trim();
   }
-  
-  // Extract bearer token
-  const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (!match) {
-    throw new Error("Invalid Authorization header format. Expected: Bearer <token>");
+
+  // 2. Versuch: Cookie (falls vorhanden)
+  if (!token) {
+    const cookieHeader = request.headers.get("cookie");
+    if (cookieHeader) {
+      const match = cookieHeader.match(/session=([^;]+)/);
+      if (match) token = match[1];
+    }
   }
-  
-  const token = match[1];
+
+  if (!token) {
+    throw new Error("Missing token (Authorization header or session cookie)");
+  }
   
   // Call GitHub API to get user info
   try {

@@ -5,7 +5,7 @@
 CodexMiroir now uses GitHub OAuth2 authentication instead of Azure Function Keys. This means:
 
 1. All Azure Function endpoints are set to `authLevel: "anonymous"`
-2. Authentication is handled via GitHub OAuth2 tokens sent in the `Authorization` header
+2. Authentication is handled via GitHub OAuth2 tokens sent in the `Authorization` header or session cookie
 3. User identity is extracted from the GitHub token
 4. Tasks are stored in user-specific folders: `<GITHUB_BASE_PATH>/<userId>/tasks/`
 
@@ -17,6 +17,12 @@ Each function handler now:
 1. Calls `validateAuth(request)` to extract and validate the OAuth2 token
 2. Gets the `userId` (GitHub username) from the token
 3. Uses the `userId` to determine the correct storage path for tasks
+
+The authentication module supports two methods for providing the token:
+- **Authorization header**: `Authorization: Bearer <token>` (preferred)
+- **Session cookie**: `session=<token>` (fallback)
+
+The Authorization header takes priority if both are present.
 
 Example from `createTask.js`:
 ```javascript
@@ -47,6 +53,8 @@ The frontend now:
 2. Stores the token in localStorage
 3. Sends the token in the `Authorization: Bearer <token>` header with every API request
 4. The userId is automatically extracted from the token by the backend
+
+Alternatively, the token can be provided via a session cookie, which is useful for browser-based flows.
 
 Example from `app.js`:
 ```javascript
@@ -102,6 +110,10 @@ For development/testing, you can use a Personal Access Token:
 
 ### 3. Use the Token
 
+There are two ways to provide the token:
+
+#### Option A: Authorization Header (recommended)
+
 Access the app with the token in the URL:
 ```
 https://your-app.azurewebsites.net/?token=ghp_YOUR_TOKEN_HERE
@@ -112,7 +124,21 @@ Or use the hash format:
 https://your-app.azurewebsites.net/#token=ghp_YOUR_TOKEN_HERE
 ```
 
-The app will store the token in localStorage and use it for all subsequent requests.
+The app will store the token in localStorage and send it via the `Authorization: Bearer` header with all API requests.
+
+#### Option B: Session Cookie
+
+Alternatively, you can set a session cookie:
+```javascript
+document.cookie = "session=ghp_YOUR_TOKEN_HERE; path=/; secure; samesite=strict";
+```
+
+The backend will automatically extract the token from the `session` cookie if no Authorization header is present. This is useful for:
+- OAuth flows that set cookies automatically
+- Browser-based authentication flows
+- Integration with existing session management systems
+
+**Note**: The Authorization header takes priority if both are present.
 
 ## Storage Structure
 

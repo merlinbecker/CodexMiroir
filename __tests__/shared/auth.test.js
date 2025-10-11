@@ -36,24 +36,87 @@ describe('OAuth2 Authentication', () => {
       );
     });
 
-    it('should throw error when Authorization header is missing', async () => {
+    it('should extract userId from session cookie when Authorization header is missing', async () => {
+      // Mock GitHub API response
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ login: 'cookieuser' })
+      });
+
+      const mockRequest = {
+        headers: {
+          get: (name) => {
+            if (name === 'authorization') return null;
+            if (name === 'cookie') return 'session=cookie_token_456; other=value';
+            return null;
+          }
+        }
+      };
+
+      const userId = await extractUserId(mockRequest);
+      
+      expect(userId).toBe('cookieuser');
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.github.com/user',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer cookie_token_456'
+          })
+        })
+      );
+    });
+
+    it('should prioritize Authorization header over session cookie', async () => {
+      // Mock GitHub API response
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ login: 'headeruser' })
+      });
+
+      const mockRequest = {
+        headers: {
+          get: (name) => {
+            if (name === 'authorization') return 'Bearer header_token';
+            if (name === 'cookie') return 'session=cookie_token; other=value';
+            return null;
+          }
+        }
+      };
+
+      const userId = await extractUserId(mockRequest);
+      
+      expect(userId).toBe('headeruser');
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.github.com/user',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer header_token'
+          })
+        })
+      );
+    });
+
+    it('should throw error when both Authorization header and session cookie are missing', async () => {
       const mockRequest = {
         headers: {
           get: () => null
         }
       };
 
-      await expect(extractUserId(mockRequest)).rejects.toThrow('Missing Authorization header');
+      await expect(extractUserId(mockRequest)).rejects.toThrow('Missing token (Authorization header or session cookie)');
     });
 
-    it('should throw error when Authorization header has invalid format', async () => {
+    it('should throw error when Authorization header has invalid format but no cookie', async () => {
       const mockRequest = {
         headers: {
-          get: (name) => name === 'authorization' ? 'Invalid token' : null
+          get: (name) => {
+            if (name === 'authorization') return 'Invalid token';
+            return null;
+          }
         }
       };
 
-      await expect(extractUserId(mockRequest)).rejects.toThrow('Invalid Authorization header format');
+      await expect(extractUserId(mockRequest)).rejects.toThrow('Missing token (Authorization header or session cookie)');
     });
 
     it('should throw error when GitHub API returns error', async () => {
@@ -121,7 +184,7 @@ describe('OAuth2 Authentication', () => {
         status: 401,
         jsonBody: {
           ok: false,
-          error: 'Missing Authorization header'
+          error: 'Missing token (Authorization header or session cookie)'
         }
       });
     });
