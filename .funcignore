@@ -34,5 +34,3 @@ node_modules/
 codequality/
 sonar-project.properties
 
-# Database infrastructure (deploy separately)
-database/infra/
