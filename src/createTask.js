@@ -2,6 +2,7 @@
 import { app } from "@azure/functions";
 import { withIdLock } from "../shared/id.js";
 import { putTextBlob, getTextBlob } from "../shared/storage.js";
+import { validateAuth } from "../shared/auth.js";
 
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
@@ -118,10 +119,16 @@ async function openPr(fromBranch, toBranch, title, body) {
 
 app.http("createTask", {
   methods: ["POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "api/tasks",
   handler: async (request, context) => {
     try {
+      // Validate OAuth2 token and extract userId
+      const { userId, error } = await validateAuth(request);
+      if (error) {
+        return error;
+      }
+      
       const idemKey = request.headers.get("idempotency-key");
       const p = await request.json();
 
@@ -174,7 +181,7 @@ app.http("createTask", {
       }
 
       // ID vergeben
-      const id = await withIdLock();
+      const id = await withIdLock(userId);
       
       // Extrahiere Titel aus dem Body (erste Zeile oder ersten 50 Zeichen)
       const bodyLines = (p.body || "").trim().split('\n');
@@ -189,7 +196,7 @@ app.http("createTask", {
         .replace(/-+$/, ''); // Entferne trailing Bindestriche
       
       const filename = `${id}-${title}.md`;
-      const path = `${BASE}/tasks/${filename}`;
+      const path = `${BASE}/${userId}/tasks/${filename}`;
       
       // Safety check: Prüfe ob diese ID bereits in GitHub existiert
       try {
@@ -228,7 +235,7 @@ app.http("createTask", {
       }
 
       // Sofortiger Cache-Update (optional, aber empfohlen)
-      await putTextBlob(`raw/tasks/${filename}`, md, "text/markdown");
+      await putTextBlob(`raw/${userId}/tasks/${filename}`, md, "text/markdown");
 
       const response = {
         ok: true,

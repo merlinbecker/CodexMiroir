@@ -22,8 +22,8 @@ async function gh(url, accept = "application/vnd.github.v3+json") {
   return r;
 }
 
-function toBlobPath(repoPath) {
-  // codex-miroir/tasks/x.md -> raw/tasks/x.md
+function toBlobPath(repoPath, userId) {
+  // codex-miroir/userId/tasks/x.md -> raw/userId/tasks/x.md
   return `raw/${repoPath.replace(`${BASE}/`, "")}`;
 }
 
@@ -43,8 +43,8 @@ async function fetchFileAtRef(repoPath, ref) {
   return await raw.text();
 }
 
-async function listMdUnderTasks(ref) {
-  const path = `${BASE}/tasks`;
+async function listMdUnderTasks(ref, userId) {
+  const path = `${BASE}/${userId}/tasks`;
   // Don't encode the path slashes - GitHub API expects them as-is
   try {
     const r = await gh(
@@ -64,10 +64,10 @@ async function listMdUnderTasks(ref) {
   }
 }
 
-async function fullSync(ref = BRANCH, clean = false, context = null) { // Added context parameter
-  console.log(`[fullSync] Starting full sync from ref: ${ref}, clean: ${clean}`);
+async function fullSync(ref = BRANCH, clean = false, userId = null, context = null) { // Added userId parameter
+  console.log(`[fullSync] Starting full sync for user ${userId} from ref: ${ref}, clean: ${clean}`);
 
-  const files = await listMdUnderTasks(ref);
+  const files = await listMdUnderTasks(ref, userId);
   console.log(`[fullSync] Found ${files.length} files in GitHub`);
 
   let changed = 0;
@@ -80,7 +80,7 @@ async function fullSync(ref = BRANCH, clean = false, context = null) { // Added 
       continue;
     }
 
-    const blobPath = toBlobPath(f.repoPath);
+    const blobPath = toBlobPath(f.repoPath, userId);
     await putTextBlob(blobPath, text, "text/markdown");
     changed++;
 
@@ -96,8 +96,8 @@ async function fullSync(ref = BRANCH, clean = false, context = null) { // Added 
 
   let removed = 0;
   if (clean) {
-    const existing = new Set(files.map((f) => toBlobPath(f.repoPath)));
-    const blobs = await listBlobs(`raw/tasks/`);
+    const existing = new Set(files.map((f) => toBlobPath(f.repoPath, userId)));
+    const blobs = await listBlobs(`raw/${userId}/tasks/`);
     for (const b of blobs) {
       if (!existing.has(b)) {
         await deleteBlob(b);
@@ -113,11 +113,11 @@ async function fullSync(ref = BRANCH, clean = false, context = null) { // Added 
   const cacheInvalidation = await invalidateCache();
 
   // 2. headSha speichern (für Webhook-Vergleich)
-  await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
+  await putTextBlob(`state/${userId}/lastHeadSha.txt`, ref, "text/plain");
 
   // 3. nextId.txt aktualisieren: höchste ID + 1
   const nextId = maxId >= 0 ? maxId + 1 : 0;
-  await putTextBlob("state/nextId.txt", String(nextId), "text/plain");
+  await putTextBlob(`state/${userId}/nextId.txt`, String(nextId), "text/plain");
 
   // Erfolgsmeldung
   return {
@@ -130,7 +130,7 @@ async function fullSync(ref = BRANCH, clean = false, context = null) { // Added 
   };
 }
 
-async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, context = null) { // Added context parameter
+async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, userId = null, context = null) { // Added userId parameter
   let changed = 0,
     deleted = 0,
     skipped = 0,
@@ -141,7 +141,7 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, c
       skipped++;
       continue;
     }
-    await deleteBlob(toBlobPath(p));
+    await deleteBlob(toBlobPath(p, userId));
     deleted++;
   }
 
@@ -155,10 +155,10 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, c
       skipped++;
       continue;
     }
-    await putTextBlob(toBlobPath(p), text, "text/markdown");
+    await putTextBlob(toBlobPath(p, userId), text, "text/markdown");
     changed++;
 
-    // Extrahiere ID aus Pfad (z.B. codex-miroir/tasks/0005-Titel.md -> 5 oder 0005.md -> 5)
+    // Extrahiere ID aus Pfad (z.B. codex-miroir/userId/tasks/0005-Titel.md -> 5 oder 0005.md -> 5)
     const match = p.match(/(\d{4})(-[^/]+)?\.md$/);
     if (match) {
       const id = parseInt(match[1], 10);
@@ -171,19 +171,19 @@ async function applyDiff({ addedOrModified = [], removed = [] }, ref = BRANCH, c
   const cacheInvalidation = await invalidateCache();
 
   // headSha speichern für Webhook-Vergleich
-  await putTextBlob("state/lastHeadSha.txt", ref, "text/plain");
+  await putTextBlob(`state/${userId}/lastHeadSha.txt`, ref, "text/plain");
 
   // nextId.txt aktualisieren, wenn neue Tasks hinzugefügt wurden
   let finalNextId = null;
   if (maxId >= 0) {
     // Prüfe aktuelle nextId und nimm das Maximum
-    const current = await getTextBlob("state/nextId.txt");
+    const current = await getTextBlob(`state/${userId}/nextId.txt`);
     const currentId = current ? parseInt(current.trim(), 10) : 0;
     finalNextId = Math.max(currentId, maxId + 1);
-    await putTextBlob("state/nextId.txt", String(finalNextId), "text/plain");
+    await putTextBlob(`state/${userId}/nextId.txt`, String(finalNextId), "text/plain");
   } else {
     // Wenn keine IDs gefunden wurden, behalte die aktuelle nextId
-    const current = await getTextBlob("state/nextId.txt");
+    const current = await getTextBlob(`state/${userId}/nextId.txt`);
     finalNextId = current ? parseInt(current.trim(), 10) : 0;
   }
 

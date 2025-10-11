@@ -55,7 +55,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
       const beforeTimestamp = Date.now();
-      await fullSync('main', false);
+      await fullSync('main', false, 'testuser');
       const afterTimestamp = Date.now();
 
       // Check that invalidateCache was called (which sets cacheVersion)
@@ -88,7 +88,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockDeleteBlob.mockResolvedValue(undefined);
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 2 });
 
-      const result = await fullSync('main', false);
+      const result = await fullSync('main', false, 'testuser');
 
       // Verify invalidateCache was called (which deletes all caches)
       expect(mockInvalidateCache).toHaveBeenCalled();
@@ -117,7 +117,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockDeleteBlob.mockResolvedValue(undefined);
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 1 });
 
-      await fullSync('main', false);
+      await fullSync('main', false, 'testuser');
 
       // Verify invalidateCache was called
       expect(mockInvalidateCache).toHaveBeenCalled();
@@ -128,7 +128,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
     test('should NOT update cacheVersion on diff sync', async () => {
       // Rule 1.2: Bei einem Diff Sync wird die `cacheVersion` NICHT aktualisiert
       const paths = {
-        addedOrModified: ['codex-miroir/tasks/0001.md'],
+        addedOrModified: ['codex-miroir/testuser/tasks/0001.md'],
         removed: []
       };
 
@@ -147,7 +147,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockDeleteBlob.mockResolvedValue(undefined);
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
-      await applyDiff(paths, 'main');
+      await applyDiff(paths, 'main', 'testuser');
 
       // invalidateCache was called (which updates cacheVersion internally)
       expect(mockInvalidateCache).toHaveBeenCalled();
@@ -156,7 +156,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
     test('should delete all timeline caches on diff sync', async () => {
       // Rule 1.2: Bei einem Diff Sync MÜSSEN alle Timeline-Caches in `artifacts/` gelöscht werden
       const paths = {
-        addedOrModified: ['codex-miroir/tasks/0001.md'],
+        addedOrModified: ['codex-miroir/testuser/tasks/0001.md'],
         removed: []
       };
 
@@ -180,7 +180,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockDeleteBlob.mockResolvedValue(undefined);
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 2 });
 
-      const result = await applyDiff(paths, 'main');
+      const result = await applyDiff(paths, 'main', 'testuser');
 
       // Verify invalidateCache was called
       expect(mockInvalidateCache).toHaveBeenCalled();
@@ -190,7 +190,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
     test('should trigger timeline rebuild on next request after diff sync', async () => {
       // Rule 1.2: Nach einem Diff Sync MUSS beim nächsten Timeline-Request ein neuer Cache gebaut werden
       const paths = {
-        addedOrModified: ['codex-miroir/tasks/0001.md'],
+        addedOrModified: ['codex-miroir/testuser/tasks/0001.md'],
         removed: []
       };
 
@@ -209,7 +209,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockDeleteBlob.mockResolvedValue(undefined);
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 1 });
 
-      await applyDiff(paths, 'main');
+      await applyDiff(paths, 'main', 'testuser');
 
       // Verify invalidateCache was called
       expect(mockInvalidateCache).toHaveBeenCalled();
@@ -256,11 +256,11 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockPutTextBlob.mockResolvedValue(undefined);
       mockListBlobs.mockResolvedValue([]);
 
-      const result = await fullSync('main', false);
+      const result = await fullSync('main', false, 'testuser');
 
       expect(result.nextId).toBe(9); // Max ID (8) + 1
       expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'state/nextId.txt',
+        'state/testuser/nextId.txt',
         '9',
         'text/plain'
       );
@@ -285,7 +285,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockPutTextBlob.mockResolvedValue(undefined);
       mockListBlobs.mockResolvedValue([]);
 
-      const result = await fullSync('main', false);
+      const result = await fullSync('main', false, 'testuser');
 
       expect(result.nextId).toBe(2); // Max ID (1) + 1
     });
@@ -293,7 +293,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
     test('should only increase nextId on diff sync if new IDs are higher', async () => {
       // Rule 3.2: Bei Diff Sync wird `nextId` nur erhöht, wenn neue Tasks hinzugefügt wurden
       const paths = {
-        addedOrModified: ['codex-miroir/tasks/0010.md'],
+        addedOrModified: ['codex-miroir/testuser/tasks/0010.md'],
         removed: []
       };
 
@@ -311,12 +311,12 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockListBlobs.mockResolvedValue([]);
       mockDeleteBlob.mockResolvedValue(undefined);
 
-      const result = await applyDiff(paths, 'main');
+      const result = await applyDiff(paths, 'main', 'testuser');
 
       // nextId should be 11 (10 + 1) since 10 > 5
       expect(result.nextId).toBe(11);
       expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'state/nextId.txt',
+        'state/testuser/nextId.txt',
         '11',
         'text/plain'
       );
@@ -325,7 +325,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
     test('should never decrease nextId', async () => {
       // Rule 3.2: `nextId` wird NIEMALS verringert
       const paths = {
-        addedOrModified: ['codex-miroir/tasks/0002.md'],
+        addedOrModified: ['codex-miroir/testuser/tasks/0002.md'],
         removed: []
       };
 
@@ -343,7 +343,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockListBlobs.mockResolvedValue([]);
       mockDeleteBlob.mockResolvedValue(undefined);
 
-      const result = await applyDiff(paths, 'main');
+      const result = await applyDiff(paths, 'main', 'testuser');
 
       // nextId should stay 10 (not decrease to 3)
       expect(result.nextId).toBe(10);
@@ -355,9 +355,9 @@ describe('sync.js - Cache Invalidation Rules', () => {
       // Rule 3.1: Nur `.md` Dateien im Pattern `NNNN-Titel.md` oder `NNNN.md` werden synchronisiert
       const paths = {
         addedOrModified: [
-          'codex-miroir/tasks/0001.md',
-          'codex-miroir/tasks/README.txt',
-          'codex-miroir/tasks/config.json'
+          'codex-miroir/testuser/tasks/0001.md',
+          'codex-miroir/testuser/tasks/README.txt',
+          'codex-miroir/testuser/tasks/config.json'
         ],
         removed: []
       };
@@ -376,7 +376,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockListBlobs.mockResolvedValue([]);
       mockDeleteBlob.mockResolvedValue(undefined);
 
-      const result = await applyDiff(paths, 'main');
+      const result = await applyDiff(paths, 'main', 'testuser');
 
       // Only 1 .md file should be processed
       expect(result.changed).toBe(1);
@@ -389,9 +389,9 @@ describe('sync.js - Cache Invalidation Rules', () => {
       // The ID extraction happens but non-matching files still get synced
       const paths = {
         addedOrModified: [
-          'codex-miroir/tasks/0001.md',
-          'codex-miroir/tasks/README.md',
-          'codex-miroir/tasks/123.md' // only 3 digits
+          'codex-miroir/testuser/tasks/0001.md',
+          'codex-miroir/testuser/tasks/README.md',
+          'codex-miroir/testuser/tasks/123.md' // only 3 digits
         ],
         removed: []
       };
@@ -428,7 +428,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockListBlobs.mockResolvedValue([]);
       mockDeleteBlob.mockResolvedValue(undefined);
 
-      const result = await applyDiff(paths, 'main');
+      const result = await applyDiff(paths, 'main', 'testuser');
 
       // All 3 .md files are processed (applyDiff doesn't filter by ID pattern)
       expect(result.changed).toBe(3);
@@ -441,7 +441,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
     test('should store raw tasks under raw/tasks/', async () => {
       // Rule 3.3: Raw Tasks liegen unter `raw/tasks/*.md`
       const paths = {
-        addedOrModified: ['codex-miroir/tasks/0001.md'],
+        addedOrModified: ['codex-miroir/testuser/tasks/0001.md'],
         removed: []
       };
 
@@ -459,10 +459,10 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockListBlobs.mockResolvedValue([]);
       mockDeleteBlob.mockResolvedValue(undefined);
 
-      await applyDiff(paths, 'main');
+      await applyDiff(paths, 'main', 'testuser');
 
       expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'raw/tasks/0001.md',
+        'raw/testuser/tasks/0001.md',
         'Task content',
         'text/markdown'
       );
@@ -488,17 +488,17 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockListBlobs.mockResolvedValue([]);
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
-      await fullSync('main', false);
+      await fullSync('main', false, 'testuser');
 
       // Check state files - invalidateCache sets cacheVersion internally
       expect(mockInvalidateCache).toHaveBeenCalled();
       expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'state/lastHeadSha.txt',
+        'state/testuser/lastHeadSha.txt',
         'main',
         'text/plain'
       );
       expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'state/nextId.txt',
+        'state/testuser/nextId.txt',
         expect.any(String),
         'text/plain'
       );
@@ -528,7 +528,7 @@ describe('sync.js - Cache Invalidation Rules', () => {
       mockDeleteBlob.mockResolvedValue(undefined);
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 2 });
 
-      await fullSync('main', false);
+      await fullSync('main', false, 'testuser');
 
       // Verify invalidateCache was called (which deletes caches)
       expect(mockInvalidateCache).toHaveBeenCalled();

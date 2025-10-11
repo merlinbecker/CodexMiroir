@@ -42,9 +42,10 @@ async function streamToBuffer(s) {
   return Buffer.concat(chunks);
 }
 
-async function withIdLock() {
+async function withIdLock(userId = null) {
+  const NEXT_ID_PATH = userId ? `state/${userId}/nextId.txt` : "state/nextId.txt";
   const c = await ensureContainer();
-  const b = c.getBlockBlobClient(NEXT_ID_BLOB);
+  const b = c.getBlockBlobClient(NEXT_ID_PATH);
   const leaseId = await acquireLease(b);
   
   try {

@@ -1,6 +1,7 @@
 
 import { app } from "@azure/functions";
 import { getTextBlob, putTextBlob, invalidateCache } from "../shared/storage.js";
+import { validateAuth } from "../shared/auth.js";
 
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
@@ -128,10 +129,16 @@ function updateMarkdown(existingMd, updates) {
 
 app.http("updateTask", {
   methods: ["PUT", "PATCH"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "api/tasks/{id}",
   handler: async (request, context) => {
     try {
+      // Validate OAuth2 token and extract userId
+      const { userId, error } = await validateAuth(request);
+      if (error) {
+        return error;
+      }
+      
       const id = request.params.id;
       const updates = await request.json();
       
@@ -165,7 +172,7 @@ app.http("updateTask", {
         }
       }
       
-      const path = `${BASE}/tasks/${id}.md`;
+      const path = `${BASE}/${userId}/tasks/${id}.md`;
       
       // Get current file from GitHub
       const fileData = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}?ref=${BRANCH}`);
@@ -205,7 +212,7 @@ app.http("updateTask", {
       }
       
       // Update cache
-      await putTextBlob(`raw/tasks/${id}.md`, newMd, "text/markdown");
+      await putTextBlob(`raw/${userId}/tasks/${id}.md`, newMd, "text/markdown");
       
       // Invalidiere Timeline-Cache, da sich Task geändert hat
       const cacheInvalidation = await invalidateCache();
