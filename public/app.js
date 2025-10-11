@@ -47,27 +47,38 @@ document.addEventListener('alpine:init', () => {
         },
 
         init() {
-            // Extract function key from URL (query parameter or fragment)
+            // Extract OAuth token from URL (query parameter or fragment)
             const urlParams = new URLSearchParams(window.location.search);
-            this.functionKey = urlParams.get('code') || '';
+            this.functionKey = urlParams.get('token') || '';
             
             // If not in query, check fragment
             if (!this.functionKey && window.location.hash) {
                 const hashParams = new URLSearchParams(window.location.hash.substring(1));
-                this.functionKey = hashParams.get('code') || '';
+                this.functionKey = hashParams.get('token') || '';
             }
             
-            // Load userId from localStorage or prompt
-            this.userId = localStorage.getItem('codexmiroir_userId');
-            if (!this.userId) {
-                this.userId = prompt('Bitte geben Sie Ihren Benutzernamen ein (z.B. u_merlin):');
-                if (this.userId) {
-                    localStorage.setItem('codexmiroir_userId', this.userId);
+            // If still no token, check localStorage
+            if (!this.functionKey) {
+                this.functionKey = localStorage.getItem('codexmiroir_token') || '';
+            }
+            
+            // If still no token, prompt for it
+            if (!this.functionKey) {
+                this.functionKey = prompt('Bitte geben Sie Ihr GitHub OAuth Token ein:');
+                if (this.functionKey) {
+                    localStorage.setItem('codexmiroir_token', this.functionKey);
                 } else {
-                    this.error = 'Benutzername erforderlich';
+                    this.error = 'OAuth Token erforderlich';
                     return;
                 }
+            } else {
+                // Store token if from URL
+                localStorage.setItem('codexmiroir_token', this.functionKey);
             }
+            
+            // Note: userId is no longer manually entered, it will be extracted from the token on the server
+            // We keep the userId field for display purposes only
+            this.userId = localStorage.getItem('codexmiroir_userId') || 'Loading...';
             
             // Load business mode preference from localStorage
             const savedMode = localStorage.getItem('codexmiroir_businessMode');
@@ -93,11 +104,24 @@ document.addEventListener('alpine:init', () => {
             this.setupRabbitR1Controls();
         },
         
-        // Helper method to build API URL with function key
+        // Helper method to build API URL with OAuth token in Authorization header
+        // Returns an object with url and headers for fetch
+        apiRequest(path, options = {}) {
+            const headers = {
+                ...options.headers,
+                'Authorization': `Bearer ${this.functionKey}`
+            };
+            return {
+                url: `/${path}`,
+                options: {
+                    ...options,
+                    headers
+                }
+            };
+        },
+        
+        // Legacy method for backward compatibility
         apiUrl(path) {
-            if (this.functionKey) {
-                return `/${path}${path.includes('?') ? '&' : '?'}code=${encodeURIComponent(this.functionKey)}`;
-            }
             return `/${path}`;
         },
         
@@ -123,14 +147,18 @@ document.addEventListener('alpine:init', () => {
         async load() {
             try {
                 this.error = null;
-                if (!this.userId) {
-                    this.error = 'Bitte Benutzername eingeben';
-                    return;
-                }
-                const res = await fetch(this.apiUrl(`api/timeline/${this.userId}?dateFrom=${this.dateFrom}&dateTo=${this.dateTo}`));
+                const req = this.apiRequest(`api/codex`);
+                const res = await fetch(req.url, req.options);
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
-                this.allDays = data.days || [];
+                
+                // Extract userId from response if available
+                if (data.userId) {
+                    this.userId = data.userId;
+                    localStorage.setItem('codexmiroir_userId', data.userId);
+                }
+                
+                this.allDays = data.timeline || [];
                 this.filterDays();
             } catch (e) {
                 this.error = e.message;
@@ -232,7 +260,8 @@ document.addEventListener('alpine:init', () => {
         async edit(taskId) {
             try {
                 this.error = null;
-                const res = await fetch(this.apiUrl(`api/tasks/${this.userId}/${taskId}`));
+                const req = this.apiRequest(`api/tasks/${taskId}`);
+                const res = await fetch(req.url, req.options);
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
                 

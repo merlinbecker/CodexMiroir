@@ -1,6 +1,7 @@
 
 import { app } from "@azure/functions";
 import { getTextBlob, putTextBlob, invalidateCache } from "../shared/storage.js";
+import { validateAuth } from "../shared/auth.js";
 
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
@@ -96,10 +97,16 @@ function markAsCompleted(existingMd, completedDate, completedSlot) {
 
 app.http("completeTask", {
   methods: ["POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "api/tasks/{id}/complete",
   handler: async (request, context) => {
     try {
+      // Validate OAuth2 token and extract userId
+      const { userId, error } = await validateAuth(request);
+      if (error) {
+        return error;
+      }
+      
       const id = request.params.id;
       const body = await request.json();
       const { datum, zeit } = body || {};
@@ -119,7 +126,7 @@ app.http("completeTask", {
         };
       }
       
-      const path = `${BASE}/tasks/${id}.md`;
+      const path = `${BASE}/${userId}/tasks/${id}.md`;
       
       // Get current file from GitHub
       const fileData = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}?ref=${BRANCH}`);
@@ -159,7 +166,7 @@ app.http("completeTask", {
       }
       
       // Update cache
-      await putTextBlob(`raw/tasks/${id}.md`, newMd, "text/markdown");
+      await putTextBlob(`raw/${userId}/tasks/${id}.md`, newMd, "text/markdown");
       
       // Invalidiere Timeline-Cache, da Task abgeschlossen wurde
       const cacheInvalidation = await invalidateCache();

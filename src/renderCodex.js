@@ -1,6 +1,7 @@
 import { app } from '@azure/functions';
 import { list, list as listBlobs, getTextBlob, putTextBlob } from "../shared/storage.js";
 import { parseTask } from "../shared/parsing.js";
+import { validateAuth } from "../shared/auth.js";
 
 // ============================================================================
 // CONSTANTS
@@ -292,14 +293,14 @@ async function getCacheVersion() {
   return `${baseVersion}_${year}${month}${day}_${hour}`;
 }
 
-async function loadOrBuildTimeline(cacheVersion, context, nocache = false) {
-  const artifactPath = `artifacts/timeline_${cacheVersion}.json`;
+async function loadOrBuildTimeline(cacheVersion, context, userId, nocache = false) {
+  const artifactPath = `artifacts/${userId}/timeline_${cacheVersion}.json`;
 
-  // Cache Check - suche ALLE Timeline-Caches
+  // Cache Check - suche ALLE Timeline-Caches für diesen User
   if (!nocache) {
     // Suche nach existierenden Timeline-Caches (egal welche Version)
-    const artifactBlobs = await listBlobs("artifacts/");
-    const timelineCaches = artifactBlobs.filter(b => b.startsWith("artifacts/timeline_"));
+    const artifactBlobs = await listBlobs(`artifacts/${userId}/`);
+    const timelineCaches = artifactBlobs.filter(b => b.startsWith(`artifacts/${userId}/timeline_`));
     
     if (timelineCaches.length > 0) {
       // Nutze den ersten gefundenen Cache
@@ -317,11 +318,11 @@ async function loadOrBuildTimeline(cacheVersion, context, nocache = false) {
   }
 
   // Build Timeline
-  context.log(`[renderCodex] Listing files from: raw/tasks/`);
-  const files = await list("raw/tasks/");
+  context.log(`[renderCodex] Listing files from: raw/${userId}/tasks/`);
+  const files = await list(`raw/${userId}/tasks/`);
   const tasks = [];
 
-  context.log(`[renderCodex] Found ${files.length} files in raw/tasks/`);
+  context.log(`[renderCodex] Found ${files.length} files in raw/${userId}/tasks/`);
 
   for (const name of files) {
     if (!name.endsWith(".md")) {
@@ -452,31 +453,39 @@ async function loadOrBuildTimeline(cacheVersion, context, nocache = false) {
 
 app.http('renderCodex', {
   methods: ['GET'],
-  authLevel: 'function',
+  authLevel: 'anonymous',
   route: 'codex',
   handler: async (request, context) => {
     context.log('[renderCodex] Request received');
-    const url = new URL(request.url);
-    context.log('[renderCodex] URL:', url.toString());
-    const nocache = url.searchParams.get('nocache') === 'true';
-    context.log('[renderCodex] NoCache:', nocache);
+    
+    try {
+      // Validate OAuth2 token and extract userId
+      const { userId, error } = await validateAuth(request);
+      if (error) {
+        return error;
+      }
+      
+      const url = new URL(request.url);
+      context.log('[renderCodex] URL:', url.toString());
+      const nocache = url.searchParams.get('nocache') === 'true';
+      context.log('[renderCodex] NoCache:', nocache);
 
-    const cacheVersion = await getCacheVersion();
-    context.log('[renderCodex] Cache Version:', cacheVersion);
+      const cacheVersion = await getCacheVersion();
+      context.log('[renderCodex] Cache Version:', cacheVersion);
 
-    // HTTP Caching: ETag Check
-    const ifNoneMatch = request.headers.get("if-none-match");
-    if (!nocache && ifNoneMatch && ifNoneMatch.replace(/"/g, "") === cacheVersion) {
-      return {
-        status: 304,
-        headers: { "ETag": `"${cacheVersion}"` }
-      };
-    }
+      // HTTP Caching: ETag Check
+      const ifNoneMatch = request.headers.get("if-none-match");
+      if (!nocache && ifNoneMatch && ifNoneMatch.replace(/"/g, "") === cacheVersion) {
+        return {
+          status: 304,
+          headers: { "ETag": `"${cacheVersion}"` }
+        };
+      }
 
-    // Lade oder baue Timeline
-    context.log('[renderCodex] Loading timeline...');
-    const { json, etag } = await loadOrBuildTimeline(cacheVersion, context, nocache);
-    context.log('[renderCodex] Timeline loaded, timeline has', json?.timeline?.length || 0, 'days');
+      // Lade oder baue Timeline
+      context.log('[renderCodex] Loading timeline...');
+      const { json, etag } = await loadOrBuildTimeline(cacheVersion, context, userId, nocache);
+      context.log('[renderCodex] Timeline loaded, timeline has', json?.timeline?.length || 0, 'days');
 
     // Return JSON
     context.log('[renderCodex] Returning JSON');
