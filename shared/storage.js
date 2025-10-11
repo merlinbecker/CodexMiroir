@@ -58,10 +58,28 @@ async function list(prefix) {
   return out;
 }
 
+async function invalidateCacheForUser(userId) {
+  // Invalidiere Timeline-Cache für einen spezifischen User:
+  // 1. Setze neue cacheVersion für User (Timestamp)
+  // 2. Lösche User-spezifische Timeline-Artefakte
+  const timestamp = Date.now().toString();
+  await putTextBlob(`state/${userId}/cacheVersion.txt`, timestamp, "text/plain");
+  
+  const artifactBlobs = await list(`artifacts/${userId}/`);
+  for (const blob of artifactBlobs) {
+    await deleteBlob(blob);
+  }
+  
+  return { 
+    userId, 
+    cacheVersion: timestamp, 
+    cacheCleared: artifactBlobs.length 
+  };
+}
+
 async function invalidateCache() {
-  // Invalidiere Timeline-Cache durch:
-  // 1. Setze neue cacheVersion (Timestamp)
-  // 2. Lösche alle Timeline-Artefakte
+  // DEPRECATED: Legacy global cache invalidation
+  // Use invalidateCacheForUser(userId) instead for better performance
   const timestamp = Date.now().toString();
   await putTextBlob("state/cacheVersion.txt", timestamp, "text/plain");
   
@@ -73,4 +91,4 @@ async function invalidateCache() {
   return { cacheVersion: timestamp, cacheCleared: artifactBlobs.length };
 }
 
-export { putTextBlob, putBufferBlob, getTextBlob, deleteBlob, list, invalidateCache };
+export { putTextBlob, putBufferBlob, getTextBlob, deleteBlob, list, invalidateCache, invalidateCacheForUser };

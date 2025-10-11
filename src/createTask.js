@@ -1,7 +1,7 @@
 
 import { app } from "@azure/functions";
 import { withIdLock } from "../shared/id.js";
-import { putTextBlob, getTextBlob } from "../shared/storage.js";
+import { putTextBlob, getTextBlob, invalidateCacheForUser } from "../shared/storage.js";
 import { validateAuth } from "../shared/auth.js";
 
 const OWNER = process.env.GITHUB_OWNER;
@@ -205,19 +205,32 @@ app.http("createTask", {
       const message = `[codex] add task ${id} (${kat})`;
 
       let result;
+      let gitPushed = false;
       
-      if (VIA_PR) {
-        // Feature-Branch je Task erstellen
-        const feat = `${PR_PREFIX}/${id}`;
-        await ensureBranch(BRANCH, feat);
-        result = await commitFile(path, md, message, feat);
-        const pr = await openPr(feat, BRANCH, message, `Automatisch erstellt.\n\n${path}`);
+      // Check if user has GitHub configured (OWNER, REPO, TOKEN must be set)
+      const hasGitConfig = OWNER && REPO && TOKEN;
+      
+      if (hasGitConfig) {
+        context.log(`[createTask] Pushing to GitHub (VIA_PR: ${VIA_PR})`);
         
-        // PR-URL zur Response hinzufügen
-        result.prUrl = pr.html_url;
-        result.prNumber = pr.number;
+        if (VIA_PR) {
+          // Feature-Branch je Task erstellen → Pull Request
+          const feat = `${PR_PREFIX}/${id}`;
+          await ensureBranch(BRANCH, feat);
+          result = await commitFile(path, md, message, feat);
+          const pr = await openPr(feat, BRANCH, message, `Automatisch erstellt.\n\n${path}`);
+          
+          // PR-URL zur Response hinzufügen
+          result.prUrl = pr.html_url;
+          result.prNumber = pr.number;
+          gitPushed = true;
+        } else {
+          // Direct push zu main/default branch
+          result = await commitFile(path, md, message, BRANCH);
+          gitPushed = true;
+        }
       } else {
-        result = await commitFile(path, md, message, BRANCH);
+        context.log(`[createTask] No GitHub config found - skipping Git push (storage-only mode)`);
       }
 
       // Idempotenz-Key persistieren
@@ -225,21 +238,32 @@ app.http("createTask", {
         await putTextBlob(`state/idempotency/${idemKey}.txt`, id, "text/plain");
       }
 
-      // Sofortiger Cache-Update (optional, aber empfohlen)
+      // Storage-Update: Speichere Task im Blob Storage
       await putTextBlob(`raw/${userId}/tasks/${filename}`, md, "text/markdown");
+      context.log(`[createTask] Task saved to storage: raw/${userId}/tasks/${filename}`);
+
+      // Cache-Invalidierung: Nur betroffenen User-Cache invalidieren
+      const cacheInvalidation = await invalidateCacheForUser(userId);
+      context.log(`[createTask] Cache invalidated for user ${userId}: ${JSON.stringify(cacheInvalidation)}`);
 
       const response = {
         ok: true,
         id,
         path,
-        commitSha: result.commit.sha,
-        htmlUrl: result.content.html_url
+        filename,
+        gitPushed
       };
       
-      // PR-Info hinzufügen wenn via PR erstellt wurde
-      if (VIA_PR && result.prUrl) {
-        response.prUrl = result.prUrl;
-        response.prNumber = result.prNumber;
+      // Git-Info hinzufügen wenn gepusht wurde
+      if (gitPushed && result) {
+        response.commitSha = result.commit.sha;
+        response.htmlUrl = result.content.html_url;
+        
+        // PR-Info hinzufügen wenn via PR erstellt wurde
+        if (VIA_PR && result.prUrl) {
+          response.prUrl = result.prUrl;
+          response.prNumber = result.prNumber;
+        }
       }
       
       return {
