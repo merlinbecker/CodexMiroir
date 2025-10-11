@@ -332,18 +332,20 @@ document.addEventListener('alpine:init', () => {
                 }
                 
                 if (this.dialog.mode === 'edit') {
-                    const res = await fetch(this.apiUrl(`api/tasks/${this.userId}/${this.task.id}`), {
+                    const req = this.apiRequest(`api/tasks/${this.task.id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
+                    const res = await fetch(req.url, req.options);
                     if (!res.ok) throw new Error('Update failed: HTTP ' + res.status);
                 } else {
-                    const res1 = await fetch(this.apiUrl(`api/tasks/${this.userId}`), {
+                    const req1 = this.apiRequest(`api/tasks`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
+                    const res1 = await fetch(req1.url, req1.options);
                     if (!res1.ok) {
                         const errorText = await res1.text();
                         throw new Error(`Create failed: HTTP ${res1.status} - ${errorText}`);

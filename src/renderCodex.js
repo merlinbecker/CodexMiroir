@@ -487,14 +487,27 @@ app.http('renderCodex', {
       const { json, etag } = await loadOrBuildTimeline(cacheVersion, context, userId, nocache);
       context.log('[renderCodex] Timeline loaded, timeline has', json?.timeline?.length || 0, 'days');
 
-    // Return JSON
-    context.log('[renderCodex] Returning JSON');
-    return {
-      headers: { 
-        "content-type": "application/json; charset=utf-8",
-        "ETag": `"${etag}"`
-      },
-      jsonBody: json
-    };
+      // Add userId to response
+      json.userId = userId;
+
+      // Return JSON
+      context.log('[renderCodex] Returning JSON');
+      return {
+        headers: { 
+          "content-type": "application/json; charset=utf-8",
+          "ETag": `"${etag}"`
+        },
+        jsonBody: json
+      };
+    } catch (error) {
+      context.log('[renderCodex] Error:', error);
+      return {
+        status: 500,
+        jsonBody: {
+          ok: false,
+          error: error.message
+        }
+      };
+    }
   }
 });
