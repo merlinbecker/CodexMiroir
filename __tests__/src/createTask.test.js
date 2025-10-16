@@ -11,7 +11,8 @@ jest.unstable_mockModule('../../shared/id.js', () => ({
 
 jest.unstable_mockModule('../../shared/storage.js', () => ({
   putTextBlob: mockPutTextBlob,
-  getTextBlob: mockGetTextBlob
+  getTextBlob: mockGetTextBlob,
+  invalidateCacheForUser: jest.fn()
 }));
 
 // Mock fetch for GitHub API
