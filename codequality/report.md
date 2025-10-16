@@ -1,17 +1,24 @@
 # Code Quality Report
+
 ## Quality Metrics Radar
+
 ```mermaid
 ---
 title: "Code Quality Metrics"
 ---
 radar-beta
   axis s["Security"], r["Reliability"], m["Maintainability"]
-  axis c["Coverage"], d["Code Duplication"], l["Lines of Code"]
-  curve current["Current"]{2, 5, 5, 0, 4, 4}
+  axis c["Coverage"], d["Code Duplication"], l["Relative LOC (lower is better)"]
+  curve p_2025_10_08_2223_LOC_["2025-10-08 (2223 LOC)"]{2, 5, 5, 0, 4, 5}
+  curve p_2025_10_09_2443_LOC_["2025-10-09 (2443 LOC)"]{2, 5, 5, 0, 4, 1}
+  curve p_2025_10_09_2443_LOC_["2025-10-09 (2443 LOC)"]{2, 5, 5, 0, 4, 1}
+  curve p_Current_2472_LOC_["Current (2472 LOC)"]{2, 5, 5, 0, 4, 1}
   max 5
-  min 0
+  min 1
 ```
+
 ## Current Metrics
+
 | Metric | Current Value | Rating |
 |--------|---------------|--------|
 | Security Rating | 4.0 | 🟨 |
@@ -19,13 +26,19 @@ radar-beta
 | Maintainability Rating | 1.0 | 🟩 |
 | Coverage | 2.3% | ❌ |
 | Code Duplication | 13.8% | 🟩 |
-| Lines of Code | 2472 | 📊 |
+| Lines of Code | 2472 | 🟥 |
+
 ## SonarCloud Badges
+
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
+
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=coverage)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
-Generated on: 2025-10-09T20:46:59.531Z
+
+Generated on: 2025-10-16T19:51:21.916Z
+
+> Fenster: offset=1, count=3. LOC relativ: min=2223 → 5, max=2472 → 1.
