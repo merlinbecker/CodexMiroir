@@ -39,6 +39,6 @@ radar-beta
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 
-Generated on: 2025-10-16T19:51:21.916Z
+Generated on: 2025-10-16T20:10:21.732Z
 
 > Fenster: offset=1, count=3. LOC relativ: min=2223 → 5, max=2472 → 1.
