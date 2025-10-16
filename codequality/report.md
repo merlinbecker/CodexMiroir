@@ -7,20 +7,19 @@
 title: "Code Quality Metrics"
 ---
 radar-beta
-  axis s["Security"], r["Reliability"], m["Maintainability"]
-  axis c["Coverage"], d["Code Duplication"], l["Relative LOC (lower is better)"]
-  curve p_2025_10_08_2223_LOC_["2025-10-08 (2223 LOC)"]{2, 5, 5, 0, 4, 5}
-  curve p_2025_10_09_2443_LOC_["2025-10-09 (2443 LOC)"]{2, 5, 5, 0, 4, 1}
-  curve p_2025_10_09_2443_LOC_["2025-10-09 (2443 LOC)"]{2, 5, 5, 0, 4, 1}
-  curve p_Current_2472_LOC_["Current (2472 LOC)"]{2, 5, 5, 0, 4, 1}
+  axis s["Sich"], r["Zuv"], m["Wart"], c["Abd"], d["Dupl"], l["LOC↓"]
+  curve p_08_10_2_2k_LOC_["08.10 (2.2k LOC)"]{2, 5, 5, 0, 4, 5}
+  curve p_09_10_2_4k_LOC_["09.10 (2.4k LOC)"]{2, 5, 5, 0, 4, 1}
+  curve p_09_10_2_4k_LOC_["09.10 (2.4k LOC)"]{2, 5, 5, 0, 4, 1}
+  curve p_Aktuell_2_5k_LOC_["Aktuell (2.5k LOC)"]{2, 5, 5, 0, 4, 1}
   max 5
   min 1
 ```
 
 ## Current Metrics
 
-| Metric | Current Value | Rating |
-|--------|---------------|--------|
+| Metrik | Aktueller Wert | Bewertung |
+|--------|----------------|-----------|
 | Security Rating | 4.0 | 🟨 |
 | Reliability Rating | 1.0 | 🟩 |
 | Maintainability Rating | 1.0 | 🟩 |
@@ -39,6 +38,6 @@ radar-beta
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 
-Generated on: 2025-10-16T20:10:21.732Z
+Generated on: 2025-10-16T20:17:58.763Z
 
-> Fenster: offset=1, count=3. LOC relativ: min=2223 → 5, max=2472 → 1.
+> Fenster: offset=1, count=3. LOC relativ: min=2223 → 5, max=2472 → 1. Labels: dd.mm (deutsch) + kurze LOC (k).
