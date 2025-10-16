@@ -65,24 +65,24 @@ describe('sync.js', () => {
       mockListBlobs.mockResolvedValue([]); // Mock artifacts listing
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
-      const result = await fullSync('main', false);
+      const result = await fullSync('main', false, 'testuser');
 
       expect(result.changed).toBe(2);
       expect(result.mode).toBe('full');
       expect(result.scope).toBe('tasks');
       expect(mockPutTextBlob).toHaveBeenCalledTimes(4); // 2 tasks + lastHeadSha + nextId (cacheVersion is set by invalidateCache)
       expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'raw/tasks/0001.md',
+        'raw/testuser/tasks/0001.md',
         'Task 1 content',
         'text/markdown'
       );
       expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'raw/tasks/0002.md',
+        'raw/testuser/tasks/0002.md',
         'Task 2 content',
         'text/markdown'
       );
       expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'state/lastHeadSha.txt',
+        'state/testuser/lastHeadSha.txt',
         'main',
         'text/plain'
       );
@@ -129,11 +129,11 @@ describe('sync.js', () => {
 
       mockPutTextBlob.mockResolvedValue(undefined);
 
-      const result = await fullSync('main', false);
+      const result = await fullSync('main', false, 'testuser');
 
       expect(result.nextId).toBe(9); // Max ID (8) + 1
       expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'state/nextId.txt',
+        'state/testuser/nextId.txt',
         '9',
         'text/plain'
       );
@@ -158,9 +158,9 @@ describe('sync.js', () => {
 
       mockListBlobs
         .mockResolvedValueOnce([
-          'raw/tasks/0001.md',
-          'raw/tasks/0002.md', // This one should be deleted
-          'raw/tasks/0003.md'  // This one should be deleted
+          'raw/testuser/tasks/0001.md',
+          'raw/testuser/tasks/0002.md', // This one should be deleted
+          'raw/testuser/tasks/0003.md'  // This one should be deleted
         ])
         .mockResolvedValueOnce([]); // artifacts listing
 
@@ -168,11 +168,11 @@ describe('sync.js', () => {
       mockDeleteBlob.mockResolvedValue(undefined);
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
-      const result = await fullSync('main', true);
+      const result = await fullSync('main', true, 'testuser');
 
       expect(result.removed).toBe(2);
-      expect(mockDeleteBlob).toHaveBeenCalledWith('raw/tasks/0002.md');
-      expect(mockDeleteBlob).toHaveBeenCalledWith('raw/tasks/0003.md');
+      expect(mockDeleteBlob).toHaveBeenCalledWith('raw/testuser/tasks/0002.md');
+      expect(mockDeleteBlob).toHaveBeenCalledWith('raw/testuser/tasks/0003.md');
     });
   });
 
@@ -180,8 +180,8 @@ describe('sync.js', () => {
     test('should add and modify files', async () => {
       const paths = {
         addedOrModified: [
-          'codex-miroir/tasks/0001.md',
-          'codex-miroir/tasks/0002.md'
+          'codex-miroir/testuser/tasks/0001.md',
+          'codex-miroir/testuser/tasks/0002.md'
         ],
         removed: []
       };
@@ -208,18 +208,18 @@ describe('sync.js', () => {
       mockGetTextBlob.mockResolvedValue('5'); // Current nextId
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
-      const result = await applyDiff(paths, 'abc123');
+      const result = await applyDiff(paths, 'abc123', 'testuser');
 
       expect(result.changed).toBe(2);
       expect(result.deleted).toBe(0);
       expect(result.mode).toBe('diff');
       expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'raw/tasks/0001.md',
+        'raw/testuser/tasks/0001.md',
         'Task 1 modified',
         'text/markdown'
       );
       expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'state/lastHeadSha.txt',
+        'state/testuser/lastHeadSha.txt',
         'abc123',
         'text/plain'
       );
@@ -229,8 +229,8 @@ describe('sync.js', () => {
       const paths = {
         addedOrModified: [],
         removed: [
-          'codex-miroir/tasks/0003.md',
-          'codex-miroir/tasks/0004.md'
+          'codex-miroir/testuser/tasks/0003.md',
+          'codex-miroir/testuser/tasks/0004.md'
         ]
       };
 
@@ -238,22 +238,22 @@ describe('sync.js', () => {
       mockPutTextBlob.mockResolvedValue(undefined);
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
-      const result = await applyDiff(paths, 'abc123');
+      const result = await applyDiff(paths, 'abc123', 'testuser');
 
       expect(result.deleted).toBe(2);
       expect(result.changed).toBe(0);
-      expect(mockDeleteBlob).toHaveBeenCalledWith('raw/tasks/0003.md');
-      expect(mockDeleteBlob).toHaveBeenCalledWith('raw/tasks/0004.md');
+      expect(mockDeleteBlob).toHaveBeenCalledWith('raw/testuser/tasks/0003.md');
+      expect(mockDeleteBlob).toHaveBeenCalledWith('raw/testuser/tasks/0004.md');
     });
 
     test('should skip non-markdown files', async () => {
       const paths = {
         addedOrModified: [
-          'codex-miroir/tasks/0001.md',
-          'codex-miroir/tasks/README.txt'
+          'codex-miroir/testuser/tasks/0001.md',
+          'codex-miroir/testuser/tasks/README.txt'
         ],
         removed: [
-          'codex-miroir/tasks/config.json'
+          'codex-miroir/testuser/tasks/config.json'
         ]
       };
 
@@ -271,7 +271,7 @@ describe('sync.js', () => {
       mockGetTextBlob.mockResolvedValue('5');
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
-      const result = await applyDiff(paths, 'abc123');
+      const result = await applyDiff(paths, 'abc123', 'testuser');
 
       expect(result.changed).toBe(1);
       expect(result.deleted).toBe(0);
@@ -281,7 +281,7 @@ describe('sync.js', () => {
     test('should update nextId to maximum of current and new IDs', async () => {
       const paths = {
         addedOrModified: [
-          'codex-miroir/tasks/0010.md'
+          'codex-miroir/testuser/tasks/0010.md'
         ],
         removed: []
       };
@@ -299,11 +299,11 @@ describe('sync.js', () => {
       mockGetTextBlob.mockResolvedValue('5'); // Current nextId
       mockInvalidateCache.mockResolvedValue({ cacheVersion: Date.now().toString(), cacheCleared: 0 });
 
-      const result = await applyDiff(paths, 'abc123');
+      const result = await applyDiff(paths, 'abc123', 'testuser');
 
       expect(result.nextId).toBe(11); // max(5, 10) + 1
       expect(mockPutTextBlob).toHaveBeenCalledWith(
-        'state/nextId.txt',
+        'state/testuser/nextId.txt',
         '11',
         'text/plain'
       );

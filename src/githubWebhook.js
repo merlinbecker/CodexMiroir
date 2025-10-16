@@ -1,6 +1,7 @@
 import { app } from "@azure/functions";
 import crypto from "crypto";
 import { applyDiff } from "../shared/sync.js";
+import { invalidateCacheForUser } from "../shared/storage.js";
 
 const BASE = (process.env.GITHUB_BASE_PATH || "codex-miroir").replace(/\/+$/, "");
 const SECRET = process.env.GITHUB_WEBHOOK_SECRET;
@@ -21,6 +22,13 @@ function verifySignature(body, signature) {
   } catch {
     return false;
   }
+}
+
+function extractUserIdFromPath(path) {
+  // Path format: "codex-miroir/userId/tasks/0042-Title.md"
+  // Extract userId from path
+  const match = path.match(/^[^/]+\/([^/]+)\/tasks\//);
+  return match ? match[1] : null;
 }
 
 app.http("githubWebhook", {
@@ -87,38 +95,88 @@ app.http("githubWebhook", {
       const head = payload.after;
       context.log("[Webhook] Processing push to:", head);
 
-      const addedOrModified = [];
-      const removed = [];
+      // Gruppiere Änderungen nach userId
+      const changesByUser = new Map();
 
       for (const c of payload.commits || []) {
         for (const p of c.added || []) {
-          // Match NNNN-Title.md format (mit Titel ist Pflicht)
-          if (p.startsWith(`${BASE}/tasks/`) && p.match(/\d{4}-[^/]+\.md$/)) {
-            addedOrModified.push(p);
+          // Match pattern: codex-miroir/userId/tasks/NNNN-Title.md
+          if (p.startsWith(`${BASE}/`) && p.match(/\/tasks\/\d{4}-[^/]+\.md$/)) {
+            const userId = extractUserIdFromPath(p);
+            if (!userId) {
+              context.log("[Webhook] WARNING: Could not extract userId from path:", p);
+              continue;
+            }
+            
+            if (!changesByUser.has(userId)) {
+              changesByUser.set(userId, { addedOrModified: [], removed: [] });
+            }
+            changesByUser.get(userId).addedOrModified.push(p);
           }
         }
         for (const p of c.modified || []) {
-          if (p.startsWith(`${BASE}/tasks/`) && p.match(/\d{4}-[^/]+\.md$/)) {
-            addedOrModified.push(p);
+          if (p.startsWith(`${BASE}/`) && p.match(/\/tasks\/\d{4}-[^/]+\.md$/)) {
+            const userId = extractUserIdFromPath(p);
+            if (!userId) {
+              context.log("[Webhook] WARNING: Could not extract userId from path:", p);
+              continue;
+            }
+            
+            if (!changesByUser.has(userId)) {
+              changesByUser.set(userId, { addedOrModified: [], removed: [] });
+            }
+            changesByUser.get(userId).addedOrModified.push(p);
           }
         }
         for (const p of c.removed || []) {
-          if (p.startsWith(`${BASE}/tasks/`) && p.match(/\d{4}-[^/]+\.md$/)) {
-            removed.push(p);
+          if (p.startsWith(`${BASE}/`) && p.match(/\/tasks\/\d{4}-[^/]+\.md$/)) {
+            const userId = extractUserIdFromPath(p);
+            if (!userId) {
+              context.log("[Webhook] WARNING: Could not extract userId from path:", p);
+              continue;
+            }
+            
+            if (!changesByUser.has(userId)) {
+              changesByUser.set(userId, { addedOrModified: [], removed: [] });
+            }
+            changesByUser.get(userId).removed.push(p);
           }
         }
       }
 
-      context.log("[Webhook] Files to sync - added/modified:", addedOrModified.length, "removed:", removed.length);
+      context.log(`[Webhook] Processing changes for ${changesByUser.size} user(s)`);
 
-      const res = await applyDiff({ addedOrModified, removed }, head);
+      // Verarbeite Änderungen pro User
+      const results = [];
+      for (const [userId, changes] of changesByUser) {
+        context.log(`[Webhook] User ${userId}: ${changes.addedOrModified.length} added/modified, ${changes.removed.length} removed`);
+        
+        // Sync Storage für diesen User
+        const res = await applyDiff(changes, head, userId);
+        
+        // Invalidiere NUR diesen User-Cache
+        const cacheInvalidation = await invalidateCacheForUser(userId);
+        context.log(`[Webhook] Cache invalidated for user ${userId}: ${JSON.stringify(cacheInvalidation)}`);
+        
+        results.push({ 
+          userId, 
+          filesChanged: changes.addedOrModified.length + changes.removed.length,
+          cacheInvalidation,
+          ...res 
+        });
+      }
       
-      context.log("[Webhook] Sync completed successfully:", res);
+      context.log("[Webhook] Sync completed successfully for all users");
 
       return {
         status: 200,
         headers: { "content-type": "application/json" },
-        jsonBody: { ok: true, head, ...res }
+        jsonBody: { 
+          ok: true, 
+          head, 
+          usersAffected: results.length,
+          results 
+        }
       };
     } catch (error) {
       context.log("[Webhook] Error:", error.message);

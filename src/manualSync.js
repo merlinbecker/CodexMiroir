@@ -1,6 +1,7 @@
 
 import { app } from "@azure/functions";
 import { fullSync, applyDiff } from "../shared/sync.js";
+import { validateAuth } from "../shared/auth.js";
 
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
@@ -20,10 +21,10 @@ async function gh(url) {
   return r;
 }
 
-async function diffPaths(since, ref) {
+async function diffPaths(since, ref, userId) {
   const r = await gh(`/repos/${OWNER}/${REPO}/compare/${since}...${ref}`);
   const data = await r.json();
-  const inScope = (p) => p.startsWith(`${BASE}/tasks/`) && p.endsWith(".md");
+  const inScope = (p) => p.startsWith(`${BASE}/${userId}/tasks/`) && p.endsWith(".md");
   const addedOrModified = [];
   const removed = [];
   for (const f of data.files || []) {
@@ -37,23 +38,29 @@ async function diffPaths(since, ref) {
 
 app.http("manualSync", {
   methods: ["GET", "POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "sync",
   handler: async (request, context) => {
-    const url = new URL(request.url);
-    const mode = (url.searchParams.get("mode") || "full").toLowerCase();
-    const ref = url.searchParams.get("ref") || BRANCH;
-    const since = url.searchParams.get("since") || "";
-    // Clean mode standardmäßig auf true für full sync (kann mit ?clean=false überschrieben werden)
-    const clean = url.searchParams.get("clean") !== "false";
-
     try {
+      // Validate OAuth2 token and extract userId
+      const { userId, error } = await validateAuth(request);
+      if (error) {
+        return error;
+      }
+      
+      const url = new URL(request.url);
+      const mode = (url.searchParams.get("mode") || "full").toLowerCase();
+      const ref = url.searchParams.get("ref") || BRANCH;
+      const since = url.searchParams.get("since") || "";
+      // Clean mode standardmäßig auf true für full sync (kann mit ?clean=false überschrieben werden)
+      const clean = url.searchParams.get("clean") !== "false";
+
       if (mode === "full") {
-        const res = await fullSync(ref, clean);
+        const res = await fullSync(ref, clean, userId);
         return {
           status: 200,
           headers: { "content-type": "application/json" },
-          jsonBody: { ok: true, mode, ref, ...res },
+          jsonBody: { ok: true, mode, ref, userId, ...res },
         };
       }
 
@@ -64,12 +71,12 @@ app.http("manualSync", {
             body: "missing ?since=<sha> for diff",
           };
         }
-        const paths = await diffPaths(since, ref);
-        const res = await applyDiff(paths, ref);
+        const paths = await diffPaths(since, ref, userId);
+        const res = await applyDiff(paths, ref, userId);
         return {
           status: 200,
           headers: { "content-type": "application/json" },
-          jsonBody: { ok: true, mode, ref, since, ...res },
+          jsonBody: { ok: true, mode, ref, since, userId, ...res },
         };
       }
 

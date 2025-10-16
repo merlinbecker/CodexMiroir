@@ -1,6 +1,7 @@
 
 import { app } from "@azure/functions";
-import { getTextBlob, putTextBlob, invalidateCache } from "../shared/storage.js";
+import { getTextBlob, putTextBlob, invalidateCacheForUser } from "../shared/storage.js";
+import { validateAuth } from "../shared/auth.js";
 
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
@@ -96,10 +97,16 @@ function markAsCompleted(existingMd, completedDate, completedSlot) {
 
 app.http("completeTask", {
   methods: ["POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "api/tasks/{id}/complete",
   handler: async (request, context) => {
     try {
+      // Validate OAuth2 token and extract userId
+      const { userId, error } = await validateAuth(request);
+      if (error) {
+        return error;
+      }
+      
       const id = request.params.id;
       const body = await request.json();
       const { datum, zeit } = body || {};
@@ -119,62 +126,93 @@ app.http("completeTask", {
         };
       }
       
-      const path = `${BASE}/tasks/${id}.md`;
+      const path = `${BASE}/${userId}/tasks/${id}.md`;
       
-      // Get current file from GitHub
-      const fileData = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}?ref=${BRANCH}`);
-      const currentMd = Buffer.from(fileData.content, 'base64').toString('utf8');
+      // Check if user has GitHub configured
+      const hasGitConfig = OWNER && REPO && TOKEN;
       
-      // Mark as completed
-      const newMd = markAsCompleted(currentMd, datum, zeit);
-      
-      const message = `[codex] complete task ${id}`;
+      let gitPushed = false;
       let result;
+      let currentMd;
       
-      if (VIA_PR) {
-        // Feature-Branch für Completion erstellen
-        const feat = `${PR_PREFIX}/${id}-complete`;
-        await ensureBranch(BRANCH, feat);
+      if (hasGitConfig) {
+        context.log(`[completeTask] Fetching current file from GitHub`);
+        // Get current file from GitHub
+        const fileData = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}?ref=${BRANCH}`);
+        currentMd = Buffer.from(fileData.content, 'base64').toString('utf8');
         
-        result = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}`, "PUT", {
-          message,
-          content: b64(newMd),
-          sha: fileData.sha,
-          branch: feat,
-          committer: COMMITTER
-        });
+        // Mark as completed
+        const newMd = markAsCompleted(currentMd, datum, zeit);
         
-        const pr = await openPr(feat, BRANCH, message, `Task als abgeschlossen markiert.\n\n${path}`);
-        result.prUrl = pr.html_url;
-        result.prNumber = pr.number;
+        const message = `[codex] complete task ${id}`;
+        
+        if (VIA_PR) {
+          // Feature-Branch für Completion erstellen → Pull Request
+          const feat = `${PR_PREFIX}/${id}-complete`;
+          await ensureBranch(BRANCH, feat);
+          
+          result = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}`, "PUT", {
+            message,
+            content: b64(newMd),
+            sha: fileData.sha,
+            branch: feat,
+            committer: COMMITTER
+          });
+          
+          const pr = await openPr(feat, BRANCH, message, `Task als abgeschlossen markiert.\n\n${path}`);
+          result.prUrl = pr.html_url;
+          result.prNumber = pr.number;
+          gitPushed = true;
+        } else {
+          // Direct push zu main/default branch
+          result = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}`, "PUT", {
+            message,
+            content: b64(newMd),
+            sha: fileData.sha,
+            branch: BRANCH,
+            committer: COMMITTER
+          });
+          gitPushed = true;
+        }
+        
+        // Update Storage mit neuer Version
+        await putTextBlob(`raw/${userId}/tasks/${id}.md`, newMd, "text/markdown");
+        context.log(`[completeTask] Task marked as completed in storage: raw/${userId}/tasks/${id}.md`);
       } else {
-        // Direkter Commit
-        result = await gh(`/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}`, "PUT", {
-          message,
-          content: b64(newMd),
-          sha: fileData.sha,
-          branch: BRANCH,
-          committer: COMMITTER
-        });
+        context.log(`[completeTask] No GitHub config - storage-only mode`);
+        // Storage-only Mode: Lese von Storage, update, speichere zurück
+        currentMd = await getTextBlob(`raw/${userId}/tasks/${id}.md`);
+        if (!currentMd) {
+          return {
+            status: 404,
+            jsonBody: { ok: false, error: `Task ${id} not found in storage` }
+          };
+        }
+        
+        const newMd = markAsCompleted(currentMd, datum, zeit);
+        await putTextBlob(`raw/${userId}/tasks/${id}.md`, newMd, "text/markdown");
+        context.log(`[completeTask] Task marked as completed in storage (no Git): raw/${userId}/tasks/${id}.md`);
       }
       
-      // Update cache
-      await putTextBlob(`raw/tasks/${id}.md`, newMd, "text/markdown");
-      
-      // Invalidiere Timeline-Cache, da Task abgeschlossen wurde
-      const cacheInvalidation = await invalidateCache();
-      context.log(`[completeTask] Cache invalidated: ${JSON.stringify(cacheInvalidation)}`);
+      // Cache-Invalidierung: Nur betroffenen User-Cache invalidieren
+      const cacheInvalidation = await invalidateCacheForUser(userId);
+      context.log(`[completeTask] Cache invalidated for user ${userId}: ${JSON.stringify(cacheInvalidation)}`);
       
       const response = {
         ok: true,
         id,
-        commitSha: result.commit.sha,
-        htmlUrl: result.content.html_url
+        gitPushed,
+        completedAt: { datum, zeit }
       };
       
-      if (VIA_PR && result.prUrl) {
-        response.prUrl = result.prUrl;
-        response.prNumber = result.prNumber;
+      if (gitPushed && result) {
+        response.commitSha = result.commit.sha;
+        response.htmlUrl = result.content.html_url;
+        
+        if (VIA_PR && result.prUrl) {
+          response.prUrl = result.prUrl;
+          response.prNumber = result.prNumber;
+        }
       }
       
       return {

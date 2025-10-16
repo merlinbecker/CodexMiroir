@@ -1,6 +1,7 @@
 import { app } from '@azure/functions';
 import { list, list as listBlobs, getTextBlob, putTextBlob } from "../shared/storage.js";
 import { parseTask } from "../shared/parsing.js";
+import { validateAuth } from "../shared/auth.js";
 
 // ============================================================================
 // CONSTANTS
@@ -272,56 +273,64 @@ function autoFillTasks(timeline, tasks) {
 // CACHE & BUILD
 // ============================================================================
 
-async function getCacheVersion() {
-  // Cache-Version basiert auf:
-  // 1. cacheVersion.txt (wird bei Actions/Sync invalidiert)
-  // 2. Aktuelle Stunde (für automatische Slot-Invalidierung)
-  const storedVersion = await getTextBlob("state/cacheVersion.txt");
-  const baseVersion = storedVersion?.trim() || Date.now().toString();
+const CACHE_TTL_BLOB = 15 * 60 * 1000;  // 15 Minuten
+const CACHE_TTL_LOCAL = 5 * 60 * 1000;  // 5 Minuten
+const localCache = new Map(); // In-Memory Cache pro Function-Instance
+
+async function getCachedTimeline(userId, context) {
+  // Layer 1: Local Memory (1-5ms, flüchtig)
+  const local = localCache.get(userId);
+  if (local && local.validUntil > Date.now()) {
+    context.log(`[renderCodex] Local cache HIT for ${userId} (valid for ${Math.floor((local.validUntil - Date.now()) / 1000)}s)`);
+    return local.timeline;
+  }
   
-  // Füge aktuelle Stunde hinzu, damit Cache bei Slot-Wechsel automatisch invalidiert wird
-  const now = new Date();
-  const currentHour = now.getHours();
+  // Layer 2: Blob Storage (100ms, persistent)
+  const blobPath = `artifacts/${userId}/timeline.json`;
+  const cached = await getTextBlob(blobPath);
   
-  // Cache-Version Format: baseVersion_YYYYMMDD_HH
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hour = String(currentHour).padStart(2, '0');
+  if (cached) {
+    const data = JSON.parse(cached);
+    const age = Date.now() - new Date(data.cacheCreatedAt).getTime();
+    
+    if (age < CACHE_TTL_BLOB) {
+      context.log(`[renderCodex] Blob cache HIT for ${userId} (age: ${Math.floor(age / 1000)}s / ${Math.floor(CACHE_TTL_BLOB / 1000)}s)`);
+      
+      // Cache lokal für schnellere Wiederverwendung
+      localCache.set(userId, {
+        timeline: data,
+        validUntil: Date.now() + CACHE_TTL_LOCAL
+      });
+      
+      return data;
+    } else {
+      context.log(`[renderCodex] Blob cache EXPIRED for ${userId} (age: ${Math.floor(age / 1000)}s > TTL: ${Math.floor(CACHE_TTL_BLOB / 1000)}s)`);
+    }
+  }
   
-  return `${baseVersion}_${year}${month}${day}_${hour}`;
+  // Layer 3: Cache MISS - Rebuild notwendig
+  context.log(`[renderCodex] Cache MISS for ${userId} - rebuild required`);
+  return null;
 }
 
-async function loadOrBuildTimeline(cacheVersion, context, nocache = false) {
-  const artifactPath = `artifacts/timeline_${cacheVersion}.json`;
-
-  // Cache Check - suche ALLE Timeline-Caches
+async function loadOrBuildTimeline(context, userId, nocache = false) {
+  // Cache Check (sofern nicht bypassed)
   if (!nocache) {
-    // Suche nach existierenden Timeline-Caches (egal welche Version)
-    const artifactBlobs = await listBlobs("artifacts/");
-    const timelineCaches = artifactBlobs.filter(b => b.startsWith("artifacts/timeline_"));
-    
-    if (timelineCaches.length > 0) {
-      // Nutze den ersten gefundenen Cache
-      const cachedPath = timelineCaches[0];
-      const cached = await getTextBlob(cachedPath);
-      if (cached) {
-        context.log(`[renderCodex] Cache HIT: ${cachedPath}`);
-        return { json: JSON.parse(cached), etag: cacheVersion };
-      }
+    const cached = await getCachedTimeline(userId, context);
+    if (cached) {
+      return { json: cached, fromCache: true };
     }
-    
-    context.log(`[renderCodex] No cache found, building timeline...`);
   } else {
-    context.log(`[renderCodex] Cache BYPASS requested`);
+    context.log(`[renderCodex] Cache BYPASS requested for ${userId}`);
   }
 
-  // Build Timeline
-  context.log(`[renderCodex] Listing files from: raw/tasks/`);
-  const files = await list("raw/tasks/");
+  // Build Timeline from Storage (Layer 3: Rebuild)
+  context.log(`[renderCodex] Building timeline for ${userId} from storage...`);
+  context.log(`[renderCodex] Listing files from: raw/${userId}/tasks/`);
+  const files = await list(`raw/${userId}/tasks/`);
   const tasks = [];
 
-  context.log(`[renderCodex] Found ${files.length} files in raw/tasks/`);
+  context.log(`[renderCodex] Found ${files.length} files in raw/${userId}/tasks/`);
 
   for (const name of files) {
     if (!name.endsWith(".md")) {
@@ -412,17 +421,17 @@ async function loadOrBuildTimeline(cacheVersion, context, nocache = false) {
   context.log(`[renderCodex] Placement summary: ${placedCount}/${tasks.length} tasks placed`);
 
   // Nächste verfügbare ID laden
-  const nextIdText = await getTextBlob("state/nextId.txt");
+  const nextIdText = await getTextBlob(`state/${userId}/nextId.txt`);
   const nextId = nextIdText ? parseInt(nextIdText.trim(), 10) : 0;
   const nextIdFormatted = String(nextId).padStart(4, '0');
   
   // Payload erstellen - Timeline enthält bereits nur zukünftige Slots
   const payload = {
-    cacheVersion,
-    generatedAt: new Date().toISOString(),
     cacheCreatedAt: new Date().toISOString(),
+    generatedAt: new Date().toISOString(),
     nextAvailableId: nextIdFormatted,
     weekStart: formatDateStr(weekStart),
+    userId,
     timeline: timeline.map(day => ({
       datum: day.datum,
       dayOfWeek: day.dayOfWeek,
@@ -432,7 +441,6 @@ async function loadOrBuildTimeline(cacheVersion, context, nocache = false) {
           file: slot.task.file,
           kategorie: slot.task.kategorie,
           status: slot.task.status,
-          deadline: slot.task.deadline || null,
           tags: slot.task.tags || [],
           isFixed: slot.isFixed
         } : null
@@ -440,10 +448,18 @@ async function loadOrBuildTimeline(cacheVersion, context, nocache = false) {
     }))
   };
 
-  // Cache speichern
-  await putTextBlob(artifactPath, JSON.stringify(payload), "application/json");
+  // Cache speichern (Blob + Local)
+  const blobPath = `artifacts/${userId}/timeline.json`;
+  await putTextBlob(blobPath, JSON.stringify(payload), "application/json");
+  context.log(`[renderCodex] Timeline cached to: ${blobPath}`);
+  
+  // Local Memory Cache
+  localCache.set(userId, {
+    timeline: payload,
+    validUntil: Date.now() + CACHE_TTL_LOCAL
+  });
 
-  return { json: payload, etag: cacheVersion };
+  return { json: payload, fromCache: false };
 }
 
 // ============================================================================
@@ -452,40 +468,47 @@ async function loadOrBuildTimeline(cacheVersion, context, nocache = false) {
 
 app.http('renderCodex', {
   methods: ['GET'],
-  authLevel: 'function',
+  authLevel: 'anonymous',
   route: 'codex',
   handler: async (request, context) => {
     context.log('[renderCodex] Request received');
-    const url = new URL(request.url);
-    context.log('[renderCodex] URL:', url.toString());
-    const nocache = url.searchParams.get('nocache') === 'true';
-    context.log('[renderCodex] NoCache:', nocache);
+    
+    try {
+      // Validate OAuth2 token and extract userId
+      const { userId, error } = await validateAuth(request);
+      if (error) {
+        return error;
+      }
+      
+      const url = new URL(request.url);
+      context.log('[renderCodex] URL:', url.toString());
+      const nocache = url.searchParams.get('nocache') === 'true';
+      context.log('[renderCodex] NoCache:', nocache);
+      context.log('[renderCodex] UserId:', userId);
 
-    const cacheVersion = await getCacheVersion();
-    context.log('[renderCodex] Cache Version:', cacheVersion);
+      // Lade oder baue Timeline
+      context.log('[renderCodex] Loading timeline...');
+      const { json, fromCache } = await loadOrBuildTimeline(context, userId, nocache);
+      context.log(`[renderCodex] Timeline loaded (fromCache: ${fromCache}), timeline has ${json?.timeline?.length || 0} days`);
 
-    // HTTP Caching: ETag Check
-    const ifNoneMatch = request.headers.get("if-none-match");
-    if (!nocache && ifNoneMatch && ifNoneMatch.replace(/"/g, "") === cacheVersion) {
+      // Return JSON
+      context.log('[renderCodex] Returning JSON');
       return {
-        status: 304,
-        headers: { "ETag": `"${cacheVersion}"` }
+        headers: { 
+          "content-type": "application/json; charset=utf-8",
+          "cache-control": "no-cache" // Client soll nicht cachen, Server managed Cache
+        },
+        jsonBody: json
+      };
+    } catch (error) {
+      context.log('[renderCodex] Error:', error);
+      return {
+        status: 500,
+        jsonBody: {
+          ok: false,
+          error: error.message
+        }
       };
     }
-
-    // Lade oder baue Timeline
-    context.log('[renderCodex] Loading timeline...');
-    const { json, etag } = await loadOrBuildTimeline(cacheVersion, context, nocache);
-    context.log('[renderCodex] Timeline loaded, timeline has', json?.timeline?.length || 0, 'days');
-
-    // Return JSON
-    context.log('[renderCodex] Returning JSON');
-    return {
-      headers: { 
-        "content-type": "application/json; charset=utf-8",
-        "ETag": `"${etag}"`
-      },
-      jsonBody: json
-    };
   }
 });

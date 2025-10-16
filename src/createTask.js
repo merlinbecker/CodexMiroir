@@ -1,7 +1,8 @@
 
 import { app } from "@azure/functions";
 import { withIdLock } from "../shared/id.js";
-import { putTextBlob, getTextBlob } from "../shared/storage.js";
+import { putTextBlob, getTextBlob, invalidateCacheForUser } from "../shared/storage.js";
+import { validateAuth } from "../shared/auth.js";
 
 const OWNER = process.env.GITHUB_OWNER;
 const REPO = process.env.GITHUB_REPO;
@@ -57,7 +58,6 @@ function buildMarkdown(payload) {
     kategorie: payload.kategorie,
     status: payload.status || "offen",
     tags: payload.tags || [],
-    deadline: payload.deadline || null,
     fixedSlot: payload.fixedSlot || null
   };
   
@@ -67,7 +67,6 @@ function buildMarkdown(payload) {
     `kategorie: ${fm.kategorie}`,
     `status: ${fm.status}`,
     `tags: ${Array.isArray(fm.tags) ? `[${fm.tags.join(", ")}]` : "[]"}`,
-    `deadline: ${fm.deadline ? fm.deadline : "null"}`,
     fm.fixedSlot 
       ? `fixedSlot:\n  datum: ${fm.fixedSlot.datum}\n  zeit: ${fm.fixedSlot.zeit}` 
       : "fixedSlot: null",
@@ -118,10 +117,16 @@ async function openPr(fromBranch, toBranch, title, body) {
 
 app.http("createTask", {
   methods: ["POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "api/tasks",
   handler: async (request, context) => {
     try {
+      // Validate OAuth2 token and extract userId
+      const { userId, error } = await validateAuth(request);
+      if (error) {
+        return error;
+      }
+      
       const idemKey = request.headers.get("idempotency-key");
       const p = await request.json();
 
@@ -131,13 +136,6 @@ app.http("createTask", {
         return {
           status: 400,
           jsonBody: { ok: false, error: "kategorie muss 'arbeit' oder 'privat' sein" }
-        };
-      }
-      
-      if (p.deadline && !isDate(p.deadline)) {
-        return {
-          status: 400,
-          jsonBody: { ok: false, error: "deadline muss dd.mm.yyyy sein" }
         };
       }
       
@@ -174,7 +172,7 @@ app.http("createTask", {
       }
 
       // ID vergeben
-      const id = await withIdLock();
+      const id = await withIdLock(userId);
       
       // Extrahiere Titel aus dem Body (erste Zeile oder ersten 50 Zeichen)
       const bodyLines = (p.body || "").trim().split('\n');
@@ -189,7 +187,7 @@ app.http("createTask", {
         .replace(/-+$/, ''); // Entferne trailing Bindestriche
       
       const filename = `${id}-${title}.md`;
-      const path = `${BASE}/tasks/${filename}`;
+      const path = `${BASE}/${userId}/tasks/${filename}`;
       
       // Safety check: Prüfe ob diese ID bereits in GitHub existiert
       try {
@@ -207,19 +205,32 @@ app.http("createTask", {
       const message = `[codex] add task ${id} (${kat})`;
 
       let result;
+      let gitPushed = false;
       
-      if (VIA_PR) {
-        // Feature-Branch je Task erstellen
-        const feat = `${PR_PREFIX}/${id}`;
-        await ensureBranch(BRANCH, feat);
-        result = await commitFile(path, md, message, feat);
-        const pr = await openPr(feat, BRANCH, message, `Automatisch erstellt.\n\n${path}`);
+      // Check if user has GitHub configured (OWNER, REPO, TOKEN must be set)
+      const hasGitConfig = OWNER && REPO && TOKEN;
+      
+      if (hasGitConfig) {
+        context.log(`[createTask] Pushing to GitHub (VIA_PR: ${VIA_PR})`);
         
-        // PR-URL zur Response hinzufügen
-        result.prUrl = pr.html_url;
-        result.prNumber = pr.number;
+        if (VIA_PR) {
+          // Feature-Branch je Task erstellen → Pull Request
+          const feat = `${PR_PREFIX}/${id}`;
+          await ensureBranch(BRANCH, feat);
+          result = await commitFile(path, md, message, feat);
+          const pr = await openPr(feat, BRANCH, message, `Automatisch erstellt.\n\n${path}`);
+          
+          // PR-URL zur Response hinzufügen
+          result.prUrl = pr.html_url;
+          result.prNumber = pr.number;
+          gitPushed = true;
+        } else {
+          // Direct push zu main/default branch
+          result = await commitFile(path, md, message, BRANCH);
+          gitPushed = true;
+        }
       } else {
-        result = await commitFile(path, md, message, BRANCH);
+        context.log(`[createTask] No GitHub config found - skipping Git push (storage-only mode)`);
       }
 
       // Idempotenz-Key persistieren
@@ -227,21 +238,32 @@ app.http("createTask", {
         await putTextBlob(`state/idempotency/${idemKey}.txt`, id, "text/plain");
       }
 
-      // Sofortiger Cache-Update (optional, aber empfohlen)
-      await putTextBlob(`raw/tasks/${filename}`, md, "text/markdown");
+      // Storage-Update: Speichere Task im Blob Storage
+      await putTextBlob(`raw/${userId}/tasks/${filename}`, md, "text/markdown");
+      context.log(`[createTask] Task saved to storage: raw/${userId}/tasks/${filename}`);
+
+      // Cache-Invalidierung: Nur betroffenen User-Cache invalidieren
+      const cacheInvalidation = await invalidateCacheForUser(userId);
+      context.log(`[createTask] Cache invalidated for user ${userId}: ${JSON.stringify(cacheInvalidation)}`);
 
       const response = {
         ok: true,
         id,
         path,
-        commitSha: result.commit.sha,
-        htmlUrl: result.content.html_url
+        filename,
+        gitPushed
       };
       
-      // PR-Info hinzufügen wenn via PR erstellt wurde
-      if (VIA_PR && result.prUrl) {
-        response.prUrl = result.prUrl;
-        response.prNumber = result.prNumber;
+      // Git-Info hinzufügen wenn gepusht wurde
+      if (gitPushed && result) {
+        response.commitSha = result.commit.sha;
+        response.htmlUrl = result.content.html_url;
+        
+        // PR-Info hinzufügen wenn via PR erstellt wurde
+        if (VIA_PR && result.prUrl) {
+          response.prUrl = result.prUrl;
+          response.prNumber = result.prNumber;
+        }
       }
       
       return {

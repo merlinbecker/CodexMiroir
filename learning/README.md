@@ -36,19 +36,6 @@ Detaillierte Dokumentation der Implementierung von SonarCloud mit automatischem 
 - Error Handling und Graceful Degradation
 - Smart PR Label Handling
 
-### [Stored Procedures - Cosmos DB Timeline Management](stored-procedures.md)
-Umfassende Dokumentation der Implementierung von Stored Procedures in Azure Cosmos DB für atomare Timeline-Operationen.
-
-**Themen:**
-- Stored Procedures für AutoFill und manuelle Slot-Zuweisung
-- Business-Regeln für Werktag vs. Wochenende
-- Shift-und-Carry-Mechanismus bei Slot-Konflikten
-- Pre-Triggers für automatische Task-Normalisierung
-- Idempotentes Deployment-Skript
-- Race Condition Prevention
-- Fixed-Flag für Meeting-Ausnahmen
-- API-Inkonsistenzen und Lösungen
-
 ## Beziehung zu Cloud Grimoires
 
 Learning-Dokumente sind die ausführliche, technische Basis. Cloud Grimoires sind die destillierte, narrative Form dieser Learnings – geschrieben für maximale Lesbarkeit und Erinnerungswert.
