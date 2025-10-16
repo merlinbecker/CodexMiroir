@@ -8,6 +8,7 @@ function parseTask(mdText) {
     kategorie: d.kategorie,
     status: d.status,
     tags: d.tags || [],
+    deadline: d.deadline || null,
     fixedSlot: d.fixedSlot || null,
     abgeschlossen_am: d.abgeschlossen_am || null,
     body: fm.content.trim(),
