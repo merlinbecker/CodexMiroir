@@ -1,5 +1,5 @@
 // sonar-radar.mjs
-// Node >= 18 (fetch), ESM. Verständlich, schlank, ohne Verlust an Funktion.
+// Node >= 18 (fetch), ESM. Schlank, verständlich, mit dd.mm-Labels und relativen LOC.
 
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -34,20 +34,34 @@ async function fetchJson(url, fallback) {
   }
 }
 
-const val = (arr, metric) => arr.find(x => x.metric === metric)?.value ?? "No data";
+const val     = (arr, metric) => arr.find(x => x.metric === metric)?.value ?? "No data";
 const histVal = (arr, metric) => arr.find(x => x.metric === metric)?.history?.[0]?.value ?? "No data";
 
 const toRating5 = v => v && !isNaN(+v) ? Math.max(0, Math.min(5, 6 - parseInt(v, 10))) : 0; // A=1 → 5
 const toPct5    = v => v && !isNaN(+v) ? Math.round(parseFloat(v) / 20) : 0;                  // 0..100 → 0..5
+
 const emojiRate = v => ["❌","🟥","🟨","🟨","🟩","🟩"][v] ?? "❓";
 const emojiDup  = v => v >= 4 ? "🟩" : v >= 2 ? "🟨" : "🟥";
-const dateStr   = iso => { const d=new Date(iso), p=n=>String(n).padStart(2,"0"); return `${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())}`; };
+
+const dateDE    = iso => { const d=new Date(iso), p=n=>String(n).padStart(2,"0"); return `${p(d.getUTCDate())}.${p(d.getUTCMonth()+1)}`; };
+const shortLoc  = n => n > 999 ? (Math.round(n/100)/10)+"k" : String(n); // 1532 -> "15.3k", 950 -> "950"
 const curveId   = s => "p_" + s.replace(/[^a-zA-Z0-9_]+/g, "_").slice(0, 40);
 
 /** Relative LOC-Score: min LOC → 5, max LOC → 1 (linear 1..5) */
 function locScoreRelative(loc, minLoc, maxLoc) {
   if (minLoc === maxLoc) return 5;
   return Math.max(1, Math.min(5, 1 + Math.round(((maxLoc - loc) / (maxLoc - minLoc)) * 4)));
+}
+
+function buildVector(measures, locNum, pickFn, minLoc, maxLoc) {
+  return {
+    s: toRating5(pickFn(measures, "security_rating")),
+    r: toRating5(pickFn(measures, "reliability_rating")),
+    m: toRating5(pickFn(measures, "sqale_rating")),
+    c: toPct5(pickFn(measures, "coverage")),
+    d: 5 - toPct5(pickFn(measures, "duplicated_lines_density")),
+    l: locScoreRelative(locNum, minLoc, maxLoc),
+  };
 }
 
 /* ========= Hauptlogik ========= */
@@ -60,7 +74,7 @@ function locScoreRelative(loc, minLoc, maxLoc) {
   const currentMeasures = curJson.component?.measures ?? [];
   const currentLoc = parseInt(val(currentMeasures, "ncloc") || "0", 10);
 
-  // Analysen holen (neueste → älteste), großzügige Page-Size
+  // Analysen (neueste → älteste), großzügige Page-Size
   const analysesJson = await fetchJson(
     `${SONAR_BASE}/api/project_analyses/search?project=${encodeURIComponent(PROJECT_KEY)}&branch=${encodeURIComponent(BRANCH)}&ps=500`,
     { analyses: [] }
@@ -93,37 +107,24 @@ function locScoreRelative(loc, minLoc, maxLoc) {
   const minLoc = Math.min(...allLoc);
   const maxLoc = Math.max(...allLoc);
 
-  // Vektor-Bilder
-  function makeVector(measures, locNum, isHistory) {
-    const pickFn = isHistory ? histVal : val;
-    return {
-      s: toRating5(pickFn(measures, "security_rating")),
-      r: toRating5(pickFn(measures, "reliability_rating")),
-      m: toRating5(pickFn(measures, "sqale_rating")),
-      c: toPct5(pickFn(measures, "coverage")),
-      d: 5 - toPct5(pickFn(measures, "duplicated_lines_density")),
-      l: locScoreRelative(locNum, minLoc, maxLoc),
-    };
-  }
-
+  // Serien aufbauen
   const pastCurves = pastSeries.map(p => {
-    const label = `${dateStr(p.date)} (${p.loc} LOC)`;
-    const vec = makeVector(p.measures, p.loc, true);
+    const label = `${dateDE(p.date)} (${shortLoc(p.loc)} LOC)`;
+    const vec = buildVector(p.measures, p.loc, histVal, minLoc, maxLoc);
     return `  curve ${curveId(label)}["${label}"]{${vec.s}, ${vec.r}, ${vec.m}, ${vec.c}, ${vec.d}, ${vec.l}}`;
   });
 
-  const currentVec = makeVector(currentMeasures, currentLoc, false);
-  const currentLabel = `Current (${currentLoc} LOC)`;
+  const currentVec = buildVector(currentMeasures, currentLoc, val, minLoc, maxLoc);
+  const currentLabel = `Aktuell (${shortLoc(currentLoc)} LOC)`;
 
-  // Mermaid-Radar
+  // Mermaid-Radar (Achsentitel kompakt)
   const mermaid = [
     "```mermaid",
     "---",
     'title: "Code Quality Metrics"',
     "---",
     "radar-beta",
-    '  axis s["Security"], r["Reliability"], m["Maintainability"]',
-    '  axis c["Coverage"], d["Code Duplication"], l["Relative LOC (lower is better)"]',
+    '  axis s["Sich"], r["Zuv"], m["Wart"], c["Abd"], d["Dupl"], l["LOC↓"]',
     ...pastCurves,
     `  curve ${curveId(currentLabel)}["${currentLabel}"]{${currentVec.s}, ${currentVec.r}, ${currentVec.m}, ${currentVec.c}, ${currentVec.d}, ${currentVec.l}}`,
     "  max 5",
@@ -141,8 +142,8 @@ function locScoreRelative(loc, minLoc, maxLoc) {
     "",
     "## Current Metrics",
     "",
-    "| Metric | Current Value | Rating |",
-    "|--------|---------------|--------|",
+    "| Metrik | Aktueller Wert | Bewertung |",
+    "|--------|----------------|-----------|",
     `| Security Rating | ${val(currentMeasures,"security_rating")} | ${emojiRate(currentVec.s)} |`,
     `| Reliability Rating | ${val(currentMeasures,"reliability_rating")} | ${emojiRate(currentVec.r)} |`,
     `| Maintainability Rating | ${val(currentMeasures,"sqale_rating")} | ${emojiRate(currentVec.m)} |`,
@@ -163,10 +164,10 @@ function locScoreRelative(loc, minLoc, maxLoc) {
     "",
     `Generated on: ${new Date().toISOString()}`,
     "",
-    `> Fenster: offset=${PREV_OFFSET}, count=${PREV_COUNT}. LOC relativ: min=${minLoc} → 5, max=${maxLoc} → 1.`,
+    `> Fenster: offset=${PREV_OFFSET}, count=${PREV_COUNT}. LOC relativ: min=${minLoc} → 5, max=${maxLoc} → 1. Labels: dd.mm (deutsch) + kurze LOC (k).`,
   ].join("\n");
 
   mkdirSync(dirname(OUTPUT_MD), { recursive: true });
   writeFileSync(OUTPUT_MD, md, "utf8");
-  console.log(`✅ ${OUTPUT_MD} (Vergangenheit: ${pastSeries.length} + Current)`);
+  console.log(`✅ ${OUTPUT_MD} (Vergangenheit: ${pastSeries.length} + Aktuell)`);
 })().catch(err => { console.error("❌", err.message); process.exit(1); });
