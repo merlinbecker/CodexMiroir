@@ -8,10 +8,10 @@ title: "Code Quality Metrics"
 ---
 radar-beta
   axis s["Sich"], r["Zuv"], m["Wart"], c["Abd"], d["Dupl"], l["LOC↓"]
-  curve p_21_09_6_5k_LOC_["21.09 (6.5k LOC)"]{5, 3, 5, 0, 5, 1}
   curve p_03_10_1_4k_LOC_["03.10 (1.4k LOC)"]{2, 5, 5, 0, 5, 5}
-  curve p_09_10_2_5k_LOC_["09.10 (2.5k LOC)"]{2, 5, 5, 0, 4, 4}
-  curve p_Aktuell_2_8k_LOC_["Aktuell (2.8k LOC)"]{5, 5, 5, 1, 4, 4}
+  curve p_09_10_2_5k_LOC_["09.10 (2.5k LOC)"]{2, 5, 5, 0, 4, 2}
+  curve p_17_10_2_8k_LOC_["17.10 (2.8k LOC)"]{5, 5, 5, 1, 4, 1}
+  curve p_Aktuell_2_8k_LOC_["Aktuell (2.8k LOC)"]{5, 5, 5, 1, 4, 1}
   max 5
   min 1
 ```
@@ -25,7 +25,7 @@ radar-beta
 | Maintainability Rating | 1.0 | 🟩 |
 | Coverage | 18.6% | 🟥 |
 | Code Duplication | 12.8% | 🟩 |
-| Lines of Code | 2766 | 🟩 |
+| Lines of Code | 2766 | 🟥 |
 
 ## SonarCloud Badges
 
@@ -38,6 +38,6 @@ radar-beta
 [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=merlinbecker_CodexMiroir&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=merlinbecker_CodexMiroir)
 
-Generated on: 2025-10-17T13:46:00.864Z
+Generated on: 2025-10-28T21:37:43.526Z
 
-> Fenster: offset=1, count=3. LOC relativ: min=1445 → 5, max=6470 → 1. Labels: dd.mm (deutsch) + kurze LOC (k).
+> Fenster: offset=1, count=3. LOC relativ: min=1445 → 5, max=2766 → 1. Labels: dd.mm (deutsch) + kurze LOC (k).
