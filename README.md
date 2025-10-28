@@ -370,9 +370,12 @@ GITHUB_PR_BRANCH_PREFIX=codex/tasks
 │   ├── app.js
 │   └── styles.css
 ├── documentation/               # Erweiterte Docs
-│   ├── arc42.md                # Architektur-Dokumentation
-│   ├── QUICK_START.md          # Schnellstart-Guide
-│   └── SECURITY_SETUP.md       # Sicherheits-Setup
+│   ├── arc42.md                # Vollständige Architektur-Dokumentation (konsolidiert)
+│   ├── README.md               # Dokumentations-Übersicht
+│   ├── creationrules.md        # Task-Erstellungsregeln
+│   ├── testingRules.md         # Testing Rules
+│   ├── SONARCLOUD.md           # Code Quality Integration
+│   └── api/endpoints.md        # API Reference
 ├── local.settings.json         # Lokale Konfiguration (nicht in Git!)
 ├── host.json                   # Azure Functions Config
 └── package.json                # Dependencies
@@ -390,17 +393,23 @@ npm run test:coverage
 
 ## Weitere Dokumentation
 
-- **[arc42.md](./documentation/arc42.md)** - Vollständige Architektur-Dokumentation
-- **[QUICK_START.md](./documentation/QUICK_START.md)** - Schnellstart-Guide
-- **[SECURITY_SETUP.md](./documentation/SECURITY_SETUP.md)** - Sicherheits-Setup
-- **[TESTING_GUIDE.md](./documentation/TESTING_GUIDE.md)** - Test-Anleitung
+- **[arc42.md](./documentation/arc42.md)** - Vollständige Architektur-Dokumentation (konsolidiert)
+  - Deployment-Anleitung (Lokal & Azure)
+  - OAuth2 Setup & Sicherheit
+  - Architektur & Laufzeitsicht
+  - Qualitätsszenarien & Testing
+  - Risiken & technische Schulden
+- **[documentation/README.md](./documentation/README.md)** - Dokumentations-Übersicht
+- **[creationrules.md](./documentation/creationrules.md)** - Task-Erstellungsregeln
+- **[testingRules.md](./documentation/testingRules.md)** - Testing Rules
 
 ## Technologie-Stack
 
 - **Backend**: Azure Functions v4 (Node.js 18+, ES Modules)
-- **Storage**: Azure Blob Storage (Cache) + GitHub (Source of Truth)
-- **Frontend**: Vanilla JavaScript, HTML, CSS
-- **Sync**: GitHub Webhooks + GitHub API
+- **Storage**: Azure Blob Storage (Dual-Layer Cache: Memory 5min + Blob 15min) + GitHub (Source of Truth)
+- **Frontend**: Vanilla JavaScript, Alpine.js, HTML, CSS
+- **Authentication**: GitHub OAuth2
+- **Sync**: GitHub Webhooks + GitHub API (Diff-based)
 - **Testing**: Jest
 
 ## Lizenz
